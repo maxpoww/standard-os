@@ -57,10 +57,7 @@ window#waybar {
 #custom-ws-6,
 #custom-ws-7,
 #custom-ws-8,
-#custom-ws-9,
-#custom-mpris-selector,
-#custom-mpris-output,
-#custom-mpris-volume {
+#custom-ws-9 {
     background: rgba(50, 50, 70, 0.30);
     border-radius: 30px;
     border: transparent;
@@ -130,10 +127,7 @@ window#waybar {
 #custom-ws-6:hover,
 #custom-ws-7:hover,
 #custom-ws-8:hover,
-#custom-ws-9:hover,
-#custom-mpris-playpause:hover,
-#custom-mpris-volume:hover,
-#custom-mpris-selector:hover {
+#custom-ws-9:hover {
     background: rgba(130, 130, 150, 0.70);
     border-color: rgba(255, 255, 255, 0.35);
 }
@@ -395,14 +389,6 @@ window#waybar #custom-ws-6.light label,
 window#waybar #custom-ws-7.light label,
 window#waybar #custom-ws-8.light label,
 window#waybar #custom-ws-9.light label,
-window#waybar #custom-mpris-playpause.light label,
-window#waybar #custom-mpris-volume.light label,
-window#waybar #custom-mpris-selector.light label,
-window#waybar #custom-cava-mpris.light label,
-window#waybar #custom-mpris-prev.light label,
-window#waybar #custom-mpris-next.light label,
-window#waybar #custom-mpris-info.light label,
-window#waybar #custom-mpris-output.light label,
 window#waybar label.light {
     color: rgba(0, 0, 0, 0.85);
     text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
@@ -457,14 +443,6 @@ window#waybar #custom-ws-6.light:hover label,
 window#waybar #custom-ws-7.light:hover label,
 window#waybar #custom-ws-8.light:hover label,
 window#waybar #custom-ws-9.light:hover label,
-window#waybar #custom-mpris-playpause.light:hover label,
-window#waybar #custom-mpris-volume.light:hover label,
-window#waybar #custom-mpris-selector.light:hover label,
-window#waybar #custom-cava-mpris.light:hover label,
-window#waybar #custom-mpris-prev.light:hover label,
-window#waybar #custom-mpris-next.light:hover label,
-window#waybar #custom-mpris-info.light:hover label,
-window#waybar #custom-mpris-output.light:hover label,
 window#waybar label.light:hover {
     color: rgba(0, 0, 0, 0.95);
 }
@@ -495,95 +473,3 @@ window#waybar label.light:hover {
     background: rgba(241, 196, 15, 0.12);
 }
 
-/* ── MPRIS media controls ─────────────────────────────────────────── */
-
-/* Mpris-only height pin (the glass-pill block above already styles    */
-/* selector/output/volume; this just makes sure every pill in the      */
-/* group is the same vertical size as the trigger so the bar height    */
-/* never changes when the drawer expands).                             */
-/* Trigger / drawer pills share the standard glass-pill look so the music   */
-/* widget visually matches the rest of the bar — no special styling.        */
-#custom-cava-mpris,
-#custom-mpris-prev,
-#custom-mpris-playpause,
-#custom-mpris-next,
-#custom-mpris-info {
-    background: rgba(50, 50, 70, 0.30);
-    border-radius: 30px;
-    border: transparent;
-    color: rgba(255, 255, 255, 1);
-    font-size: 14px;
-    padding: 3px 9px 3px 7px;
-    margin: 3px 2px;
-}
-
-/* Pin the info pill width so the 22-char marquee window does not jitter as   */
-/* its glyph composition changes (meslo-lg is only loosely monospaced for      */
-/* non-ASCII chars like — and ó). min-width is the only width-clamp GTK 3      */
-/* waybar honors; combined with the publisher's 22-char ceiling this pins the  */
-/* pill width without needing max-width. :not(.empty) lets the no-player       */
-/* state still collapse to nothing. Tune the px value visually.                */
-#custom-mpris-info:not(.empty) {
-    min-width: 215px;
-}
-
-/* Make the label fill the pill and left-align its text. The label's          */
-/* min-width matches the pill so GTK does not place a narrower label inside   */
-/* a wider button (which centers it). -GtkLabel-x-align is a deprecated GTK 3 */
-/* style property that some builds still honor; if it is silently ignored we  */
-/* will switch to a padding-based shift.                                       */
-#custom-mpris-info:not(.empty) label {
-    min-width: 215px;
-    -GtkLabel-x-align: 0;
-}
-
-/* Cava bars are driven by real audio (the cava-mpris streaming exec) so   */
-/* motion is intrinsic — no CSS animation needed. Theme color binding is    */
-/* handled by the standard *.light label rules above.                       */
-
-/* Empty state: collapse the entire mpris module when no player is active.   */
-/* Every widget in group/mpris must emit class:"empty" in that condition so   */
-/* this rule reaches all of them — see write_cache_files, write_output_cache, */
-/* and cava-mpris for the publisher side. Same collapse recipe as the         */
-/* active-window module above (font-awesome label collapse + zero padding).   */
-#custom-cava-mpris.empty,
-#custom-mpris-prev.empty,
-#custom-mpris-playpause.empty,
-#custom-mpris-next.empty,
-#custom-mpris-info.empty,
-#custom-mpris-selector.empty,
-#custom-mpris-output.empty,
-#custom-mpris-volume.empty {
-    padding: 0;
-    margin: 0;
-    min-width: 0;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    opacity: 0;
-    /* The publishers still emit glyph/bars text in the empty state, so the   */
-    /* label keeps a positive natural width. font-size: 0 collapses the text  */
-    /* so the button shrinks to nothing. (The win-* widgets nearby don't need */
-    /* this because their publisher emits empty text in the empty state.)     */
-    font-size: 0;
-}
-
-/* Cycle button is meaningful only when ≥2 players exist. When exactly one     */
-/* player is active, the publisher emits class:"<mode> solo" on the selector   */
-/* pill; this rule collapses it identically to the .empty recipe so the rest   */
-/* of the group (cava bars, transport, info, output, volume) stays visible.    */
-#custom-mpris-selector.solo {
-    padding: 0;
-    margin: 0;
-    min-width: 0;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    opacity: 0;
-    font-size: 0;
-}
-
-/* Muted: tint the volume pill */
-#custom-mpris-volume.muted {
-    color: #ff5555;
-}
