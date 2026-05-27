@@ -1,0 +1,580 @@
+{
+  "exclusive": true,
+  "spacing": 4,
+  "modules-left": [
+    "group/workspaces",
+    "group/active-window"
+  ],
+  "modules-center": [
+    "group/group-rofi",
+    "custom/window",
+    "custom/x"
+  ],
+  "modules-right": [
+    "tray",
+    "group/group-2",
+    "group/group-power",
+    "custom/clock",
+    "custom/battery",
+    "custom/night-dimmer",
+    "group/screen-type-group",
+    "custom/dictate"
+  ],
+  "tray": {
+    "icon-size": 21,
+    "spacing": 10,
+    "show-passive-items": true,
+    "reverse-direction": false
+  },
+  "group/active-window": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": true
+    },
+    "modules": [
+      "hyprland/window",
+      "custom/win-close",
+      "custom/win-minimize",
+      "custom/win-swap-right",
+      "group/win-move"
+    ]
+  },
+  "hyprland/window": {
+    "format": "",
+    "icon": true,
+    "icon-size": 22,
+    "on-click": "~/.config/waybar/scripts/win-action.sh new-instance"
+  },
+  "custom/win-close": {
+    "exec": "cat /tmp/waybar-cache/win-close 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch killactive"
+  },
+  "custom/win-minimize": {
+    "exec": "cat /tmp/waybar-cache/win-minimize 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspacesilent special"
+  },
+  "custom/win-swap-right": {
+    "exec": "cat /tmp/waybar-cache/win-swap-right 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "/home/max/.config/waybar/scripts/swap-smart.sh"
+  },
+  "group/win-move": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": true
+    },
+    "modules": [
+      "custom/win-move-trigger",
+      "custom/win-move-1",
+      "custom/win-move-2",
+      "custom/win-move-3",
+      "custom/win-move-4",
+      "custom/win-move-5",
+      "custom/win-move-6",
+      "custom/win-move-7",
+      "custom/win-move-8",
+      "custom/win-move-9",
+      "custom/win-move-new"
+    ]
+  },
+  "custom/win-move-trigger": {
+    "exec": "cat /tmp/waybar-cache/win-move-trigger 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false
+  },
+  "custom/win-move-1": {
+    "exec": "cat /tmp/waybar-cache/win-move-1 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 1"
+  },
+  "custom/win-move-2": {
+    "exec": "cat /tmp/waybar-cache/win-move-2 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 2"
+  },
+  "custom/win-move-3": {
+    "exec": "cat /tmp/waybar-cache/win-move-3 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 3"
+  },
+  "custom/win-move-4": {
+    "exec": "cat /tmp/waybar-cache/win-move-4 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 4"
+  },
+  "custom/win-move-5": {
+    "exec": "cat /tmp/waybar-cache/win-move-5 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 5"
+  },
+  "custom/win-move-6": {
+    "exec": "cat /tmp/waybar-cache/win-move-6 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 6"
+  },
+  "custom/win-move-7": {
+    "exec": "cat /tmp/waybar-cache/win-move-7 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 7"
+  },
+  "custom/win-move-8": {
+    "exec": "cat /tmp/waybar-cache/win-move-8 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 8"
+  },
+  "custom/win-move-9": {
+    "exec": "cat /tmp/waybar-cache/win-move-9 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace 9"
+  },
+  "custom/win-move-new": {
+    "exec": "cat /tmp/waybar-cache/win-move-new 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch movetoworkspace empty"
+  },
+  "group/screen-type-group": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 100,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/warm-cycle",
+      "custom/shader-paper",
+      "custom/shader-newspaper"
+    ]
+  },
+  "custom/warm-cycle": {
+    "exec": "~/.config/waybar/scripts/warm-cycle.sh exec",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": true,
+    "on-click": "~/.config/waybar/scripts/warm-cycle.sh click"
+  },
+  "custom/shader-paper": {
+    "exec": "~/.config/waybar/scripts/shader-toggle.sh exec paper",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": true,
+    "on-click": "~/.config/waybar/scripts/shader-toggle.sh click paper"
+  },
+  "custom/shader-newspaper": {
+    "exec": "~/.config/waybar/scripts/shader-toggle.sh exec newspaper",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": true,
+    "on-click": "~/.config/waybar/scripts/shader-toggle.sh click newspaper"
+  },
+  "custom/night-dimmer": {
+    "exec": "~/.config/waybar/scripts/night-dimmer.sh exec",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": true,
+    "on-click": "~/.config/waybar/scripts/night-dimmer.sh click"
+  },
+  "custom/dictate": {
+    "exec": "dictate-waybar",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 11,
+    "tooltip": true
+  },
+  "group/group-rofi": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/new",
+      "custom/hidden"
+    ]
+  },
+  "custom/new": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
+  "custom/hidden": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "custom/x": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󱂬\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "~/.config/waybar/scripts/restore-minimized.sh"
+  },
+  "group/group-2": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 100,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/tools",
+      "group/group-blue",
+      "group/group-wifi"
+    ]
+  },
+  "group/group-blue": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 100,
+      "transition-left-to-right": true
+    },
+    "modules": [
+      "custom/blue",
+      "custom/kill",
+      "custom/scan",
+      "custom/more"
+    ]
+  },
+  "custom/blue": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
+  "custom/kill": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰂲\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "custom/scan": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰛔\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
+  "custom/more": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "custom/tools": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false
+  },
+  "group/group-wifi": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 100,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/wifi",
+      "custom/kill2",
+      "custom/scan2",
+      "custom/more2"
+    ]
+  },
+  "custom/wifi": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰖩\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
+  "custom/kill2": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰖪\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "custom/scan2": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󱛄\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "rofi -show drun"
+  },
+  "custom/more2": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "group/group-power": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 100,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/power",
+      "custom/reboot",
+      "custom/lock"
+    ]
+  },
+  "custom/reboot": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰜉\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "reboot"
+  },
+  "custom/lock": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰍁\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "swaylock"
+  },
+  "custom/power": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "systemctl hibernate"
+  },
+  "height": 30,
+  "group/workspaces": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": true
+    },
+    "modules": [
+      "custom/ws-current",
+      "custom/ws-1",
+      "custom/ws-2",
+      "custom/ws-3",
+      "custom/ws-4",
+      "custom/ws-5",
+      "custom/ws-6",
+      "custom/ws-7",
+      "custom/ws-8",
+      "custom/ws-9"
+    ]
+  },
+  "custom/ws-current": {
+    "exec": "cat /tmp/waybar-cache/ws-current 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 1,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace empty"
+  },
+  "custom/ws-1": {
+    "exec": "cat /tmp/waybar-cache/ws-1 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 1"
+  },
+  "custom/ws-2": {
+    "exec": "cat /tmp/waybar-cache/ws-2 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 2"
+  },
+  "custom/ws-3": {
+    "exec": "cat /tmp/waybar-cache/ws-3 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 3"
+  },
+  "custom/ws-4": {
+    "exec": "cat /tmp/waybar-cache/ws-4 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 4"
+  },
+  "custom/ws-5": {
+    "exec": "cat /tmp/waybar-cache/ws-5 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 5"
+  },
+  "custom/ws-6": {
+    "exec": "cat /tmp/waybar-cache/ws-6 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 6"
+  },
+  "custom/ws-7": {
+    "exec": "cat /tmp/waybar-cache/ws-7 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 7"
+  },
+  "custom/ws-8": {
+    "exec": "cat /tmp/waybar-cache/ws-8 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 8"
+  },
+  "custom/ws-9": {
+    "exec": "cat /tmp/waybar-cache/ws-9 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "hyprctl dispatch workspace 9"
+  },
+  "custom/clock": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"%s\",\"class\":\"%s\",\"tooltip\":\"%s\"}' \"$(TZ=America/Mendoza date +%H:%M)\" \"$m\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 30,
+    "signal": 10,
+    "tooltip": true
+  },
+  "custom/battery": {
+    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); cap=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo \"?\"); st=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown); if [ \"$st\" = \"Charging\" ]; then icon=\"\"; elif [ \"$st\" = \"Full\" ]; then icon=\"\"; elif [ \"$cap\" -le 15 ] 2>/dev/null; then icon=\"\"; else icon=\"󰠠\"; fi; printf '{\"text\":\"%s\",\"class\":\"%s\",\"tooltip\":\"%s%% %s\"}' \"$icon\" \"$m\" \"$cap\" \"$st\"",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 30,
+    "signal": 10,
+    "tooltip": true
+  },
+  "custom/window": {
+    "exec": "cat /tmp/waybar-cache/window 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 1,
+    "signal": 10,
+    "tooltip": false,
+    "on-click": "~/.config/rofi/window-switcher.sh"
+  }
+}

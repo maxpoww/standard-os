@@ -1,0 +1,589 @@
+* {
+    font-family: font-awesome, meslo-lg, meslo-lgs-nf;
+    font-size: 13px;
+}
+
+window#waybar {
+ background: rgba(50, 50, 70, 0.10);
+ border-radius: 30px;
+}
+
+/* ── Glass pills (uniform base style) ────────────────────────────── */
+
+#custom-night-dimmer,
+#custom-warm-cycle,
+#custom-shader-paper,
+#custom-shader-newspaper,
+#custom-clock,
+#custom-battery,
+#custom-x,
+#custom-tools,
+#custom-blue,
+#custom-kill,
+#custom-scan,
+#custom-more,
+#custom-wifi,
+#custom-kill2,
+#custom-scan2,
+#custom-more2,
+#custom-new,
+#custom-hidden,
+#custom-reboot,
+#custom-lock,
+#custom-power,
+#custom-bg-mode,
+#custom-win-close,
+#custom-win-minimize,
+#custom-win-swap-right,
+#custom-win-move-trigger,
+#custom-win-move-1,
+#custom-win-move-2,
+#custom-win-move-3,
+#custom-win-move-4,
+#custom-win-move-5,
+#custom-win-move-6,
+#custom-win-move-7,
+#custom-win-move-8,
+#custom-win-move-9,
+#custom-win-move-new,
+#custom-window,
+#custom-ws-current,
+#custom-ws-new,
+#custom-ws-1,
+#custom-ws-2,
+#custom-ws-3,
+#custom-ws-4,
+#custom-ws-5,
+#custom-ws-6,
+#custom-ws-7,
+#custom-ws-8,
+#custom-ws-9,
+#custom-mpris-selector,
+#custom-mpris-output,
+#custom-mpris-volume {
+    background: rgba(50, 50, 70, 0.30);
+    border-radius: 30px;
+    border: transparent;
+    color: rgba(255, 255, 255, 1);
+    font-size: 14px;
+    padding: 3px 9px 3px 7px;
+    margin: 3px 2px;
+}
+
+/* ── Inactive workspace (dimmed via opacity) ─────────────────────── */
+#custom-ws-1.inactive,
+#custom-ws-2.inactive,
+#custom-ws-3.inactive,
+#custom-ws-4.inactive,
+#custom-ws-5.inactive,
+#custom-ws-6.inactive,
+#custom-ws-7.inactive,
+#custom-ws-8.inactive,
+#custom-ws-9.inactive {
+    opacity: 0.45;
+}
+
+/* ── Hover (general) ─────────────────────────────────────────────── */
+
+#screen-type-group > *:hover,
+#screen-type-group button:hover,
+#custom-night-dimmer:hover,
+#custom-warm-cycle:hover,
+#custom-shader-paper:hover,
+#custom-shader-newspaper:hover,
+#custom-clock:hover,
+#custom-battery:hover,
+#custom-x:hover,
+#custom-tools:hover,
+#custom-blue:hover,
+#custom-kill:hover,
+#custom-scan:hover,
+#custom-more:hover,
+#custom-wifi:hover,
+#custom-kill2:hover,
+#custom-scan2:hover,
+#custom-more2:hover,
+#custom-new:hover,
+#custom-hidden:hover,
+#custom-win-close:hover,
+#custom-win-minimize:hover,
+#custom-win-swap-right:hover,
+#custom-win-move-trigger:hover,
+#custom-win-move-1:hover,
+#custom-win-move-2:hover,
+#custom-win-move-3:hover,
+#custom-win-move-4:hover,
+#custom-win-move-5:hover,
+#custom-win-move-6:hover,
+#custom-win-move-7:hover,
+#custom-win-move-8:hover,
+#custom-win-move-9:hover,
+#custom-win-move-new:hover,
+#custom-window:hover,
+#custom-ws-current:hover,
+#custom-ws-new:hover,
+#custom-ws-1:hover,
+#custom-ws-2:hover,
+#custom-ws-3:hover,
+#custom-ws-4:hover,
+#custom-ws-5:hover,
+#custom-ws-6:hover,
+#custom-ws-7:hover,
+#custom-ws-8:hover,
+#custom-ws-9:hover,
+#custom-mpris-playpause:hover,
+#custom-mpris-volume:hover,
+#custom-mpris-selector:hover {
+    background: rgba(130, 130, 150, 0.70);
+    border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Workspace drawer: trigger shows "+" on hover ────────────────── */
+#custom-ws-current:hover {
+    color: transparent;
+    text-shadow: none;
+    background-color: rgba(80, 120, 220, 0.70);
+    background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px 14px;
+    animation: pulse-plus 1s ease-in-out infinite alternate;
+}
+
+#custom-ws-current.light:hover {
+    color: transparent;
+    text-shadow: none;
+    background-image: url("/home/max/.config/waybar/icons/plus-black.svg");
+}
+
+/* ── Active window group — base layout ──────────────────────────── */
+
+#active-window,
+#win-move {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+}
+
+/* ── Active window icon (no pill, fills bar height) ───────────────── */
+/* Vertical padding+margin MUST keep total height ≤ bar height (30 in   */
+/* config.jsonc). Icon-size is 22, so 22 + padding-y*2 + margin-y*2 must */
+/* be ≤ 30. With 1px each that's 26 (4px headroom). Setting 3px each    */
+/* like before pushed the requested height to 34 and waybar kept       */
+/* oscillating between the configured 30 and the forced 34 every time  */
+/* the focused window changed.                                          */
+
+#window {
+    background: transparent;
+    border: none;
+    padding: 1px 2px;
+    margin: 1px 2px;
+}
+
+#window label {
+    font-size: 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+/* ── COLLAPSE WHEN NO WINDOW ──────────────────────────────────────── */
+/*  hyprland/window auto-adds .empty class to window#waybar when the   */
+/*  focused workspace has 0 windows. We cascade-collapse everything    */
+/*  in the active-window group via that class.                        */
+/*  Defense-in-depth: also collapse individual modules whose JSON     */
+/*  carries class:"empty" (written by workspace-daemon.sh).           */
+
+window#waybar.empty #active-window,
+window#waybar.empty #active-window *,
+window#waybar.empty #window,
+window#waybar.empty #window label,
+window#waybar.empty #win-move,
+window#waybar.empty #custom-win-close,
+window#waybar.empty #custom-win-minimize,
+window#waybar.empty #custom-win-swap-right,
+window#waybar.empty #custom-win-move-trigger,
+window#waybar.empty #custom-win-move-new,
+window#waybar.empty #custom-win-move-1,
+window#waybar.empty #custom-win-move-2,
+window#waybar.empty #custom-win-move-3,
+window#waybar.empty #custom-win-move-4,
+window#waybar.empty #custom-win-move-5,
+window#waybar.empty #custom-win-move-6,
+window#waybar.empty #custom-win-move-7,
+window#waybar.empty #custom-win-move-8,
+window#waybar.empty #custom-win-move-9,
+#custom-win-close.empty,
+#custom-win-minimize.empty,
+#custom-win-swap-right.empty,
+#custom-win-move-trigger.empty,
+#custom-win-move-new.empty,
+#custom-win-move-1.empty,
+#custom-win-move-2.empty,
+#custom-win-move-3.empty,
+#custom-win-move-4.empty,
+#custom-win-move-5.empty,
+#custom-win-move-6.empty,
+#custom-win-move-7.empty,
+#custom-win-move-8.empty,
+#custom-win-move-9.empty {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
+}
+
+/* ── Active window module — distinct hover colors ─────────────────── */
+
+#custom-win-close:hover {
+    background-color: rgba(255, 100, 100, 0.60);
+}
+
+#custom-win-minimize:hover {
+    background-color: rgba(255, 200, 50, 0.50);
+}
+
+#custom-win-swap-right:hover {
+    background-color: rgba(100, 160, 255, 0.55);
+}
+
+#custom-win-move-trigger:hover {
+    background-color: rgba(100, 200, 100, 0.50);
+}
+
+#custom-win-move-new:hover {
+    background-color: rgba(80, 120, 220, 0.70);
+}
+
+/* ── Hover (power group — distinct colors) ────────────────────────── */
+
+#custom-lock:hover {
+    background-color: #6666ff;
+    color: #ffffff;
+    animation-name: blink;
+    animation-duration: 1s;
+    animation-timing-function: steps(24);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+#custom-reboot:hover {
+    background-color: #66ff66;
+    color: #ffffff;
+    animation-name: blink;
+    animation-duration: 1s;
+    animation-timing-function: steps(24);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+#custom-power:hover {
+    background-color: #ff9999;
+    color: #ffffff;
+    animation-name: blink;
+    animation-duration: 1s;
+    animation-timing-function: steps(24);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+}
+
+
+/* ── BG mode ──────────────────────────────────────────────────────── */
+
+#custom-bg-mode {
+    transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+#custom-bg-mode.immersive {
+    color: #a0c4ff;
+}
+
+#custom-bg-mode.autoswitch {
+    animation-name: shine;
+    animation-duration: 0.6s;
+    animation-timing-function: steps(16);
+    animation-iteration-count: 6;
+    animation-direction: alternate;
+    animation-fill-mode: none;
+}
+
+/* ── Animations ───────────────────────────────────────────────────── */
+
+@keyframes blink {
+    to {
+        background-color: #ffffff;
+        color: #000000;
+    }
+}
+
+@keyframes shine {
+    to {
+        background-color: rgba(160, 196, 255, 0.75);
+        color: #000000;
+    }
+}
+
+@keyframes pulse-plus {
+    from {
+        background-size: 14px 14px;
+        background-color: rgba(80, 120, 220, 0.70);
+    }
+    to {
+        background-size: 10px 10px;
+        background-color: rgba(100, 150, 255, 0.90);
+    }
+}
+
+/* ============================================================
+   ADAPTIVE TEXT COLOR — glass-text-daemon
+   Class-based: custom modules output "light" or "dark" CSS class.
+   GTK transitions handle smooth color change — no reload.
+   ============================================================ */
+
+/* Light background → dark text */
+window#waybar #custom-x.light label,
+window#waybar #custom-tools.light label,
+window#waybar #custom-blue.light label,
+window#waybar #custom-kill.light label,
+window#waybar #custom-scan.light label,
+window#waybar #custom-more.light label,
+window#waybar #custom-wifi.light label,
+window#waybar #custom-kill2.light label,
+window#waybar #custom-scan2.light label,
+window#waybar #custom-more2.light label,
+window#waybar #custom-new.light label,
+window#waybar #custom-hidden.light label,
+window#waybar #custom-reboot.light label,
+window#waybar #custom-lock.light label,
+window#waybar #custom-power.light label,
+window#waybar #custom-bg-mode.light label,
+window#waybar #custom-night-dimmer.light label,
+window#waybar #custom-warm-cycle.light label,
+window#waybar #custom-shader-paper.light label,
+window#waybar #custom-shader-newspaper.light label,
+window#waybar #custom-clock.light label,
+window#waybar #custom-battery.light label,
+window#waybar #custom-win-close.light label,
+window#waybar #custom-win-minimize.light label,
+window#waybar #custom-win-swap-right.light label,
+window#waybar #custom-win-move-trigger.light label,
+window#waybar #custom-win-move-1.light label,
+window#waybar #custom-win-move-2.light label,
+window#waybar #custom-win-move-3.light label,
+window#waybar #custom-win-move-4.light label,
+window#waybar #custom-win-move-5.light label,
+window#waybar #custom-win-move-6.light label,
+window#waybar #custom-win-move-7.light label,
+window#waybar #custom-win-move-8.light label,
+window#waybar #custom-win-move-9.light label,
+window#waybar #custom-win-move-new.light label,
+window#waybar #custom-window.light label,
+window#waybar #custom-ws-current.light label,
+window#waybar #custom-ws-new.light label,
+window#waybar #custom-ws-1.light label,
+window#waybar #custom-ws-2.light label,
+window#waybar #custom-ws-3.light label,
+window#waybar #custom-ws-4.light label,
+window#waybar #custom-ws-5.light label,
+window#waybar #custom-ws-6.light label,
+window#waybar #custom-ws-7.light label,
+window#waybar #custom-ws-8.light label,
+window#waybar #custom-ws-9.light label,
+window#waybar #custom-mpris-playpause.light label,
+window#waybar #custom-mpris-volume.light label,
+window#waybar #custom-mpris-selector.light label,
+window#waybar #custom-cava-mpris.light label,
+window#waybar #custom-mpris-prev.light label,
+window#waybar #custom-mpris-next.light label,
+window#waybar #custom-mpris-info.light label,
+window#waybar #custom-mpris-output.light label,
+window#waybar label.light {
+    color: rgba(0, 0, 0, 0.85);
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
+}
+
+/* Light background → dark text (hover) */
+window#waybar #custom-x.light:hover label,
+window#waybar #custom-tools.light:hover label,
+window#waybar #custom-blue.light:hover label,
+window#waybar #custom-kill.light:hover label,
+window#waybar #custom-scan.light:hover label,
+window#waybar #custom-more.light:hover label,
+window#waybar #custom-wifi.light:hover label,
+window#waybar #custom-kill2.light:hover label,
+window#waybar #custom-scan2.light:hover label,
+window#waybar #custom-more2.light:hover label,
+window#waybar #custom-new.light:hover label,
+window#waybar #custom-hidden.light:hover label,
+window#waybar #custom-reboot.light:hover label,
+window#waybar #custom-lock.light:hover label,
+window#waybar #custom-power.light:hover label,
+window#waybar #custom-bg-mode.light:hover label,
+window#waybar #custom-night-dimmer.light:hover label,
+window#waybar #custom-warm-cycle.light:hover label,
+window#waybar #custom-shader-paper.light:hover label,
+window#waybar #custom-shader-newspaper.light:hover label,
+window#waybar #custom-clock.light:hover label,
+window#waybar #custom-battery.light:hover label,
+window#waybar #custom-win-close.light:hover label,
+window#waybar #custom-win-minimize.light:hover label,
+window#waybar #custom-win-swap-right.light:hover label,
+window#waybar #custom-win-move-trigger.light:hover label,
+window#waybar #custom-win-move-1.light:hover label,
+window#waybar #custom-win-move-2.light:hover label,
+window#waybar #custom-win-move-3.light:hover label,
+window#waybar #custom-win-move-4.light:hover label,
+window#waybar #custom-win-move-5.light:hover label,
+window#waybar #custom-win-move-6.light:hover label,
+window#waybar #custom-win-move-7.light:hover label,
+window#waybar #custom-win-move-8.light:hover label,
+window#waybar #custom-win-move-9.light:hover label,
+window#waybar #custom-win-move-new.light:hover label,
+window#waybar #custom-window.light:hover label,
+window#waybar #custom-ws-current.light:hover label,
+window#waybar #custom-ws-new.light:hover label,
+window#waybar #custom-ws-1.light:hover label,
+window#waybar #custom-ws-2.light:hover label,
+window#waybar #custom-ws-3.light:hover label,
+window#waybar #custom-ws-4.light:hover label,
+window#waybar #custom-ws-5.light:hover label,
+window#waybar #custom-ws-6.light:hover label,
+window#waybar #custom-ws-7.light:hover label,
+window#waybar #custom-ws-8.light:hover label,
+window#waybar #custom-ws-9.light:hover label,
+window#waybar #custom-mpris-playpause.light:hover label,
+window#waybar #custom-mpris-volume.light:hover label,
+window#waybar #custom-mpris-selector.light:hover label,
+window#waybar #custom-cava-mpris.light:hover label,
+window#waybar #custom-mpris-prev.light:hover label,
+window#waybar #custom-mpris-next.light:hover label,
+window#waybar #custom-mpris-info.light:hover label,
+window#waybar #custom-mpris-output.light:hover label,
+window#waybar label.light:hover {
+    color: rgba(0, 0, 0, 0.95);
+}
+
+/* ── Voice dictation indicator ─────────────────────────────────────── */
+/* Module is empty (no text) when idle, so it renders nothing. While    */
+/* recording or transcribing the script writes a microphone glyph and   */
+/* one of these classes; the slot stays in modules-right but only shows */
+/* when an indicator is active.                                         */
+
+#custom-dictate {
+    padding: 3px 9px 3px 7px;
+    margin: 3px 2px;
+    font-size: 14px;
+    background: transparent;
+    border-radius: 30px;
+    /* font-family inherits from the bar default (font-awesome, meslo-lg, */
+    /* meslo-lgs-nf) so U+F130 renders via font-awesome's microphone glyph */
+}
+
+#custom-dictate.recording {
+    color: #2ecc71;
+    background: rgba(46, 204, 113, 0.12);
+}
+
+#custom-dictate.transcribing {
+    color: #f1c40f;
+    background: rgba(241, 196, 15, 0.12);
+}
+
+/* ── MPRIS media controls ─────────────────────────────────────────── */
+
+/* Mpris-only height pin (the glass-pill block above already styles    */
+/* selector/output/volume; this just makes sure every pill in the      */
+/* group is the same vertical size as the trigger so the bar height    */
+/* never changes when the drawer expands).                             */
+/* Trigger / drawer pills share the standard glass-pill look so the music   */
+/* widget visually matches the rest of the bar — no special styling.        */
+#custom-cava-mpris,
+#custom-mpris-prev,
+#custom-mpris-playpause,
+#custom-mpris-next,
+#custom-mpris-info {
+    background: rgba(50, 50, 70, 0.30);
+    border-radius: 30px;
+    border: transparent;
+    color: rgba(255, 255, 255, 1);
+    font-size: 14px;
+    padding: 3px 9px 3px 7px;
+    margin: 3px 2px;
+}
+
+/* Pin the info pill width so the 22-char marquee window does not jitter as   */
+/* its glyph composition changes (meslo-lg is only loosely monospaced for      */
+/* non-ASCII chars like — and ó). min-width is the only width-clamp GTK 3      */
+/* waybar honors; combined with the publisher's 22-char ceiling this pins the  */
+/* pill width without needing max-width. :not(.empty) lets the no-player       */
+/* state still collapse to nothing. Tune the px value visually.                */
+#custom-mpris-info:not(.empty) {
+    min-width: 215px;
+}
+
+/* Make the label fill the pill and left-align its text. The label's          */
+/* min-width matches the pill so GTK does not place a narrower label inside   */
+/* a wider button (which centers it). -GtkLabel-x-align is a deprecated GTK 3 */
+/* style property that some builds still honor; if it is silently ignored we  */
+/* will switch to a padding-based shift.                                       */
+#custom-mpris-info:not(.empty) label {
+    min-width: 215px;
+    -GtkLabel-x-align: 0;
+}
+
+/* Cava bars are driven by real audio (the cava-mpris streaming exec) so   */
+/* motion is intrinsic — no CSS animation needed. Theme color binding is    */
+/* handled by the standard *.light label rules above.                       */
+
+/* Empty state: collapse the entire mpris module when no player is active.   */
+/* Every widget in group/mpris must emit class:"empty" in that condition so   */
+/* this rule reaches all of them — see write_cache_files, write_output_cache, */
+/* and cava-mpris for the publisher side. Same collapse recipe as the         */
+/* active-window module above (font-awesome label collapse + zero padding).   */
+#custom-cava-mpris.empty,
+#custom-mpris-prev.empty,
+#custom-mpris-playpause.empty,
+#custom-mpris-next.empty,
+#custom-mpris-info.empty,
+#custom-mpris-selector.empty,
+#custom-mpris-output.empty,
+#custom-mpris-volume.empty {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
+    /* The publishers still emit glyph/bars text in the empty state, so the   */
+    /* label keeps a positive natural width. font-size: 0 collapses the text  */
+    /* so the button shrinks to nothing. (The win-* widgets nearby don't need */
+    /* this because their publisher emits empty text in the empty state.)     */
+    font-size: 0;
+}
+
+/* Cycle button is meaningful only when ≥2 players exist. When exactly one     */
+/* player is active, the publisher emits class:"<mode> solo" on the selector   */
+/* pill; this rule collapses it identically to the .empty recipe so the rest   */
+/* of the group (cava bars, transport, info, output, volume) stays visible.    */
+#custom-mpris-selector.solo {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
+    font-size: 0;
+}
+
+/* Muted: tint the volume pill */
+#custom-mpris-volume.muted {
+    color: #ff5555;
+}
