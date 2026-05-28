@@ -51,26 +51,25 @@
    docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
-/* Catppuccin Latte palette mapped to the 6-color OPTIONS budget (2026-05-28).
-   Latte is the light flavor — its primaries are more saturated and darker
-   than Mocha's (Latte was tuned for light backgrounds, so the hues need to
-   stand out against a bright surface). On dark wallpapers they read as
-   punchier than Mocha. Alpha discipline unchanged: 0.70 full / 0.30 state.
-   Latte hex reference:  Blue #1e66f5  Yellow #df8e1d  Red #d20f39
-                         Mauve #8839ef  Green #40a02b  Peach #fe640b */
-@define-color opt-blue              rgba( 30, 102, 245, 0.70);
-@define-color opt-blue-state        rgba( 30, 102, 245, 0.30);
-@define-color opt-yellow            rgba(223, 142,  29, 0.70);
-@define-color opt-yellow-state      rgba(223, 142,  29, 0.30);
-@define-color opt-red               rgba(210,  15,  57, 0.70);
-@define-color opt-red-state         rgba(210,  15,  57, 0.30);
+/* Catppuccin Frappé palette mapped to the 6-color OPTIONS budget (2026-05-28).
+   Frappé sits between Mocha and Macchiato — warmer and softer than Mocha,
+   slightly more saturated than Macchiato. Designed for dark backgrounds
+   with a gentler tone than Mocha's cool pastels. Alpha discipline unchanged.
+   Frappé hex reference:  Blue #8caaee  Yellow #e5c890  Red #e78284
+                          Mauve #ca9ee6  Green #a6d189  Peach #ef9f76 */
+@define-color opt-blue              rgba(140, 170, 238, 0.70);
+@define-color opt-blue-state        rgba(140, 170, 238, 0.30);
+@define-color opt-yellow            rgba(229, 200, 144, 0.70);
+@define-color opt-yellow-state      rgba(229, 200, 144, 0.30);
+@define-color opt-red               rgba(231, 130, 132, 0.70);
+@define-color opt-red-state         rgba(231, 130, 132, 0.30);
 
-/* Secondary triplet — Catppuccin Latte Mauve / Green / Peach. Same role
-   as the Mocha secondaries (deep pastel pair for the primary triplet)
-   but Latte-saturated to match the primaries. */
-@define-color opt-violet            rgba(136,  57, 239, 0.70);
-@define-color opt-green             rgba( 64, 160,  43, 0.70);
-@define-color opt-orange            rgba(254, 100,  11, 0.70);
+/* Secondary triplet — Catppuccin Frappé Mauve / Green / Peach. Same
+   warmth + softness as the Frappé primaries; pairs cleanly without
+   pulling attention away from the primary triplet. */
+@define-color opt-violet            rgba(202, 158, 230, 0.70);
+@define-color opt-green             rgba(166, 209, 137, 0.70);
+@define-color opt-orange            rgba(239, 159, 118, 0.70);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
