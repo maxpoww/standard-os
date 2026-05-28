@@ -41,11 +41,51 @@ Every piece of Options the user sees is an **option** — a pill. Pills are the 
 
 ---
 
+## Bar layout
+
+The bar is divided horizontally into three zones. Each zone has a single responsibility, and the user learns the bar by learning the zones.
+
+| Zone | Position | Holds | Examples |
+|---|---|---|---|
+| **User** | left | Actions the user is performing | clipboard, text operations, translate, launcher entries |
+| **Task** | center | The current task, the task switcher, options that act on the current task | focused-window pill, multitasking switcher, task-scoped controls |
+| **System** | right | System state and configuration | network, audio, bluetooth, battery, brightness, time |
+
+The **task pill** at the center is the anchor of the whole bar. Clicking it surfaces other windows as below-pills; selecting one promotes that window into the task position and the surrounding task-scoped options update to follow it.
+
+### Expansion direction
+
+When a pill expands a horizontal cluster of siblings (via hover or click), the cluster slides **away from the nearest wall** — so the cluster never escapes the screen and never covers the task anchor.
+
+| Parent's location | Cluster slides | Wall it avoids |
+|---|---|---|
+| Left zone (user) | right | left screen edge |
+| Right zone (system) | left | right screen edge |
+| Center, right of the task | right | the task anchor |
+| Center, left of the task | left | the task anchor |
+
+The task pill is treated as a wall: it is never overlapped by its siblings' expansions. Screen edges are the other walls. The user always sees the task anchor in the same place, even as clusters expand and collapse around it.
+
+Vertical below-pill stacks (the rofi-style "more options" column under a clicked parent) drop straight down. No horizontal direction is involved.
+
+---
+
 ## Color and motion
 
-Options uses **six colors and three motions**. Each has one meaning. Decoration is not a use case.
+Options uses **six colors and three motions** to express *meaning*, painted onto **two surfaces** that express *structure*. The set is closed: anything new must replace something existing, not extend the budget.
 
 The system distinguishes between *what the user is doing to an option* (primary) and *what the system is saying about that option* (secondary).
+
+### Parent and child surfaces
+
+Pill background distinguishes the *level* of the option in the hover hierarchy. This matters during expansion: when a parent fans out its sibling cluster and another parent sits right beside it, the user needs to see where the hovered group ends and the next group begins.
+
+| Surface | Background | Family | Meaning |
+|---|---|---|---|
+| Parent | `rgba(50, 50, 70, 0.30)` (cool dark blue-violet) | cool | Top-level options sitting permanently on the bar |
+| Child | `rgba(70, 50, 50, 0.30)` (warm dark brown-red) | warm | Pills revealed because a parent was expanded |
+
+The shift from cool base to warm base is intentionally subtle — same lightness, same alpha, hue rotated — enough to read as a group boundary, quiet enough not to announce itself. The state and animation colors below read clearly against both surfaces.
 
 ### Primary — state colors
 
@@ -161,7 +201,7 @@ Both are replaceable. Options is the specification; waybar and rofi are the curr
 A future maintainer of Options should keep three rules in mind:
 
 1. **Every new pill declares its size class and its color rules before any code is written.** If the answer to "is this a trigger or a value pill" is not obvious, the option is not ready.
-2. **Animations are grammar, not decoration.** Adding a new motion or color requires a written justification that no existing motion or color suffices. The set is six colors and three motions, and that is the budget.
+2. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, three motions, and two surfaces — and that is the budget.
 3. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
 
 The hardest part of Options is not building it. It is having the discipline to *not* add the obvious-feeling seventh color, the eighth motion, the toolbar that is always there. The user's attention is finite. Options spends it carefully.
