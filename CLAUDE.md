@@ -3,7 +3,7 @@
 This is the operating manual. The design treatise is `README.md` next to this file — read it once per session and treat it as load-bearing. The soul of the project lives in five sentences:
 
 1. The unit is the **option**, a pill. Pills are the only visible primitive.
-2. The bar has three zones — **user** (left), **task** (center, anchored on the focused window), **system** (right). The task pill is the immovable anchor.
+2. The bar has three zones — **user** (left, where the user IS: workspaces + focused window + per-window actions), **task** (center, task-manipulation tools: launcher / switcher / restore), **system** (right, persistent state). The focused-window pill at the right edge of USER touches the launcher "+" at the left edge of TASK — that boundary is the visual bridge between current and next.
 3. Color is meaning, not decoration. **6 colors + 3 motions + 2 surfaces** — this is a closed budget. Anything new replaces something existing.
 4. Help appears when its use is logical and disappears when it isn't. Modules subscribe to context; the bar composes.
 5. Frustration → revelation. The user feels clever, not guided.
@@ -111,9 +111,9 @@ Existing `@keyframes` in `style.css` (`blink`, `shine`, `pulse-plus`) are pre-OP
    left zone                    center (anchored)        right zone
 ```
 
-- **Left (user)**: actions the user is performing — clipboard, text operations, launcher entries, dictation indicator.
-- **Center (task)**: the focused window pill (anchor), the task switcher, options scoped to the current task. Multitasking happens by clicking the task pill.
-- **Right (system)**: persistent state — network, audio, bluetooth, battery, brightness, time, power.
+- **Left (user)**: where the user IS — workspaces (current location), focused-window pill (current focus), per-window actions (close/minimize/swap/move). The focused-window pill sits at the right edge of the zone.
+- **Center (task)**: task-manipulation tools — launcher (the "+"), lock, task switcher, restore-minimized. The launcher "+" sits at the left edge so it touches the focused-window pill across the user/task boundary.
+- **Right (system)**: persistent state — network, audio, bluetooth, battery, brightness, time, power, dictation indicator.
 
 ### Cluster expansion (the rule)
 
@@ -123,8 +123,8 @@ When a pill expands a horizontal cluster of siblings (via hover or click), the c
 |---|---|---|
 | Left zone | right | left screen edge |
 | Right zone | left | right screen edge |
-| Center, right of task | right | the task anchor |
-| Center, left of task | left | the task anchor |
+| Center, right of focused-window pill | right | the focused-window pill |
+| Center, left of focused-window pill | left | the focused-window pill |
 
 In waybar terms this is `"drawer": { "transition-left-to-right": true | false }` on a `group/*`. Left-zone groups → `true`. Right-zone groups → `false`.
 

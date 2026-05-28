@@ -47,24 +47,24 @@ The bar is divided horizontally into three zones. Each zone has a single respons
 
 | Zone | Position | Holds | Examples |
 |---|---|---|---|
-| **User** | left | Actions the user is performing | clipboard, text operations, translate, launcher entries |
-| **Task** | center | The current task, the task switcher, options that act on the current task | focused-window pill, multitasking switcher, task-scoped controls |
-| **System** | right | System state and configuration | network, audio, bluetooth, battery, brightness, time |
+| **User** | left | Where the user is — current location, current focus, actions on the focused thing | workspaces (current location), focused-window pill, per-window actions (close / minimize / swap / move) |
+| **Task** | center | Task-manipulation tools — start, switch, restore | launcher "+", lock, task switcher, restore-minimized |
+| **System** | right | Persistent system state | network, audio, bluetooth, battery, theme, time, power |
 
-The **task pill** at the center is the anchor of the whole bar. Clicking it surfaces other windows as below-pills; selecting one promotes that window into the task position and the surrounding task-scoped options update to follow it.
+The **focused-window pill** at the right edge of the USER zone is the visible anchor of the user's current task. The **launcher "+"** at the left edge of the TASK zone sits directly next to it — the visual bridge between "the task you have" and "another task you could start." Clicking the focused-window pill (or the task switcher in CENTER) surfaces other windows; selecting one promotes that window to focus.
 
 ### Expansion direction
 
-When a pill expands a horizontal cluster of siblings (via hover or click), the cluster slides **away from the nearest wall** — so the cluster never escapes the screen and never covers the task anchor.
+When a pill expands a horizontal cluster of siblings (via hover or click), the cluster slides **away from the nearest wall** — so the cluster never escapes the screen.
 
 | Parent's location | Cluster slides | Wall it avoids |
 |---|---|---|
 | Left zone (user) | right | left screen edge |
 | Right zone (system) | left | right screen edge |
-| Center, right of the task | right | the task anchor |
-| Center, left of the task | left | the task anchor |
+| Center, right of the focused-window pill | right | the focused-window pill |
+| Center, left of the focused-window pill | left | the focused-window pill |
 
-The task pill is treated as a wall: it is never overlapped by its siblings' expansions. Screen edges are the other walls. The user always sees the task anchor in the same place, even as clusters expand and collapse around it.
+Edge pills follow the same rule, with the screen edge as the wall.
 
 Vertical below-pill stacks (the rofi-style "more options" column under a clicked parent) drop straight down. No horizontal direction is involved.
 

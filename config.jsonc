@@ -4,9 +4,15 @@
 //  ARCHITECTURE.md (zones, daemons, channels, signals).
 //
 //  Layout zones:
-//    LEFT   = USER   — user-initiated actions (clipboard, translate, launcher, ...)
-//    CENTER = TASK   — focused window pill (anchor), workspaces, window actions
-//    RIGHT  = SYSTEM — persistent state (network, audio, theme, battery, power)
+//    LEFT   = USER   — where the user is: workspaces (current location),
+//                     focused window + per-window actions (current focus)
+//    CENTER = TASK   — task tools: launcher (+), task switcher, restore-minimized
+//    RIGHT  = SYSTEM — persistent state: network, audio, theme, battery, power
+//
+//  The "+" launcher sits at the left edge of CENTER, directly next to the
+//  focused-window pill at the right edge of LEFT — so the user's current
+//  task and the "create another task" affordance are visually adjacent
+//  across the user/task zone boundary.
 //
 //  Cluster expansion direction:
 //    LEFT-zone groups   → drawer.transition-left-to-right: true   (expand right)
@@ -19,22 +25,22 @@
   "height": 30,
 
   // ── USER zone (left) ────────────────────────────────────────────
-  // User-initiated tools and ad-hoc actions. Currently sparse — most
-  // entries are planned and will arrive as daemons land. Existing
-  // entries that conceptually belong here but live elsewhere today
-  // are noted in ARCHITECTURE.md (e.g. dictate).
+  // Where the user is. Workspaces show current location; active-window
+  // shows current focus and offers per-window actions (close, minimize,
+  // swap-right, move). The focused-window pill at the right edge of this
+  // zone touches the launcher "+" at the left edge of CENTER — the visual
+  // bridge between "the task you have" and "another task you could start."
   "modules-left": [
-    "group/group-rofi"
+    "group/workspaces",
+    "group/active-window"
   ],
 
   // ── TASK zone (center) ──────────────────────────────────────────
-  // The task anchor and everything that acts on the current task.
-  // group/active-window's first module (hyprland/window) is the
-  // immovable anchor; surrounding pills (close, minimize, swap,
-  // move) cluster around it. group/workspaces sits to its left.
+  // Task-manipulation tools: launcher (custom/new "+"), lock (custom/hidden),
+  // task switcher (custom/window — clicking opens rofi window-switcher),
+  // restore-minimized (custom/x).
   "modules-center": [
-    "group/workspaces",
-    "group/active-window",
+    "group/group-rofi",
     "custom/window",
     "custom/x"
   ],

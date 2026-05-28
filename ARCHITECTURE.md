@@ -6,55 +6,53 @@ The master wiring document. README is the soul, CLAUDE.md is the operating manua
 
 ## Bar layout tree (current + planned)
 
-The bar is divided into three zones — **user** (left), **task** (center, anchored), **system** (right). Each zone has its own purpose and its own expansion direction (see CLAUDE.md → Bar layout).
+The bar is divided into three zones — **user** (left), **task** (center), **system** (right). Each zone has its own purpose and its own expansion direction (see CLAUDE.md → Bar layout).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ USER (left)         TASK (center, anchored)              SYSTEM (right)          │
+│ USER (left)                       TASK (center)               SYSTEM (right)     │
 │                                                                                  │
-│ [launcher]          [workspaces] [task]·[task-tools]     [net] [bt] [audio]      │
-│ [clipboard]         (anchor: focused window)             [clock] [battery]       │
-│ [translate]                                              [theme] [power] [tray]  │
-│ [screenshot]                                             [dictate]               │
-│ ...                                                                              │
+│ [workspaces] [focused-window]·[+] [lock] [switcher] [⤴]      [net] [bt] [audio]  │
+│              [close] [min]        (launcher)                  [clock] [battery]  │
+│              [swap]  [move]                                   [theme] [power]    │
+│                                                               [tray] [dictate]   │
 └──────────────────────────────────────────────────────────────────────────────────┘
-   expand right            expand away from anchor              expand left
+       expand right                  expand left                 expand left
+                          ↑
+              the focused-window pill at the right edge of USER touches
+              the launcher "+" at the left edge of TASK — the visual
+              bridge between "current task" and "start another task"
 ```
 
-The **task pill** is the immovable center anchor. Multitasking happens by clicking it. Workspaces are *task* options (they navigate between tasks); the window-action group (close/minimize/swap/move) clusters to its right; the launcher / window-switcher cluster to its left.
+The **focused-window pill** is the user's current task made visible. It lives in the USER zone (right edge) because it represents where the user *is*. Task-manipulation tools (start / switch / restore) sit in the TASK zone next door. The two are visually adjacent so the bridge between "what I'm doing now" and "do something else" reads as a single fluid surface.
 
 ### Today's zone assignments
 
 #### USER zone (left)
 
-Currently empty in OPTIONS terms. Reserved slots:
-- `custom/clipboard` (planned) — surfaces when selection or clipboard is non-empty
-- `custom/translate` (planned) — surfaces when text is selected
-- `custom/screenshot` (planned) — always-available trigger
-- `group/launcher` (planned) — drun + window-switcher + run prompt
-
-The existing `custom/dictate` belongs here logically but is currently on the right end of the bar for legacy reasons; will migrate when its module is touched.
+- `group/workspaces` — ws-current trigger + ws-1..9 cluster (current location). Drawer expands right.
+- `group/active-window` — focused-window icon (right-edge anchor) + close + minimize + swap-right + win-move cluster. Drawer expands right.
 
 #### TASK zone (center)
 
-- `group/workspaces` — ws-current trigger + ws-1..9 cluster, drawer expands right
-- `group/active-window` — focused-window icon (the **anchor**) + close + minimize + swap-right + win-move cluster, drawer expands right
-- `custom/window` — task-switcher trigger (clicking opens rofi window-switcher)
-- `custom/x` — restore-minimized trigger
-- `group/group-rofi` — drun + lock entries; will likely move to USER zone in a future pass
+- `group/group-rofi` — `custom/new` (launcher "+", opens rofi drun) + `custom/hidden` (lock screen).
+- `custom/window` — task switcher (clicking opens rofi window-switcher).
+- `custom/x` — restore-minimized trigger.
+
+Future TASK additions: task history, pinned-tasks, quick-new-workspace shortcut, etc. The criterion: it manipulates tasks (creates, switches, restores, archives).
 
 #### SYSTEM zone (right)
 
-- `tray` — third-party app indicators
-- `group/group-2` — tools trigger + bluetooth cluster + wifi cluster
-- `group/group-power` — power + reboot + lock
-- `custom/clock`
-- `custom/battery`
-- `custom/night-dimmer`
-- `group/screen-type-group` — warm-cycle + shader-paper + shader-newspaper
-- `custom/dictate` — voice-dictation indicator (will eventually migrate to USER zone)
+- `tray` — third-party app indicators.
+- `group/group-2` — tools trigger + bluetooth cluster + wifi cluster.
+- `group/group-power` — power + reboot + lock.
+- `custom/clock`.
+- `custom/battery`.
+- `custom/night-dimmer`.
+- `group/screen-type-group` — warm-cycle + shader-paper + shader-newspaper.
+- `custom/dictate` — voice-dictation indicator.
 
-The "future option" entries above are planned, not built. When you build one, add it here, then add it to `config.jsonc`, then commit both together.
+When you add a new module, decide its zone first, then add it here, then add it to `config.jsonc`, then commit both together.
 
 ---
 
