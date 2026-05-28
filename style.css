@@ -54,22 +54,25 @@
 /* Catppuccin Macchiato palette mapped to the 6-color OPTIONS budget (2026-05-28).
    Macchiato is darker and more saturated than Frappé, slightly more saturated
    than Mocha and a hair warmer. Pairs well with very dark wallpapers — colors
-   pop without going pastel. Alpha discipline unchanged.
+   pop without going pastel.
+   Alphas dropped 25% from the original Macchiato pass (0.70 → 0.525, 0.30 →
+   0.225) — same hues, more wallpaper bleeding through.
    Macchiato hex reference:  Blue #8aadf4  Yellow #eed49f  Red #ed8796
                              Mauve #c6a0f6  Green #a6da95  Peach #f5a97f */
-@define-color opt-blue              rgba(138, 173, 244, 0.70);
-@define-color opt-blue-state        rgba(138, 173, 244, 0.30);
-@define-color opt-yellow            rgba(238, 212, 159, 0.70);
-@define-color opt-yellow-state      rgba(238, 212, 159, 0.30);
-@define-color opt-red               rgba(237, 135, 150, 0.70);
-@define-color opt-red-state         rgba(237, 135, 150, 0.30);
+@define-color opt-blue              rgba(138, 173, 244, 0.525);
+@define-color opt-blue-state        rgba(138, 173, 244, 0.225);
+@define-color opt-yellow            rgba(238, 212, 159, 0.525);
+@define-color opt-yellow-state      rgba(238, 212, 159, 0.225);
+@define-color opt-red               rgba(237, 135, 150, 0.525);
+@define-color opt-red-state         rgba(237, 135, 150, 0.225);
 
 /* Secondary triplet — Catppuccin Macchiato Mauve / Green / Peach. Matches
    the primary saturation; secondaries read as "deeper accent" rather than
-   as a separate family. */
-@define-color opt-violet            rgba(198, 160, 246, 0.70);
-@define-color opt-green             rgba(166, 218, 149, 0.70);
-@define-color opt-orange            rgba(245, 169, 127, 0.70);
+   as a separate family. Same 25% alpha reduction as the primaries
+   (0.70 → 0.525). */
+@define-color opt-violet            rgba(198, 160, 246, 0.525);
+@define-color opt-green             rgba(166, 218, 149, 0.525);
+@define-color opt-orange            rgba(245, 169, 127, 0.525);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
