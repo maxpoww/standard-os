@@ -62,14 +62,15 @@
 @define-color opt-green             rgba(100, 200, 100, 0.70);
 @define-color opt-orange            rgba(255, 140,  50, 0.70);
 
-/* opt-pushed surface + border. The darker surface (0.50 alpha vs the parent
-   surface's 0.30) reads as "pressed-in." The 1px inset shadow is the only
-   border in OPTIONS — see README "Pushed (toggle ON)" and CLAUDE.md hazard
-   "Borders only carry opt-pushed." Painted as an inset box-shadow rather
-   than a real CSS border because GTK 3 grows the box by 2px in each axis
-   when a real border is added, which would break the 22px bar-height pin. */
-@define-color opt-pushed-surface    rgba( 25,  25,  40, 0.50);
-@define-color opt-pushed-border     rgba(  0,   0,   0, 0.35);
+/* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
+   is engaged." Replaces the earlier hard 1px border + dark surface combo
+   (which screamed for attention and made pushed pills look like a dark
+   stamp). Now pushed pills keep their rest face (or state color when
+   combined with opt-yes/middle/no) and just look gently pressed-in.
+   Soft 4px blur from the top inset edge — looks like a button has been
+   pressed, not framed. See README "Pushed (toggle ON)" and CLAUDE.md
+   "The hover system" for composition with hover. */
+@define-color opt-pushed-shadow     rgba(  0,   0,   0, 0.35);
 
 @define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
 @define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
@@ -182,23 +183,23 @@ window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; color:
    signals acknowledgement, and the daemon's click/hover-clear path will
    replace the pin class on next snapshot. */
 
-/* ── Pushed (toggle ON) — the only border in OPTIONS ─────────────────────── */
-/* The darker surface plus a 1px inset shadow reads as a pressed-in button.
-   box-shadow: inset preserves the 22px bar-height pin (a real CSS border
-   would add 2px to the box). Composes orthogonally with state and motion —
-   opt-pushed.opt-yes is a pressed blue button; opt-pushed.opt-breathe is a
-   pressed pill with ambient violet breathing on top. See CLAUDE.md hazard
-   "Borders only carry opt-pushed." */
+/* ── Pushed (toggle ON) — soft inset shadow, no border ──────────────────── */
+/* Pushed pills keep their rest face (parent surface, child surface, or a
+   state color when combined with opt-yes/middle/no) and gain a soft
+   top-inset shadow. The shadow reads as "this button is pressed in"
+   without painting a hard outline or dark stamp.
+   Composes orthogonally with state and motion: opt-pushed.opt-yes is a
+   pressed-in blue pill; opt-pushed.opt-breathe is a pressed-in pill with
+   ambient violet breathing on top. */
 
 window#waybar .opt-pill.opt-pushed,
 window#waybar .opt-pill-child.opt-pushed {
-    background: @opt-pushed-surface;
-    box-shadow: inset 0 0 0 1px @opt-pushed-border;
+    box-shadow: inset 0 2px 5px @opt-pushed-shadow;
 }
 
-/* When pushed AND state-colored, the state color paints over the pushed
-   surface; the inset border stays automatically — the parent .opt-pushed
-   rule's box-shadow inherits because the state overrides don't touch it. */
+/* State-color + pushed: state color paints the background; the pressed
+   shadow inherits automatically from the rule above (state overrides
+   don't touch box-shadow). */
 window#waybar .opt-pill.opt-pushed.opt-yes,
 window#waybar .opt-pill-child.opt-pushed.opt-yes      { background: @opt-blue-state;   }
 window#waybar .opt-pill.opt-pushed.opt-middle,
@@ -206,14 +207,12 @@ window#waybar .opt-pill-child.opt-pushed.opt-middle   { background: @opt-yellow-
 window#waybar .opt-pill.opt-pushed.opt-no,
 window#waybar .opt-pill-child.opt-pushed.opt-no       { background: @opt-red-state;    }
 
-/* Pushed pills brighten on hover AND keep their 1px inset border. The box-shadow
-   stacks two layers: the inner 1px border (drawn first, innermost) preserves
-   the "pressed" affordance; the 999px-spread brightening film layers over the
-   pill surface without overwriting it. Comma-separated box-shadow values
-   compose cleanly in GTK 3. */
+/* Pushed pills compose with hover: the pressed shadow stays AND the
+   brightening overlay layers on top. Two-stop box-shadow — both inset,
+   both fit inside the pill, both visible at once. */
 window#waybar .opt-pill.opt-pushed:hover,
 window#waybar .opt-pill-child.opt-pushed:hover {
-    box-shadow: inset 0 0 0 1px @opt-pushed-border,
+    box-shadow: inset 0 2px 5px @opt-pushed-shadow,
                 inset 0 0 0 999px @opt-hover-bright;
 }
 

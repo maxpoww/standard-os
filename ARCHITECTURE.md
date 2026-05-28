@@ -139,7 +139,7 @@ Animation (0/1):        opt-pulse | opt-glow | opt-breathe        (state-meaning
 Flash (0/1):            opt-flash                          (one-shot 250ms input-acknowledged;
                                                             no state meaning, just "I heard you")
 Pin (0/1):              opt-pin-violet | opt-pin-green | opt-pin-orange
-Pushed (0/1):           opt-pushed                        (toggle ON, only carrier of a border)
+Pushed (0/1):           opt-pushed                        (toggle ON — soft top-inset shadow, no border)
 Dimmed (0/1):           inactive                          (peer occupied but not selected)
 Tone override (rare):   opt-tone-red | opt-tone-yellow | opt-tone-blue
 Swap (0/1):             opt-swap-<kind>                   (rest → hover face)
@@ -242,7 +242,7 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — wired in `style.css`; `opt-pulse-plus` is the canonical "+" hover beat used by `opt-plus` (incl. `opt-plus.opt-swap` on ws-current)
 - ✓ `opt-plus` (Rule 6 — same option, same look) — single class binding apps launcher, ws-current's hover face, and win-move-new. Same SVG, same blue beat, same animation.
 - ✓ `opt-hover-bright` (universal hover overlay) — `box-shadow: inset 0 0 0 999px rgba(255,255,255,0.30)` brightens each pill's own rest color. Replaces the earlier flat `opt-hover-veil` gray.
-- ✓ `opt-pushed` (toggle ON) — the single border-carrier in the system
+- ✓ `opt-pushed` (toggle ON) — soft top-inset shadow on the pill's rest face (no border anywhere in the system)
 - ✓ `opt-pin-violet | opt-pin-green | opt-pin-orange` — post-animation persistence
 - ✓ `opt-flash` — one-shot 250 ms input-acknowledgement motion (4th in the motion budget)
 - ✓ Pillar 6 — Quiet invitation (mouse-first, buttons earn their place) codified in README

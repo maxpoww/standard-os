@@ -161,7 +161,7 @@ Today only blue (the `+` family) is wired; the red/orange tones are defined in t
 
 **Swap pills** (`opt-swap-*`) are a third special case: their hover is the *action reveal* — the rest face shows the pill's info content, hover shows the action. Swap hovers paint their own colors and run their own motions. The `opt-plus.opt-swap` composition (used by ws-current) marries the canonical `+` pattern to the swap mechanic — same hover face as a non-swap `+` pill, just hidden at rest behind the workspace number.
 
-**Borders carry one thing only: `opt-pushed`** (see below). No hover border, no state border, no decorative border. The single carve-out exists because a binary toggle in the ON state needs to read as a *pressed-in* surface, and the inset edge is the cheapest, most universal way to say "depressed." Everywhere else: surfaces and motion carry the lift; outlines do not.
+**No hard borders anywhere.** The `opt-pushed` ("this toggle is engaged") affordance is a soft top-inset shadow on the pill's rest face, not an outline — the pill keeps its identity color and just looks pressed in. Surfaces, motion, and the soft pressed-in shadow carry the lift; sharp outlines never do.
 
 ### Motion vocabulary
 
@@ -185,7 +185,7 @@ The reason: any system-driven motion competes with the user's actual task for at
 
 ### Pushed (toggle ON)
 
-Some options are mechanical toggles — sound mute, paper-texture shader, WiFi radio. A toggle is currently engaged when it carries `opt-pushed`: a slightly darker surface plus a 1 px inset border that reads as a pressed-in button.
+Some options are mechanical toggles — sound mute, paper-texture shader, WiFi radio. A toggle is currently engaged when it carries `opt-pushed`: the pill keeps its rest face (parent surface, child surface, or state color when combined with `opt-yes`/`opt-middle`/`opt-no`) and gains a soft top-inset shadow that reads as a pressed-in button.
 
 `opt-pushed` is a **structural** modifier, separate from state. They compose orthogonally:
 
@@ -193,7 +193,7 @@ Some options are mechanical toggles — sound mute, paper-texture shader, WiFi r
 - `opt-pushed.opt-yes` — engaged and good (WiFi radio on AND connected).
 - `opt-pushed.opt-breathe` — engaged with ongoing ambient activity (microphone recording).
 
-The 1 px inset border is the **only** border in OPTIONS. Borders carry exactly this one meaning; allowing them anywhere else dilutes the signal.
+There are **no hard borders anywhere** in OPTIONS. The pressed-in feel comes from a soft inset shadow on the pill's existing surface — no outlines competing with text or icon, no dark stamp replacing the rest face. Subtle on quiet pills, still legible against state colors.
 
 ### Dimmed (occupied, not selected)
 
@@ -289,7 +289,7 @@ A future maintainer of Options should keep these rules in mind:
 
 1. **Every new pill declares its size class, its zone, and its color rules before any code is written.** If the answer to "is this a trigger or a value pill", "which zone", or "which primary state(s) does it have" is not obvious, the option is not ready.
 2. **Parents are naturally uncolored.** If a parent acquires color, it is one of: a hover-swap action-reveal face, a secondary-color animation, a pin, or `opt-pushed`. Never persistent primary state.
-3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, four motions, two surfaces, and the one border that lives on `opt-pushed` — that is the budget.
+3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, four motions, and two surfaces — that is the budget. **No hard borders anywhere.** `opt-pushed` (the "this toggle is engaged" affordance) is a soft top-inset shadow on the pill's rest face, not an outline; the pill keeps its identity color and just looks pressed-in.
 4. **Input is acknowledged; context shifts are silent.** Motion happens in response to user action (a press, a hover, a click) or as a call for attention the user should resolve. The bar never animates *itself* — context-driven appearance and disappearance is instantaneous and quiet.
 5. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
 6. **Same option, same look.** When the same option (verb + glyph) appears in multiple places — every `+`, every "kill", every "open", every "lock" — it MUST share class composition across all instances. The user reads it as ONE option no matter where it appears; inconsistent treatment teaches contradictory mental models. New code adding a recurring option reuses the canonical class string. It does not reinvent one. The first example is `opt-plus`: a single class binding apps launcher, ws-current's hover face, and win-move-new to one shared visual.

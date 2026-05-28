@@ -150,7 +150,7 @@ Pins never animate — they are calm, persistent, solid. The point is the *absen
 - `opt-pill opt-pushed opt-yes` — engaged AND good (WiFi radio on AND connected).
 - `opt-pill opt-pushed opt-breathe` — engaged with ambient activity (microphone recording).
 
-CSS: darker surface (`rgba(25, 25, 40, 0.50)`) + `box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35)`. The inset shadow paints inside the existing box — zero layout impact, preserves the 22 px bar height pin. **This is the only border-like decoration in OPTIONS** — outlines never appear elsewhere.
+CSS: `box-shadow: inset 0 2px 5px @opt-pushed-shadow` (single soft top-inset shadow, 4 px blur, 35% alpha). The pill's rest face — parent surface, child surface, or state color when combined with opt-yes/middle/no — is preserved; the shadow alone signals "engaged." **No hard borders anywhere in OPTIONS.** The earlier 1 px inset border + dark surface combo (which painted a black stamp over the pill's identity) was replaced 2026-05-28 — subtler, keeps state colors readable, no competing outline.
 
 ### Dimmed (occupied, not selected)
 
@@ -163,7 +163,7 @@ Every pill's hover is decided by ONE of two rules — never more. The CSS is str
 **Rule A — `opt-hover-bright` (universal default).** A single declaration on `.opt-pill:hover, .opt-pill-child:hover`: `box-shadow: inset 0 0 0 999px @opt-hover-bright` (semi-transparent white film, 0.30 alpha). The film layers OVER each pill's existing background-color — identity preserved (blue brightens to light-blue, red to light-red, neutral to near-white-gray). Every pill gets this for free. **Do not write per-state or per-pin hover declarations to "apply the brighten" — they are redundant; the canonical rule already matches.**
 
 **Rule B — per-pill override (only when the pill has a SPECIFIC hover face).** Today three families override:
-- `opt-pushed:hover` — keeps the 1 px inset border AND adds the brighten film via a two-stop `box-shadow: inset 0 0 0 1px @opt-pushed-border, inset 0 0 0 999px @opt-hover-bright`. The inner border draws first (innermost); the 999 px film fills the rest.
+- `opt-pushed:hover` — keeps the soft pressed-in shadow AND adds the brighten film via a two-stop `box-shadow: inset 0 2px 5px @opt-pushed-shadow, inset 0 0 0 999px @opt-hover-bright`. Both shadows are inset, both fit inside the pill, both visible at once.
 - `opt-plus:hover` — blue surface, plus SVG, `opt-pulse-plus` animation, `color: transparent` to hide the underlying glyph. Used by every `+` pill (Rule 6).
 - Any future wired `opt-swap-<kind>` with its own SVG action-reveal — same pattern as opt-plus.
 
@@ -467,9 +467,9 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 
 ## Coding directives (priority order)
 
-1. **Closed budget.** 6 colors + 4 motions + 2 surfaces + 1 border. No exceptions without written justification in a commit message.
+1. **Closed budget.** 6 colors + 4 motions + 2 surfaces. No exceptions without written justification in a commit message. **No hard borders anywhere** — `opt-pushed` is a soft top-inset shadow on the pill's existing surface, not an outline.
 2. **The pill primitive is the start of every visual.** Deviate only when the deviation is itself a visible semantic (e.g. empty-collapse). Document the deviation in CSS as a comment.
-3. **Hover = uniform veil.** `rgba(130, 130, 150, 0.70)` for every non-swap pill, regardless of state. State paint lives on the rest face; hover is just targeting. **Borders only carry `opt-pushed`** — the single 1 px inset shadow that says "this toggle is engaged." Outlines never carry hover, state, swap, or decoration.
+3. **Hover = brighten the rest color.** Universal `box-shadow: inset 0 0 0 999px @opt-hover-bright` overlay, layered over each pill's existing background. State pills (opt-yes/middle/no) brighten via the same overlay; identity preserved. Action pills (`opt-plus`, future kill/shutdown/disable) override with their own complete `:hover` block — never split between shared rules.
 4. **Input is acknowledged; context shifts are silent.** Motion runs in response to user action (key press, hover, click) or as a system call for attention the user should resolve (pulse/glow/breathe/pin). Context-driven appearance and disappearance — focused window class changed, audio sink came up, workspace went empty — is instantaneous, no fade, no flash. The bar adapts; it does not perform on its own.
 5. **Every text-bearing pill respects `/tmp/glass-mode`** and emits a `light`/`dark` class. Forgetting this makes the pill invisible over half of wallpapers — a silent regression.
 6. **Modules don't consult each other.** Each module subscribes to context signals from its source of truth and decides its own visibility. Cross-module coupling is a maintenance smell.

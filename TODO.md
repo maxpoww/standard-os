@@ -80,6 +80,23 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-05-28** — opt-pushed redesign: no hard border, soft inset shadow
+  on the rest face. The earlier "darker surface + 1 px sharp inset border"
+  combo painted a black stamp over each pushed pill's identity (state
+  colors muddied behind it, ws-current and shader pills looked framed
+  rather than pressed). Replaced with `box-shadow: inset 0 2px 5px
+  rgba(0,0,0,0.35)` only — pill keeps rest face, gains a gentle pressed-in
+  shadow. State colors (opt-pushed.opt-yes/middle/no) now show their blue/
+  yellow/red while still reading as pressed. Hover composes cleanly via a
+  two-stop box-shadow (soft shadow + bright overlay).
+  *Hint:* dropped `@opt-pushed-surface` and `@opt-pushed-border` tokens
+  (no longer referenced); added `@opt-pushed-shadow` (the rgba used in
+  rest + hover composition). The closed budget shrinks from
+  "6 colors + 4 motions + 2 surfaces + 1 border" to
+  "6 colors + 4 motions + 2 surfaces" — no hard borders anywhere in
+  OPTIONS now. Rule 3 phrasing updated across README / CLAUDE.md /
+  ARCHITECTURE.md / standard-os skill.
+
 - **2026-05-28** — Consistency pass: CSS dedup, opt-pushed adoption for
   shader-paper / shader-newspaper / night-dimmer, lock glyph unified
   (Material 󰍁 everywhere), stale ws-current comment fixed, battery
