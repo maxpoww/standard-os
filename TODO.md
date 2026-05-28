@@ -77,6 +77,27 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-05-28** — Rule 7 (no-op options collapse) + opt-plus visibility fix +
+  opt-flash keyframe syntax fix. Three bugs surfaced during the post-Rule-6
+  activation pass. (a) `opt-flash` keyframe used `0%, 100%` comma-separated
+  selectors which waybar 0.14.0's CSS parser rejects — split into separate
+  `0%` and `100%` blocks. Dormant bug from commit `bbd4b24` that only
+  surfaced when `nixos-rebuild switch` activated the CSS for the first time.
+  (b) `opt-plus` permanent-+ pills (apps launcher, win-move-new) emitted
+  empty text — waybar hides any custom module with empty text. Fix: pass
+  the FA plus glyph U+F067 as text content (`.opt-plus { color: transparent }`
+  keeps it invisible so only the SVG renders). (c) `.opt-plus` carried
+  `min-width: 14px` which made `ws-current` ~7 px wider than its child peers.
+  Dropped — text content provides natural width now. Codified Rule 7: any
+  pill whose click would be a no-op collapses to `.empty`. First wiring:
+  workspace-daemon now emits the current WS as empty in the win-move list
+  (you can't move a window to where it already is).
+  *Hint:* the empty-text gotcha is a waybar contract, not a Standard-OS one
+  — every opt-plus permanent-+ pill needs the FA glyph sentinel. The
+  comma-selector hazard is a waybar 0.14.0 parser limit; if upstream fixes
+  it, the keyframe can collapse back to `0%, 100%` syntax. Rule 7 is a
+  design rule that outlives both.
+
 - **2026-05-28** — Same-option rule (Rule 6) + bright/beat hover system. The
   three `+` buttons (apps launcher, ws-current's hover face, win-move-new) now
   all share `opt-plus` — same SVG, same blue beat, same `opt-pulse-plus`

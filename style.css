@@ -301,7 +301,6 @@ window#waybar .opt-plus {
     background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
     color: transparent;
     text-shadow: none;
-    min-width: 14px;
 }
 window#waybar .opt-plus.light {
     background-image: url("/home/max/.config/waybar/icons/plus-black.svg");

@@ -255,7 +255,7 @@
     ]
   },
   "custom/new": {
-    "exec": "~/.config/waybar/scripts/pill '' opt-plus",
+    "exec": "~/.config/waybar/scripts/pill '' opt-plus",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
