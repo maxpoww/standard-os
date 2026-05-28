@@ -18,6 +18,8 @@ If a change would violate any of those five, push back before writing code.
 /etc/nixos/home/waybar/           ← this repo (git, main branch)
 ├── CLAUDE.md                     ← this file (operating manual)
 ├── README.md                     ← OPTIONS spec (design treatise)
+├── ARCHITECTURE.md               ← wiring schematic (daemons, signals, cache files)
+├── TODO.md                       ← work map (TODO ≤ 6 / NEXT / DONE)
 ├── config.jsonc                  ← waybar module declarations
 └── style.css                     ← pill CSS, animations, light/dark text rules
 
@@ -29,6 +31,27 @@ If a change would violate any of those five, push back before writing code.
 ```
 
 The waybar tree is git-tracked from `e8ad8b1` onward. Every change to `config.jsonc` or `style.css` is one commit, message phrased as a behavior change, not a file change.
+
+---
+
+## TODO.md (the work map)
+
+`TODO.md` is the project's running work map. Three sections, in flow order:
+
+- **TODO** — active work. **Capped at 6 items.** When full, nothing promotes from NEXT until something completes. The cap is the discipline that keeps focus honest.
+- **NEXT** — ideas not yet started. Unbounded. Promote into TODO when a slot opens and the user agrees to begin the work.
+- **DONE** — history of what shipped. Each entry: date, one-line title, optional **Hint:** line that captures the implementation seam most likely to matter to future debugging (e.g. *"opt-flash uses box-shadow only, so it composes with state colors AND swap SVGs"*). Sorted reverse-chronological. The hint is the value — it's the breadcrumb that saves the next person an hour of re-reading commits.
+
+**Maintenance rules for the file:**
+
+1. **When starting work on an item**, ensure it's in TODO (promote from NEXT or, with user approval, add directly). Mark `[ ]` → `[x]` only when shipped.
+2. **When shipping an item**, move it to DONE with the date and a Hint line. Remove from TODO in the same edit.
+3. **Never exceed 6 TODO items.** If the user proposes new work while TODO is full, push back: ask what to defer to NEXT, or what to finish first. Do not silently grow the section.
+4. **Update the file in the same commit as the code change** when possible. A commit that ships an item should also move that item to DONE — the file and the codebase stay coherent that way.
+5. **TODO.md is not a planning document.** It does not contain design discussion, tradeoffs, or acceptance criteria. Those live in the user's mind and in the commits. TODO.md is a one-line-per-thing map. Keep entries terse.
+6. **Both Claude and the user maintain it.** Claude updates after shipping or when the user signals intent to start something; the user prunes / reorders freely.
+
+If a NEXT item gets stale (no longer relevant), the user removes it; do not auto-prune NEXT.
 
 ---
 
