@@ -158,15 +158,10 @@ window#waybar .opt-pill-child.opt-middle { background: @opt-yellow-state; }
 window#waybar .opt-pill.opt-no,
 window#waybar .opt-pill-child.opt-no     { background: @opt-red-state;    }
 
-/* State pills brighten by the same universal opt-hover-bright overlay. Because
-   the overlay LAYERS over the existing state background-color (rather than
-   replacing it), each state retains its identity hue but pushed toward white. */
-window#waybar .opt-pill.opt-yes:hover,
-window#waybar .opt-pill-child.opt-yes:hover,
-window#waybar .opt-pill.opt-middle:hover,
-window#waybar .opt-pill-child.opt-middle:hover,
-window#waybar .opt-pill.opt-no:hover,
-window#waybar .opt-pill-child.opt-no:hover     { box-shadow: inset 0 0 0 999px @opt-hover-bright; }
+/* State pills inherit the universal opt-hover-bright overlay from the
+   .opt-pill:hover rule above — no per-state hover declaration needed.
+   The overlay LAYERS over each state's background-color, preserving identity
+   while pushing it toward white. */
 
 /* ── Pin — solid secondary held after an animation resolves ──────────────── */
 /* A pin is the calm tail of an animation: the daemon writes opt-pulse (or
@@ -183,14 +178,9 @@ window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  color:
 window#waybar .opt-pill.opt-pin-orange,
 window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; color: #ffffff; }
 
-/* Pins brighten by the same overlay — hovering signals acknowledgement; the
-   daemon's click/hover-clear path will replace the pin class on next snapshot. */
-window#waybar .opt-pill.opt-pin-violet:hover,
-window#waybar .opt-pill-child.opt-pin-violet:hover,
-window#waybar .opt-pill.opt-pin-green:hover,
-window#waybar .opt-pill-child.opt-pin-green:hover,
-window#waybar .opt-pill.opt-pin-orange:hover,
-window#waybar .opt-pill-child.opt-pin-orange:hover   { box-shadow: inset 0 0 0 999px @opt-hover-bright; }
+/* Pins inherit the universal opt-hover-bright overlay too — hovering
+   signals acknowledgement, and the daemon's click/hover-clear path will
+   replace the pin class on next snapshot. */
 
 /* ── Pushed (toggle ON) — the only border in OPTIONS ─────────────────────── */
 /* The darker surface plus a 1px inset shadow reads as a pressed-in button.
@@ -246,35 +236,16 @@ window#waybar .opt-flash,
 window#waybar .opt-flash-r                { animation: opt-flash 250ms ease-out 1; }
 
 /* ── Hover-swap pattern — rest face shows info, hover reveals action ─────── */
-/* Shared mechanic: on hover, hide the label and let a background-image take
-   its place. The label hiding is done two ways at once:
-     (1) button-level `color: transparent` — covers dark mode via cascade.
-     (2) `.opt-pill.opt-swap-*.light:hover label` override below — needed in
-         light mode because the canonical `.opt-pill.light:hover label` rule
-         (specificity 0,3,1) paints labels dark on hover; we beat it with
-         4-class specificity (0,4,1). Forgetting either path leaves the rest
-         face bleeding through the hover face. */
-
-window#waybar .opt-swap-switch:hover,
-window#waybar .opt-swap-cal:hover,
-window#waybar .opt-swap-pct:hover {
-    background-repeat: no-repeat;
-    background-position: center;
-    color: transparent;
-    text-shadow: none;
-}
-
-window#waybar .opt-pill.opt-swap-switch.light:hover label,
-window#waybar .opt-pill.opt-swap-cal.light:hover label,
-window#waybar .opt-pill.opt-swap-pct.light:hover label,
-window#waybar .opt-pill-child.opt-swap-switch.light:hover label,
-window#waybar .opt-pill-child.opt-swap-cal.light:hover label,
-window#waybar .opt-pill-child.opt-swap-pct.light:hover label {
-    color: transparent;
-    text-shadow: none;
-}
-
-/* opt-swap-switch / opt-swap-cal / opt-swap-pct — declared, icons pending. */
+/* Each wired swap kind owns its complete hover block (rest face implicit
+   in .opt-pill / .opt-pill-child, hover face fully specified per kind).
+   See `opt-plus:hover` below for the canonical implementation.
+   Unwired swap kinds — currently `opt-swap-switch`, `opt-swap-cal`,
+   `opt-swap-pct` — inherit the universal opt-hover-bright overlay from
+   .opt-pill:hover (text stays visible, surface brightens). No preemptive
+   shared "color: transparent" rule — hiding labels for swap kinds whose
+   SVG isn't wired makes the text vanish into nothing on hover.
+   When a new swap kind gets its SVG, add its complete :hover block (and
+   light-mode label override if needed) parallel to opt-plus. */
 
 /* ── opt-plus — the canonical "+" action option (Rule 6: same option, same look) ── */
 /* Every "+" pill in the bar — apps launcher, ws-current's hover face, win-move-new,

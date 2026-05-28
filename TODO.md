@@ -77,6 +77,28 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-05-28** — Hover system consolidation: one mechanism, one place.
+  Window/clock/battery labels were vanishing on hover because a shared
+  preemptive rule (`.opt-swap-switch:hover, .opt-swap-cal:hover,
+  .opt-swap-pct:hover { color: transparent }`) hid labels for swap kinds
+  whose SVG action-reveal isn't wired yet. Fix: deleted the shared rule
+  entirely. Unwired swap kinds now inherit the universal brighten —
+  surface lightens, text stays visible. Per-swap label-hide belongs
+  INSIDE the per-swap :hover block (paired with the bg-image that
+  replaces the label), as `opt-plus:hover` already does.
+  Also deleted two more redundant blocks: state-pill hovers
+  (`.opt-yes:hover, .opt-middle:hover, .opt-no:hover { box-shadow }`)
+  and pin hovers (`.opt-pin-*:hover { box-shadow }`) — both duplicated
+  the canonical `.opt-pill:hover` rule that already matches.
+  *Hint:* hover behavior in OPTIONS now lives in exactly two CSS places:
+  the canonical `.opt-pill:hover` (universal brighten) and per-pill
+  `:hover` blocks (opt-pushed, opt-plus, future wired swaps). When
+  adding a new pill, ask "does its hover have a SPECIFIC face?" If no,
+  do not touch hover CSS — Rule A covers it. If yes, write ONE complete
+  per-pill `:hover` block that includes color, bg-image, animation, and
+  label transparency together. Never split hover behavior across shared
+  blocks; that pattern is what made labels disappear into nothing.
+
 - **2026-05-28** — Rule 7 (no-op options collapse) + opt-plus visibility fix +
   opt-flash keyframe syntax fix. Three bugs surfaced during the post-Rule-6
   activation pass. (a) `opt-flash` keyframe used `0%, 100%` comma-separated
