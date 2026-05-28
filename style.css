@@ -8,6 +8,15 @@
        Theme (required):     .dark | .light                 (glass-text-daemon)
        State (0/1):          .opt-yes | .opt-middle | .opt-no
        Animation (0/1):      .opt-pulse | .opt-glow | .opt-breathe
+       Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange
+                             (solid secondary color held after animation resolves;
+                              calm, no motion — the eye stays, the CPU doesn't)
+       Pushed (0/1):         .opt-pushed                    (toggle ON — the ONLY
+                             carrier of a border anywhere in OPTIONS)
+       Dimmed (0/1):         .inactive                      (peer occupied but not
+                             selected; semantic vocabulary name is "dimmed",
+                             implementation class kept as .inactive until the
+                             workspace daemon migrates to Nix)
        Tone override (rare): .opt-tone-red | .opt-tone-yellow | .opt-tone-blue
        Swap (0/1):           .opt-swap-<kind>               (rest→hover face)
        Empty (collapse):     .empty
@@ -41,6 +50,15 @@
 @define-color opt-violet            rgba(160, 100, 220, 0.70);
 @define-color opt-green             rgba(100, 200, 100, 0.70);
 @define-color opt-orange            rgba(255, 140,  50, 0.70);
+
+/* opt-pushed surface + border. The darker surface (0.50 alpha vs the parent
+   surface's 0.30) reads as "pressed-in." The 1px inset shadow is the only
+   border in OPTIONS — see README "Pushed (toggle ON)" and CLAUDE.md hazard
+   "Borders only carry opt-pushed." Painted as an inset box-shadow rather
+   than a real CSS border because GTK 3 grows the box by 2px in each axis
+   when a real border is added, which would break the 22px bar-height pin. */
+@define-color opt-pushed-surface    rgba( 25,  25,  40, 0.50);
+@define-color opt-pushed-border     rgba(  0,   0,   0, 0.35);
 
 @define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
 @define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
@@ -97,7 +115,8 @@ window#waybar .opt-pill-child  { background: @opt-surface-child;  }
 /* One color for every hover. The pill's REST face still carries the meaning
    (opt-yes = blue, opt-no = red, etc.); hover just signals "you're targeting
    this". Swap pills (opt-swap-*) override below with their action-reveal
-   behavior. No borders, ever. */
+   behavior. Hover never introduces a border — borders only carry opt-pushed
+   (see the opt-pushed block below). */
 
 window#waybar .opt-pill:hover,
 window#waybar .opt-pill-child:hover  { background: @opt-hover-veil; }
@@ -118,6 +137,61 @@ window#waybar .opt-pill.opt-middle:hover,
 window#waybar .opt-pill-child.opt-middle:hover,
 window#waybar .opt-pill.opt-no:hover,
 window#waybar .opt-pill-child.opt-no:hover     { background: @opt-hover-veil; }
+
+/* ── Pin — solid secondary held after an animation resolves ──────────────── */
+/* A pin is the calm tail of an animation: the daemon writes opt-pulse (or
+   opt-glow / opt-breathe) to call the eye, then rewrites the cache file
+   with the matching opt-pin-* class to keep the color painted without
+   burning CPU on perpetual motion. Pins clear when the daemon detects the
+   underlying state changed, or when the click handler invokes a clear path.
+   See README → "Pins" and CLAUDE.md → "Pins (post-animation persistence)". */
+
+window#waybar .opt-pill.opt-pin-violet,
+window#waybar .opt-pill-child.opt-pin-violet   { background: @opt-violet; color: #ffffff; }
+window#waybar .opt-pill.opt-pin-green,
+window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  color: #ffffff; }
+window#waybar .opt-pill.opt-pin-orange,
+window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; color: #ffffff; }
+
+/* Pins share the same hover veil — hovering signals acknowledgement, and the
+   daemon's click/hover-clear path will replace the pin class on next snapshot. */
+window#waybar .opt-pill.opt-pin-violet:hover,
+window#waybar .opt-pill-child.opt-pin-violet:hover,
+window#waybar .opt-pill.opt-pin-green:hover,
+window#waybar .opt-pill-child.opt-pin-green:hover,
+window#waybar .opt-pill.opt-pin-orange:hover,
+window#waybar .opt-pill-child.opt-pin-orange:hover   { background: @opt-hover-veil; }
+
+/* ── Pushed (toggle ON) — the only border in OPTIONS ─────────────────────── */
+/* The darker surface plus a 1px inset shadow reads as a pressed-in button.
+   box-shadow: inset preserves the 22px bar-height pin (a real CSS border
+   would add 2px to the box). Composes orthogonally with state and motion —
+   opt-pushed.opt-yes is a pressed blue button; opt-pushed.opt-breathe is a
+   pressed pill with ambient violet breathing on top. See CLAUDE.md hazard
+   "Borders only carry opt-pushed." */
+
+window#waybar .opt-pill.opt-pushed,
+window#waybar .opt-pill-child.opt-pushed {
+    background: @opt-pushed-surface;
+    box-shadow: inset 0 0 0 1px @opt-pushed-border;
+}
+
+/* When pushed AND state-colored, the state color paints over the pushed
+   surface but the inset border stays — "this toggle is ON and in <state>." */
+window#waybar .opt-pill.opt-pushed.opt-yes,
+window#waybar .opt-pill-child.opt-pushed.opt-yes      { background: @opt-blue-state;   box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+window#waybar .opt-pill.opt-pushed.opt-middle,
+window#waybar .opt-pill-child.opt-pushed.opt-middle   { background: @opt-yellow-state; box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+window#waybar .opt-pill.opt-pushed.opt-no,
+window#waybar .opt-pill-child.opt-pushed.opt-no       { background: @opt-red-state;    box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+
+/* Pushed pills hover to the same uniform veil — but keep the inset border
+   so the "pressed" affordance survives the hover lift. */
+window#waybar .opt-pill.opt-pushed:hover,
+window#waybar .opt-pill-child.opt-pushed:hover {
+    background: @opt-hover-veil;
+    box-shadow: inset 0 0 0 1px @opt-pushed-border;
+}
 
 /* ── Animation — motion + tone composed via classes ──────────────────────── */
 
@@ -181,7 +255,13 @@ window#waybar .opt-swap-plus.light:hover {
 
 /* opt-swap-switch / opt-swap-cal / opt-swap-pct — declared, icons pending. */
 
-/* ── Inactive workspace dim ──────────────────────────────────────────────── */
+/* ── Dimmed (peer occupied but not selected) ─────────────────────────────── */
+/* Semantic vocabulary name is "dimmed" (see README → Dimmed). Implementation
+   class is .inactive — the class the workspace daemon already writes for
+   ws-1..9 when those workspaces have windows but aren't the current one.
+   Rename to .opt-dimmed is deferred until workspace-daemon migrates from
+   ~/.config/waybar/scripts/ to a Nix-managed script (cross-repo coupling
+   would break dimming during the transition window otherwise). */
 
 window#waybar .opt-pill-child.inactive,
 window#waybar .opt-pill.inactive {
@@ -267,4 +347,23 @@ window#waybar .opt-pill-child.light:hover label {
 #custom-dictate.transcribing {
     background: @opt-yellow-state;
     animation: opt-glow-green 2s ease-in-out infinite alternate;
+}
+
+/* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
+/* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
+   the usual `window#waybar .foo` ancestor convention does not apply here.
+   Bare `tooltip` and `tooltip label` are the correct selectors for the
+   floating popup. The hover delay (~700 ms) is GTK's default and is the
+   same delay across every GTK app — we don't try to override it. See
+   README → "Tooltips" and CLAUDE.md → "Tooltips". */
+
+tooltip {
+    background: rgba(50, 50, 70, 0.95);    /* deep parent surface, near opaque */
+    border-radius: 8px;
+    padding: 2px 6px;
+}
+
+tooltip label {
+    color: @opt-text-on-dark;
+    font-size: 12px;
 }

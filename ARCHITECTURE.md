@@ -120,20 +120,29 @@ Every cache file is one line of JSON. The shape is:
 
 `state` is a single-word semantic flag. The values are bound to the OPTIONS color system:
 
-| `state` value | OPTIONS primary color | OPTIONS animation color |
-|---|---|---|
-| `"yes"` | Blue | Violet |
-| `"middle"` | Yellow | Green |
-| `"no"` | Red | Orange |
-| `"off"` | (no pill — module emits `class:"... empty"`) | n/a |
+| `state` value | OPTIONS primary color | OPTIONS animation color | Pin |
+|---|---|---|---|
+| `"yes"` | Blue (`opt-yes`) | Violet (`opt-breathe`) | `opt-pin-violet` |
+| `"middle"` | Yellow (`opt-middle`) | Green (`opt-glow`) | `opt-pin-green` |
+| `"no"` | Red (`opt-no`) | Orange (`opt-pulse`) | `opt-pin-orange` |
+| `"off"` | (no pill — module emits `class:"... empty"`) | n/a | n/a |
 
-A pill's CSS rules can key off `state` indirectly through its class list. The recommended convention: include `state-yes` / `state-middle` / `state-no` in the `class` field, then style each in CSS:
+A pill's `class` field carries the actual CSS classes. The canonical vocabulary lives in `style.css`:
 
-```css
-#custom-foo.state-yes { background-color: rgba(80, 120, 220, 0.30); }
-#custom-foo.state-middle { background-color: rgba(255, 200, 50, 0.30); }
-#custom-foo.state-no { background-color: rgba(255, 100, 100, 0.30); }
 ```
+Structure (required):   opt-pill | opt-pill-child
+Theme (required):       dark | light                      (glass-text-daemon)
+State (0/1):            opt-yes | opt-middle | opt-no     (rare on parents — see README)
+Animation (0/1):        opt-pulse | opt-glow | opt-breathe
+Pin (0/1):              opt-pin-violet | opt-pin-green | opt-pin-orange
+Pushed (0/1):           opt-pushed                        (toggle ON, only carrier of a border)
+Dimmed (0/1):           inactive                          (peer occupied but not selected)
+Tone override (rare):   opt-tone-red | opt-tone-yellow | opt-tone-blue
+Swap (0/1):             opt-swap-<kind>                   (rest → hover face)
+Empty (collapse):       empty
+```
+
+A daemon publishing a pill picks the classes that apply and writes them as a single space-separated string into the cache file's `class` field. `pill_emit` (the helper in `~/.config/waybar/scripts/lib/pill.sh`) converts that string into a JSON array, which waybar/GTK 3 requires (see CLAUDE.md hazard — emitting a single space-separated string makes GTK 3 treat the whole thing as ONE class name).
 
 ### Atomic-write recipe (every daemon must use this)
 
@@ -223,11 +232,18 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ Glass-text adaptive text (`light`/`dark` class)
 - ✓ Cache-file + signal pattern (RTMIN+10/11)
 - ✓ Workspace-daemon publishes window/workspace/win-move state
-- ~ Color system — used unsystematically; primary/secondary semantics not yet enforced; `state-yes/middle/no` classes not yet adopted
-- ~ Three-zone layout — implicit in current placement, will be made explicit in next `config.jsonc` pass
-- ✗ Parent vs child surface differentiation (cool 50,50,70 vs warm 70,50,50)
-- ✗ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — `blink`/`shine`/`pulse-plus` exist as un-renamed predecessors
+- ✓ Color system primary/secondary/parent-uncolored rule — codified in README/CLAUDE.md; `opt-yes/middle/no` classes wired
+- ✓ Three-zone layout — explicit in `config.jsonc` (`modules-left/center/right` blocks labelled USER / TASK / SYSTEM)
+- ✓ Parent vs child surface differentiation (`opt-pill` = cool 50,50,70 / `opt-pill-child` = warm 70,50,50)
+- ✓ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — wired in `style.css`; legacy `blink`/`shine`/`pulse-plus` retained only inside `opt-swap-plus`
+- ✓ `opt-pushed` (toggle ON) — the single border-carrier in the system
+- ✓ `opt-pin-violet | opt-pin-green | opt-pin-orange` — post-animation persistence
+- ✓ Tooltip popup styling — `tooltip` selector matches pill aesthetic
+- ~ `opt-pushed` adoption — class defined; not yet applied to `shader-paper`, `shader-newspaper`, `night-dimmer`, `dictate.recording` (those still use legacy paint)
+- ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
+- ~ Dimmed class rename to `opt-dimmed` — deferred until workspace-daemon migrates to Nix; today the class is `.inactive`
 - ✗ system-daemon, network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — none of the planned daemons exist yet
+- ✗ Context daemon (hardware-button-driven transient pill) — designed; not yet implemented
 - ✗ Composite-module pattern with inotify on `/tmp/waybar-cache/` — pattern documented, not implemented for any pill
 
 When this list reaches all ✓, OPTIONS is fully wired and the rest is just adding options that fit the grammar.

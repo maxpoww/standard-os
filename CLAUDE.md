@@ -51,7 +51,7 @@ Every options pill — current or future — starts from this spec. Anything dif
 }
 ```
 
-Hover is **one uniform veil**: `rgba(130, 130, 150, 0.70)`, applied identically to every non-swap pill regardless of state. State paint (yes/middle/no) lives on the rest face; hover just signals targeting. Swap pills (ws-current "+" reveal, etc.) are the only exception — they paint their own action-reveal color + motion. **No borders, ever** — outlines read as decoration, not meaning.
+Hover is **one uniform veil**: `rgba(130, 130, 150, 0.70)`, applied identically to every non-swap pill regardless of state. State paint (yes/middle/no) lives on the rest face; hover just signals targeting. Swap pills (ws-current "+" reveal, etc.) are the only exception — they paint their own action-reveal color + motion. **Borders only carry `opt-pushed`** (the toggle-ON modifier — see the "Pushed" subsection); no other class ever introduces an outline.
 
 Bar window: `background: rgba(50, 50, 70, 0.10); border-radius: 30px; height: 30px`.
 
@@ -59,7 +59,9 @@ Bar window: `background: rgba(50, 50, 70, 0.10); border-radius: 30px; height: 30
 
 ## Color and motion budget (closed)
 
-Total set: **6 colors + 3 motions + 2 surfaces**. Adding to it requires a justification that no existing element suffices.
+Total set: **6 colors + 3 motions + 2 surfaces + 1 border** (the border lives only on `opt-pushed`). Adding to it requires a justification that no existing element suffices.
+
+**Parent pills are naturally uncolored** at rest — `ws-current`, `custom/tools`, `custom/power`, `hyprland/window`, `custom/new`, the focused-window pill all sit on bare surface tint with no primary state class. A parent acquires color only as: (a) a hover-swap action-reveal face (`opt-swap-*`), (b) a secondary-color animation (`opt-pulse|glow|breathe`), (c) a pin (`opt-pin-violet|green|orange`), or (d) `opt-pushed` (darker surface + 1px inset border, the only border in the system). **Primary state colors live on children** — pills inside an expanded cluster — where they express action semantics (`opt-no` = destructive, `opt-yes` = forward / "you are here") rather than ambient mood.
 
 ### Surfaces (structure)
 
@@ -99,6 +101,42 @@ Correlative pairs (blue↔violet, yellow↔green, red↔orange) make transitions
 Primary state colors do NOT animate by themselves. If something is changing, an animation in the *secondary* palette paints over the state to show the change.
 
 Existing `@keyframes` in `style.css` (`blink`, `shine`, `pulse-plus`) are pre-OPTIONS-naming forms of these three motions and are good references for how the live GTK 3 build accepts animation. New keyframes are added under the names `opt-pulse`, `opt-glow`, `opt-breathe`.
+
+### Pins (post-animation persistence)
+
+A pin is a **solid secondary color held after an animation resolves**. The animation calls the eye; the pin holds it until the underlying state changes or the user acknowledges. Classes:
+
+- `opt-pin-violet` — completed healthily (build done, sync finished).
+- `opt-pin-green` — soft attention (low-but-not-critical battery, update available).
+- `opt-pin-orange` — needs attention (WiFi dropped, render failed).
+
+Lifecycle is **daemon-owned**: the daemon writes `opt-pulse` (or `opt-glow` / `opt-breathe`) initially, then on a timeout (typically when the motion's first cycle completes) rewrites the cache file replacing the motion class with the matching `opt-pin-*` class. The pin clears when (a) the daemon detects the underlying state changed, (b) the user hovered the pill (waybar emits no hover-out event the daemon can subscribe to directly — for now, hover-clears the pin only when the daemon polls a state that the hover indirectly fixes), or (c) the user clicked the pill (the click handler invokes a "clear-pin" path the daemon honors).
+
+Pins never animate — they are calm, persistent, solid. The point is the *absence* of motion after the call: stable signal the user can sit with.
+
+### Pushed (toggle ON)
+
+`opt-pushed` is the binary "this toggle is currently engaged" modifier. Composes orthogonally with state colors and animations:
+
+- `opt-pill opt-pushed` — engaged, neutral (shader texture is on).
+- `opt-pill opt-pushed opt-yes` — engaged AND good (WiFi radio on AND connected).
+- `opt-pill opt-pushed opt-breathe` — engaged with ambient activity (microphone recording).
+
+CSS: darker surface (`rgba(25, 25, 40, 0.50)`) + `box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35)`. The inset shadow paints inside the existing box — zero layout impact, preserves the 22 px bar height pin. **This is the only border-like decoration in OPTIONS** — outlines never appear elsewhere.
+
+### Dimmed (occupied, not selected)
+
+A peer item that exists but is not the focus. Reduced opacity (0.45), surface unchanged, no state color. Implemented in `style.css` as `.inactive` — the class the workspace daemon already writes for `ws-1..9` when those workspaces have windows but aren't current. The semantic vocabulary name is **dimmed**; the wired class is `.inactive`. Rename to `.opt-dimmed` is deferred until the workspace daemon migrates from `~/.config/waybar/scripts/` to a Nix-managed script — cross-repo coupling would break dimming during the transition window otherwise.
+
+### Tooltips
+
+Every text-bearing pill whose function isn't fully self-evident from icon + label declares `"tooltip": true` and emits a `tooltip` field in its JSON output. The tooltip popup is styled in `style.css` via the bare `tooltip` selector (the popup floats outside `window#waybar`, so the usual ancestor-scoping convention doesn't apply here). GTK's hover delay (~700 ms) is the canonical reveal; we do NOT try to override it — consistency with system-wide GTK feel is more valuable than precision.
+
+Tooltip text rules:
+
+- One line, imperative for triggers (`"Lock screen"`, `"Open task switcher"`), status-then-action for value pills (`"23% — Discharging"`).
+- Forbidden: restating the icon, naming the technology (`"swaylock"`, `"rofi -show drun"`), multi-line essays.
+- Self-evident pills get `"tooltip": false` (launcher `+`, workspace numbers, focused-window title).
 
 ---
 
@@ -343,7 +381,7 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 
 1. **Closed budget.** 6 colors + 3 motions + 2 surfaces. No exceptions without written justification in a commit message.
 2. **The pill primitive is the start of every visual.** Deviate only when the deviation is itself a visible semantic (e.g. empty-collapse). Document the deviation in CSS as a comment.
-3. **Hover = uniform veil.** `rgba(130, 130, 150, 0.70)` for every non-swap pill, regardless of state. State paint lives on the rest face; hover is just targeting. **No borders, ever** — outlines read as decoration, not meaning.
+3. **Hover = uniform veil.** `rgba(130, 130, 150, 0.70)` for every non-swap pill, regardless of state. State paint lives on the rest face; hover is just targeting. **Borders only carry `opt-pushed`** — the single 1 px inset shadow that says "this toggle is engaged." Outlines never carry hover, state, swap, or decoration.
 4. **Every text-bearing pill respects `/tmp/glass-mode`** and emits a `light`/`dark` class. Forgetting this makes the pill invisible over half of wallpapers — a silent regression.
 5. **Modules don't consult each other.** Each module subscribes to context signals from its source of truth and decides its own visibility. Cross-module coupling is a maintenance smell.
 6. **Daemon, not poll, when possible.** Use event-driven sources (`socat hyprland-socket2`, `nmcli monitor`, `pw-mon`, `wl-paste --watch`). Polling is a cost ceiling — fine for low-frequency status (battery every 30 s) but never for reactive UX.

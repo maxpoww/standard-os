@@ -97,7 +97,12 @@ Painted on the pill itself. Persistent. They tell the user the current discrete 
 | 🟨 **Yellow** | MIDDLE / on but partial / disconnected | Bluetooth is on but no device paired |
 | 🟥 **Red** | NO / off / unavailable | Bluetooth is disabled |
 
-Blue is the resting "good" state. When the system is healthy and configured, the bar reads predominantly blue. That is the design intent: blueness means *everything is in order*.
+**Parents are naturally uncolored.** A parent pill — one that sits permanently on the bar — does *not* carry a primary state color at rest. The healthy bar reads as neutral surface plus content, not as a field of blue. Color on a parent only ever appears in two ways:
+
+- As a **hover-swap action-reveal face** (`opt-swap-*`) — `ws-current`'s blue "+" with `opt-pulse-plus`, the power pill's red on hover. The hover IS the meaning: "here is what clicking me does."
+- As a **secondary-color animation** (`opt-pulse | opt-glow | opt-breathe`) or a **pin** (see below) when the system needs the user's attention.
+
+Primary state colors live on **children** — pills revealed inside an expanded cluster. There the rule inverts: children should use blue / yellow / red to express action semantics (`win-close` = red destructive, `win-move-new` = blue forward) and "you are here" markers (`win-move-N` for the current workspace = blue). A child without state is fine; a parent with persistent state color is not.
 
 ### Secondary — animation colors
 
@@ -121,6 +126,20 @@ Each primary color pairs with the secondary in its temperature family:
 
 This pairing is what makes transitions read naturally. An animation may move *between correlatives*: a WiFi pill searching for a network animates **violet** (we want a yes; we're trying); when the connection succeeds, the animation resolves into the solid **blue** state. The cool-family animation foreshadowed the cool-family final state.
 
+### Pins
+
+An animation gets the user's eye. A **pin** holds it. When a secondary-color motion resolves, the pill can keep that secondary color painted solid — the *pin* — until the underlying state changes or the user acknowledges the option by hovering or clicking it.
+
+| Class | Color | Typical antecedent |
+|---|---|---|
+| `opt-pin-violet` | violet (solid) | something completed healthily — build finished, sync done |
+| `opt-pin-green` | green (solid) | a soft "look here" worth noting — update available, low-but-not-critical battery |
+| `opt-pin-orange` | orange (solid) | something needs attention — WiFi dropped, render failed |
+
+The animation (pulse / glow / breathe) calls the user's attention; the pin keeps that attention persistent without burning CPU on infinite motion. A pin without a preceding animation is allowed but rare — usually the animation does the calling, the pin does the holding.
+
+**Pin clearing.** A pin clears when any of: the underlying state changes (the daemon recomputes and overwrites), the user hovers the pill (acknowledgement), the user clicks the pill (engagement). The daemon owns pin lifecycle; pills never animate forever.
+
 ### Hover
 
 Hover is **one uniform veil** — `rgba(130, 130, 150, 0.70)`, a soft white-ish translucent lift — applied identically to every non-swap pill, regardless of state.
@@ -129,7 +148,7 @@ The pill's REST face is where meaning lives (blue = yes, red = no, yellow = midd
 
 Swap pills are the exception. A swap pill's hover is the *action reveal* (e.g. ws-current's "+" pulse) — a deliberate, designed transition specific to that pill. Swap hovers paint their own colors and run their own motions.
 
-**No borders, ever.** Borders were briefly part of the hover treatment; they read as decoration rather than meaning, so they were removed. Surfaces and motion carry the lift; outlines never do.
+**Borders carry one thing only: `opt-pushed`** (see below). No hover border, no state border, no decorative border. The single carve-out exists because a binary toggle in the ON state needs to read as a *pressed-in* surface, and the inset edge is the cheapest, most universal way to say "depressed." Everywhere else: surfaces and motion carry the lift; outlines do not.
 
 ### Motion vocabulary
 
@@ -140,6 +159,45 @@ Three motions. The motion is the *shape* of the change; the *color* carries the 
 - **Breathe** — very slow opacity sine, ~6 s cycle. Used when *background activity is ongoing* (sync, render, healthy continuous state).
 
 Primary state colors do **not** animate. State is state; if it's changing, a secondary-color animation paints over it to show the change. State itself is calm.
+
+### Pushed (toggle ON)
+
+Some options are mechanical toggles — sound mute, paper-texture shader, WiFi radio. A toggle is currently engaged when it carries `opt-pushed`: a slightly darker surface plus a 1 px inset border that reads as a pressed-in button.
+
+`opt-pushed` is a **structural** modifier, separate from state. They compose orthogonally:
+
+- `opt-pushed` alone — engaged, no value judgment (a shader texture is on).
+- `opt-pushed.opt-yes` — engaged and good (WiFi radio on AND connected).
+- `opt-pushed.opt-breathe` — engaged with ongoing ambient activity (microphone recording).
+
+The 1 px inset border is the **only** border in OPTIONS. Borders carry exactly this one meaning; allowing them anywhere else dilutes the signal.
+
+### Dimmed (occupied, not selected)
+
+When a module lists peer items — workspaces, sinks, paired devices — and some of those peers *exist but are not currently the focus*, those peers get **dimmed**: reduced opacity, surface unchanged, no state color. The eye is then drawn naturally to the items that are either empty (collapsed via `.empty`) or current (full opacity).
+
+Dimmed is not "off" (`opt-no`) and not "absent" (`.empty`). It is **occupied, not selected**:
+
+- Workspaces 1–9 that have windows but aren't the one you're on: dimmed.
+- A paired Bluetooth device that exists in the cluster but isn't the active sink: dimmed.
+- A network connection profile saved but not connected right now: dimmed.
+
+Implemented in CSS as `.inactive` (the class wired into the workspace daemon). The rule's vocabulary name is *dimmed*; the implementation class is `.inactive` for backward compatibility until the daemon migrates to Nix.
+
+---
+
+## Tooltips
+
+Help text appears when the pill alone doesn't carry the full meaning. Tooltips are part of the diegetic contract: short, imperative, and only where they earn their keep.
+
+- They appear after GTK's standard hover delay (~700 ms — practically "a deliberate hover"). Same delay as every other GTK app the user touches, which reinforces a single muscle memory.
+- One line. Imperative for triggers, status-then-action for value pills.
+  - Trigger → the action: `"Lock screen"`, `"Open task switcher"`, `"Scan for networks"`.
+  - Value pill → status, optionally action: `"23% — Discharging"`, `"WiFi: home-5G"`.
+- A pill is **denied a tooltip** when the icon or label is self-evident. The launcher "+" gets no tooltip. The workspace number `3` gets no tooltip. The focused-window title is its own tooltip.
+- Forbidden: restating the icon (`"This is a + button"`), naming the technology (`"swaylock"`, `"rofi -show drun"`), or two-line essays.
+
+The tooltip popup is styled to match the pill aesthetic (deep parent surface, white text, 8 px radius) so it reads as the bar speaking rather than as a system intrusion.
 
 ---
 
@@ -206,9 +264,10 @@ Both are replaceable. Options is the specification; waybar and rofi are the curr
 
 A future maintainer of Options should keep three rules in mind:
 
-1. **Every new pill declares its size class and its color rules before any code is written.** If the answer to "is this a trigger or a value pill" is not obvious, the option is not ready.
-2. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, three motions, and two surfaces — and that is the budget.
-3. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
+1. **Every new pill declares its size class, its zone, and its color rules before any code is written.** If the answer to "is this a trigger or a value pill", "which zone", or "which primary state(s) does it have" is not obvious, the option is not ready.
+2. **Parents are naturally uncolored.** If a parent acquires color, it is one of: a hover-swap action-reveal face, a secondary-color animation, a pin, or `opt-pushed`. Never persistent primary state.
+3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, three motions, two surfaces, and the one border that lives on `opt-pushed` — that is the budget.
+4. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
 
 The hardest part of Options is not building it. It is having the discipline to *not* add the obvious-feeling seventh color, the eighth motion, the toolbar that is always there. The user's attention is finite. Options spends it carefully.
 
