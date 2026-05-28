@@ -260,12 +260,12 @@
     "on-click": "rofi -show drun"
   },
   "custom/hidden": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰍁'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰍁' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/x": {
-    "exec": "~/.config/waybar/scripts/pill '󱂬'",
+    "exec": "~/.config/waybar/scripts/pill '󱂬' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "~/.config/waybar/scripts/restore-minimized.sh"
   },
@@ -303,17 +303,17 @@
     ]
   },
   "custom/blue": {
-    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "exec": "~/.config/waybar/scripts/pill-child '' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰂲'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰂲' opt-no",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/scan": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰛔'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰛔' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -336,17 +336,17 @@
     ]
   },
   "custom/wifi": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰖩'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰖩' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill2": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰖪'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰖪' opt-no",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/scan2": {
-    "exec": "~/.config/waybar/scripts/pill-child '󱛄'",
+    "exec": "~/.config/waybar/scripts/pill-child '󱛄' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -373,17 +373,17 @@
     ]
   },
   "custom/power": {
-    "exec": "~/.config/waybar/scripts/pill ''",
+    "exec": "~/.config/waybar/scripts/pill '' opt-no",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "systemctl hibernate"
   },
   "custom/reboot": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰜉'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰜉' opt-middle",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "reboot"
   },
   "custom/lock": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰍁'",
+    "exec": "~/.config/waybar/scripts/pill-child '󰍁' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },

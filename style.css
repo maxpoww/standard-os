@@ -51,14 +51,21 @@
    docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
-/* Catppuccin Macchiato palette mapped to the 6-color OPTIONS budget (2026-05-28).
-   Macchiato is darker and more saturated than Frappé, slightly more saturated
-   than Mocha and a hair warmer. Pairs well with very dark wallpapers — colors
-   pop without going pastel.
-   Alphas dropped a second 25% (compounded 0.56 total reduction from origin
-   0.70/0.30 → 0.394/0.169) — same hues, deep wallpaper bleed-through.
-   Macchiato hex reference:  Blue #8aadf4  Yellow #eed49f  Red #ed8796
-                             Mauve #c6a0f6  Green #a6da95  Peach #f5a97f */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PALETTE: catppuccin-macchiato-translucent  (named 2026-05-28)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Canonical Catppuccin Macchiato hex values, alpha-reduced 2× by 25% for a
+   "color is a tint, wallpaper is the ground" feel. This is the named palette
+   reused system-wide (when other apps adopt it, they copy these exact rgba
+   tuples — or eventually we extract them to a Nix module that every app
+   reads from, see the distro roadmap).
+
+   Hex reference:    Blue #8aadf4   Yellow #eed49f   Red #ed8796
+                     Mauve #c6a0f6  Green #a6da95   Peach #f5a97f
+   Alpha discipline: full saturation token = 0.394 (used in animation
+                     keyframes + opt-plus hover beat); state-variant token
+                     = 0.169 (rest face for opt-yes / opt-middle / opt-no).
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @define-color opt-blue              rgba(138, 173, 244, 0.394);
 @define-color opt-blue-state        rgba(138, 173, 244, 0.169);
 @define-color opt-yellow            rgba(238, 212, 159, 0.394);
@@ -225,6 +232,27 @@ window#waybar .opt-pill.opt-pushed:hover,
 window#waybar .opt-pill-child.opt-pushed:hover {
     box-shadow: inset 0 2px 5px @opt-pushed-shadow,
                 inset 0 0 0 999px @opt-hover-bright;
+}
+
+/* ── Hover beats for state-colored action pills (verbs only) ─────────────── */
+/* Pills carrying a state class (opt-yes / opt-middle / opt-no) are action
+   verbs: their click changes something. On hover they BEAT in their tone —
+   destructive red beats fast, defer yellow glows slow, forward blue beats
+   fast. Same keyframes the rest faces would use, just scoped to :hover so
+   the rest face stays calm. Composes with the universal opt-hover-bright
+   overlay — both visible at once (color cycle + white film). */
+
+window#waybar .opt-pill.opt-no:hover,
+window#waybar .opt-pill-child.opt-no:hover {
+    animation: opt-pulse-red 1s ease-in-out infinite alternate;
+}
+window#waybar .opt-pill.opt-middle:hover,
+window#waybar .opt-pill-child.opt-middle:hover {
+    animation: opt-glow-yellow 2s ease-in-out infinite alternate;
+}
+window#waybar .opt-pill.opt-yes:hover,
+window#waybar .opt-pill-child.opt-yes:hover {
+    animation: opt-pulse-blue 1s ease-in-out infinite alternate;
 }
 
 /* ── Animation — motion + tone composed via classes ──────────────────────── */
