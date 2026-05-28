@@ -123,7 +123,13 @@ This pairing is what makes transitions read naturally. An animation may move *be
 
 ### Hover
 
-Hover is **not a separate color**. Hover is the option's current color, *brighter*. A blue pill becomes a brighter blue on hover; a red pill, a brighter red. The user perceives the same affordance intensified — never a swap of identity.
+Hover is **one uniform veil** — `rgba(130, 130, 150, 0.70)`, a soft white-ish translucent lift — applied identically to every non-swap pill, regardless of state.
+
+The pill's REST face is where meaning lives (blue = yes, red = no, yellow = middle). Hover just signals "you're targeting this option right now"; making hover also color-coded would be redundant noise. Same simple lift everywhere is easier on the eye and easier to learn.
+
+Swap pills are the exception. A swap pill's hover is the *action reveal* (e.g. ws-current's "+" pulse) — a deliberate, designed transition specific to that pill. Swap hovers paint their own colors and run their own motions.
+
+**No borders, ever.** Borders were briefly part of the hover treatment; they read as decoration rather than meaning, so they were removed. Surfaces and motion carry the lift; outlines never do.
 
 ### Motion vocabulary
 

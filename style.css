@@ -1,20 +1,36 @@
 /* ==========================================================================
    OPTIONS — Standard-OS UX layer
-   See README.md (soul), CLAUDE.md (operating manual), ARCHITECTURE.md (wiring).
-   This stylesheet is in transition: existing rules use rgba literals; new
-   rules use the OPTIONS color tokens declared below. When touching a rule,
-   migrate it to tokens.
+   See README.md (the soul), CLAUDE.md (operating manual),
+   docs/superpowers/specs/2026-05-28-options-foundation-design.md (this refactor).
+
+   Class vocabulary (the contract every pill honors):
+       Structure (required): .opt-pill | .opt-pill-child
+       Theme (required):     .dark | .light                 (glass-text-daemon)
+       State (0/1):          .opt-yes | .opt-middle | .opt-no
+       Animation (0/1):      .opt-pulse | .opt-glow | .opt-breathe
+       Tone override (rare): .opt-tone-red | .opt-tone-yellow | .opt-tone-blue
+       Swap (0/1):           .opt-swap-<kind>               (rest→hover face)
+       Empty (collapse):     .empty
+
+   IMPORTANT — GTK 3 CSS quirk:
+       waybar/GTK 3 silently ignores bare class selectors (.foo { ... }).
+       Every class selector MUST be scoped by an ancestor or widget type.
+       The convention used throughout this file is the `window#waybar `
+       prefix — every pill in the bar is a descendant of window#waybar.
+
+   Rgba literals appear ONLY inside @define-color. Every rule below uses tokens.
    ========================================================================== */
 
 /* ── OPTIONS color tokens (closed budget) ────────────────────────────────── */
-/* Surfaces (structure) */
-@define-color opt-bar-veil          rgba(50, 50, 70, 0.10);
-@define-color opt-surface-parent    rgba(50, 50, 70, 0.30);
-@define-color opt-surface-child     rgba(70, 50, 50, 0.30);
+@define-color opt-bar-veil          rgba( 50,  50,  70, 0.10);
+@define-color opt-surface-parent    rgba( 50,  50,  70, 0.30);
+@define-color opt-surface-child     rgba( 70,  50,  50, 0.30);
+/* opt-hover-veil — the uniform hover paint applied to every non-swap pill.
+   Reads as a soft "white-ish translucent" lift against any wallpaper.
+   Replaces the earlier per-state brighter-hue scheme. Same rule for parent,
+   child, and every state pill (opt-yes/middle/no) — simpler, more cohesive. */
 @define-color opt-hover-veil        rgba(130, 130, 150, 0.70);
-@define-color opt-hover-border      rgba(255, 255, 255, 0.35);
 
-/* Primary state colors (persistent, painted ON the pill) */
 @define-color opt-blue              rgba( 80, 120, 220, 0.70);
 @define-color opt-blue-state        rgba( 80, 120, 220, 0.30);
 @define-color opt-yellow            rgba(255, 200,  50, 0.70);
@@ -22,30 +38,34 @@
 @define-color opt-red               rgba(255, 100, 100, 0.70);
 @define-color opt-red-state         rgba(255, 100, 100, 0.30);
 
-/* Secondary animation colors (transient, painted OVER the state) */
 @define-color opt-violet            rgba(160, 100, 220, 0.70);
 @define-color opt-green             rgba(100, 200, 100, 0.70);
 @define-color opt-orange            rgba(255, 140,  50, 0.70);
 
-/* Text */
 @define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
 @define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
 @define-color opt-text-on-light-hov rgba(  0,   0,   0, 0.95);
 @define-color opt-text-light-shadow rgba(255, 255, 255, 0.25);
 
-/* ── OPTIONS canonical motions (color carries meaning; motion is shape) ──── */
-/* These animate the pill's background-color *toward* the named color and back
-   when used with animation-direction: alternate. Apply with:
-     animation: opt-pulse-orange 1s ease-in-out infinite alternate;
-   The pill's existing base bg stays the "from" anchor.
-   See README.md → Color and motion for the meaning of each pairing. */
-
+/* ── Canonical motions ───────────────────────────────────────────────────── */
 @keyframes opt-pulse-orange   { to { background-color: @opt-orange; color: #ffffff; } }
 @keyframes opt-pulse-red      { to { background-color: @opt-red;    color: #ffffff; } }
+@keyframes opt-pulse-blue     { to { background-color: @opt-blue;   color: #ffffff; } }
 @keyframes opt-glow-green     { to { background-color: @opt-green;  color: #ffffff; } }
 @keyframes opt-glow-yellow    { to { background-color: @opt-yellow; color: #000000; } }
 @keyframes opt-breathe-violet { to { background-color: @opt-violet; color: #ffffff; } }
 @keyframes opt-breathe-blue   { to { background-color: @opt-blue;   color: #ffffff; } }
+
+/* opt-pulse-plus — the established WS hover pulse: pulses BOTH background-size
+   (14 → 10) and background-color (blue → brighter blue). This is the
+   canonical "swap-plus" hover animation; other swap kinds may share the
+   icon-swap mechanic but use their own motion. The to-color literal is
+   deliberately outside the closed budget — it's an in-animation tone that
+   only exists during this single motion. */
+@keyframes opt-pulse-plus {
+    from { background-size: 14px 14px; background-color: @opt-blue; }
+    to   { background-size: 10px 10px; background-color: rgba(100, 150, 255, 0.90); }
+}
 
 /* ── Bar window ──────────────────────────────────────────────────────────── */
 
@@ -55,177 +75,138 @@
 }
 
 window#waybar {
- background: @opt-bar-veil;
- border-radius: 30px;
-}
-
-/* ── Pill primitive (the OPTIONS canonical glass pill) ───────────────────── */
-/* Every pill listed below shares: 30px border-radius, parent surface
-   background, 14px font, asymmetric padding (3 9 3 7), 3px/2px margin.
-   New pills should use these tokens rather than repeating literals. */
-
-#custom-night-dimmer,
-#custom-warm-cycle,
-#custom-shader-paper,
-#custom-shader-newspaper,
-#custom-clock,
-#custom-battery,
-#custom-x,
-#custom-tools,
-#custom-blue,
-#custom-kill,
-#custom-scan,
-#custom-more,
-#custom-wifi,
-#custom-kill2,
-#custom-scan2,
-#custom-more2,
-#custom-new,
-#custom-hidden,
-#custom-reboot,
-#custom-lock,
-#custom-power,
-#custom-bg-mode,
-#custom-win-close,
-#custom-win-minimize,
-#custom-win-swap-right,
-#custom-win-move-trigger,
-#custom-win-move-1,
-#custom-win-move-2,
-#custom-win-move-3,
-#custom-win-move-4,
-#custom-win-move-5,
-#custom-win-move-6,
-#custom-win-move-7,
-#custom-win-move-8,
-#custom-win-move-9,
-#custom-win-move-new,
-#custom-window,
-#custom-ws-current,
-#custom-ws-new,
-#custom-ws-1,
-#custom-ws-2,
-#custom-ws-3,
-#custom-ws-4,
-#custom-ws-5,
-#custom-ws-6,
-#custom-ws-7,
-#custom-ws-8,
-#custom-ws-9 {
-    background: rgba(50, 50, 70, 0.30);
+    background: @opt-bar-veil;
     border-radius: 30px;
-    border: transparent;
-    color: rgba(255, 255, 255, 1);
-    font-size: 14px;
-    padding: 3px 9px 3px 7px;
-    margin: 3px 2px;
 }
 
-/* ── Inactive workspace (dimmed via opacity) ─────────────────────── */
-#custom-ws-1.inactive,
-#custom-ws-2.inactive,
-#custom-ws-3.inactive,
-#custom-ws-4.inactive,
-#custom-ws-5.inactive,
-#custom-ws-6.inactive,
-#custom-ws-7.inactive,
-#custom-ws-8.inactive,
-#custom-ws-9.inactive {
-    opacity: 0.45;
+/* ── Pill primitive — parent and child surfaces ──────────────────────────── */
+
+window#waybar .opt-pill,
+window#waybar .opt-pill-child {
+    border-radius: 30px;
+    color: @opt-text-on-dark;
+    font-size: 13px;
+    padding: 3px 8px 3px 7px;
+    margin: 1px 0px;
 }
 
-/* ── Canonical hover (current color, brighter — the OPTIONS hover rule) ──── */
-/* Alpha 0.30 → 0.70 (~2.3× brighter) plus a hairline white edge. Specialized
-   action pills further down override the background with their semantic color
-   (red for destructive, yellow for caution, blue for primary). */
+window#waybar .opt-pill        { background: @opt-surface-parent; }
+window#waybar .opt-pill-child  { background: @opt-surface-child;  }
 
-#screen-type-group > *:hover,
-#screen-type-group button:hover,
-#custom-night-dimmer:hover,
-#custom-warm-cycle:hover,
-#custom-shader-paper:hover,
-#custom-shader-newspaper:hover,
-#custom-clock:hover,
-#custom-battery:hover,
-#custom-x:hover,
-#custom-tools:hover,
-#custom-blue:hover,
-#custom-kill:hover,
-#custom-scan:hover,
-#custom-more:hover,
-#custom-wifi:hover,
-#custom-kill2:hover,
-#custom-scan2:hover,
-#custom-more2:hover,
-#custom-new:hover,
-#custom-hidden:hover,
-#custom-win-close:hover,
-#custom-win-minimize:hover,
-#custom-win-swap-right:hover,
-#custom-win-move-trigger:hover,
-#custom-win-move-1:hover,
-#custom-win-move-2:hover,
-#custom-win-move-3:hover,
-#custom-win-move-4:hover,
-#custom-win-move-5:hover,
-#custom-win-move-6:hover,
-#custom-win-move-7:hover,
-#custom-win-move-8:hover,
-#custom-win-move-9:hover,
-#custom-win-move-new:hover,
-#custom-window:hover,
-#custom-ws-current:hover,
-#custom-ws-new:hover,
-#custom-ws-1:hover,
-#custom-ws-2:hover,
-#custom-ws-3:hover,
-#custom-ws-4:hover,
-#custom-ws-5:hover,
-#custom-ws-6:hover,
-#custom-ws-7:hover,
-#custom-ws-8:hover,
-#custom-ws-9:hover {
-    background: rgba(130, 130, 150, 0.70);
-    border-color: rgba(255, 255, 255, 0.35);
-}
+/* ── Canonical hover — uniform veil over every non-swap pill ─────────────── */
+/* One color for every hover. The pill's REST face still carries the meaning
+   (opt-yes = blue, opt-no = red, etc.); hover just signals "you're targeting
+   this". Swap pills (opt-swap-*) override below with their action-reveal
+   behavior. No borders, ever. */
 
-/* ── Workspace drawer: trigger shows "+" on hover ────────────────── */
-#custom-ws-current:hover {
-    color: transparent;
-    text-shadow: none;
-    background-color: rgba(80, 120, 220, 0.70);
-    background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
+window#waybar .opt-pill:hover,
+window#waybar .opt-pill-child:hover  { background: @opt-hover-veil; }
+
+/* ── State paint — yes / middle / no (persistent state colors) ───────────── */
+
+window#waybar .opt-pill.opt-yes,
+window#waybar .opt-pill-child.opt-yes    { background: @opt-blue-state;   }
+window#waybar .opt-pill.opt-middle,
+window#waybar .opt-pill-child.opt-middle { background: @opt-yellow-state; }
+window#waybar .opt-pill.opt-no,
+window#waybar .opt-pill-child.opt-no     { background: @opt-red-state;    }
+
+/* State pills all share the same hover veil — same simple rule as baseline. */
+window#waybar .opt-pill.opt-yes:hover,
+window#waybar .opt-pill-child.opt-yes:hover,
+window#waybar .opt-pill.opt-middle:hover,
+window#waybar .opt-pill-child.opt-middle:hover,
+window#waybar .opt-pill.opt-no:hover,
+window#waybar .opt-pill-child.opt-no:hover     { background: @opt-hover-veil; }
+
+/* ── Animation — motion + tone composed via classes ──────────────────────── */
+
+window#waybar .opt-pulse                  { animation: opt-pulse-orange 1s ease-in-out infinite alternate; }
+window#waybar .opt-pulse.opt-tone-red     { animation: opt-pulse-red    1s ease-in-out infinite alternate; }
+window#waybar .opt-pulse.opt-tone-blue    { animation: opt-pulse-blue   1s ease-in-out infinite alternate; }
+
+window#waybar .opt-glow                   { animation: opt-glow-green  2s ease-in-out infinite alternate; }
+window#waybar .opt-glow.opt-tone-yellow   { animation: opt-glow-yellow 2s ease-in-out infinite alternate; }
+
+window#waybar .opt-breathe                { animation: opt-breathe-violet 6s ease-in-out infinite alternate; }
+window#waybar .opt-breathe.opt-tone-blue  { animation: opt-breathe-blue   6s ease-in-out infinite alternate; }
+
+/* ── Hover-swap pattern — rest face shows info, hover reveals action ─────── */
+/* Shared mechanic: on hover, hide the label and let a background-image take
+   its place. The label hiding is done two ways at once:
+     (1) button-level `color: transparent` — covers dark mode via cascade.
+     (2) `.opt-pill.opt-swap-*.light:hover label` override below — needed in
+         light mode because the canonical `.opt-pill.light:hover label` rule
+         (specificity 0,3,1) paints labels dark on hover; we beat it with
+         4-class specificity (0,4,1). Forgetting either path leaves the rest
+         face bleeding through the hover face. */
+
+window#waybar .opt-swap-plus:hover,
+window#waybar .opt-swap-switch:hover,
+window#waybar .opt-swap-cal:hover,
+window#waybar .opt-swap-pct:hover {
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 14px 14px;
-    animation: pulse-plus 1s ease-in-out infinite alternate;
-}
-
-#custom-ws-current.light:hover {
     color: transparent;
     text-shadow: none;
+}
+
+window#waybar .opt-pill.opt-swap-plus.light:hover label,
+window#waybar .opt-pill.opt-swap-switch.light:hover label,
+window#waybar .opt-pill.opt-swap-cal.light:hover label,
+window#waybar .opt-pill.opt-swap-pct.light:hover label,
+window#waybar .opt-pill-child.opt-swap-plus.light:hover label,
+window#waybar .opt-pill-child.opt-swap-switch.light:hover label,
+window#waybar .opt-pill-child.opt-swap-cal.light:hover label,
+window#waybar .opt-pill-child.opt-swap-pct.light:hover label {
+    color: transparent;
+    text-shadow: none;
+}
+
+/* opt-swap-plus — the canonical hover-swap (ws-current "you're here" → "+").
+   Preserved exactly from the pre-OPTIONS implementation: the bg-color goes
+   from neutral parent surface (the resting pill) to blue with a "+" SVG,
+   then the opt-pulse-plus animation cycles bg-size 14→10 and bg-color through
+   the blue ladder. This animation is intentionally specific to plus — other
+   swap kinds get their own mechanic. */
+window#waybar .opt-swap-plus:hover {
+    background-color: @opt-blue;
+    background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
+    background-size: 14px 14px;
+    animation: opt-pulse-plus 1s ease-in-out infinite alternate;
+}
+window#waybar .opt-swap-plus.light:hover {
     background-image: url("/home/max/.config/waybar/icons/plus-black.svg");
 }
 
-/* ── Active window group — base layout ──────────────────────────── */
+/* opt-swap-switch / opt-swap-cal / opt-swap-pct — declared, icons pending. */
 
-#active-window,
-#win-move {
+/* ── Inactive workspace dim ──────────────────────────────────────────────── */
+
+window#waybar .opt-pill-child.inactive,
+window#waybar .opt-pill.inactive {
+    opacity: 0.45;
+}
+
+/* ── Empty (collapse a pill to zero presence) ────────────────────────────── */
+
+window#waybar .empty,
+window#waybar.empty #active-window,
+window#waybar.empty #active-window *,
+window#waybar.empty #window,
+window#waybar.empty #window label,
+window#waybar.empty #win-move {
     padding: 0;
     margin: 0;
     min-width: 0;
     min-height: 0;
     border: 0;
     background: transparent;
+    opacity: 0;
+    font-size: 0;
 }
 
-/* ── Active window icon (no pill, fills bar height) ───────────────── */
-/* Vertical padding+margin MUST keep total height ≤ bar height (30 in   */
-/* config.jsonc). Icon-size is 22, so 22 + padding-y*2 + margin-y*2 must */
-/* be ≤ 30. With 1px each that's 26 (4px headroom). Setting 3px each    */
-/* like before pushed the requested height to 34 and waybar kept       */
-/* oscillating between the configured 30 and the forced 34 every time  */
-/* the focused window changed.                                          */
+/* ── Focused-window icon-only pill ───────────────────────────────────────── */
 
 #window {
     background: transparent;
@@ -241,292 +222,49 @@ window#waybar {
     margin: 0;
 }
 
-/* ── COLLAPSE WHEN NO WINDOW ──────────────────────────────────────── */
-/*  hyprland/window auto-adds .empty class to window#waybar when the   */
-/*  focused workspace has 0 windows. We cascade-collapse everything    */
-/*  in the active-window group via that class.                        */
-/*  Defense-in-depth: also collapse individual modules whose JSON     */
-/*  carries class:"empty" (written by workspace-daemon.sh).           */
-
-window#waybar.empty #active-window,
-window#waybar.empty #active-window *,
-window#waybar.empty #window,
-window#waybar.empty #window label,
-window#waybar.empty #win-move,
-window#waybar.empty #custom-win-close,
-window#waybar.empty #custom-win-minimize,
-window#waybar.empty #custom-win-swap-right,
-window#waybar.empty #custom-win-move-trigger,
-window#waybar.empty #custom-win-move-new,
-window#waybar.empty #custom-win-move-1,
-window#waybar.empty #custom-win-move-2,
-window#waybar.empty #custom-win-move-3,
-window#waybar.empty #custom-win-move-4,
-window#waybar.empty #custom-win-move-5,
-window#waybar.empty #custom-win-move-6,
-window#waybar.empty #custom-win-move-7,
-window#waybar.empty #custom-win-move-8,
-window#waybar.empty #custom-win-move-9,
-#custom-win-close.empty,
-#custom-win-minimize.empty,
-#custom-win-swap-right.empty,
-#custom-win-move-trigger.empty,
-#custom-win-move-new.empty,
-#custom-win-move-1.empty,
-#custom-win-move-2.empty,
-#custom-win-move-3.empty,
-#custom-win-move-4.empty,
-#custom-win-move-5.empty,
-#custom-win-move-6.empty,
-#custom-win-move-7.empty,
-#custom-win-move-8.empty,
-#custom-win-move-9.empty {
+#active-window,
+#win-move {
     padding: 0;
     margin: 0;
     min-width: 0;
     min-height: 0;
     border: 0;
     background: transparent;
-    opacity: 0;
 }
 
-/* ── Active window module — distinct hover colors ─────────────────── */
+/* ── Adaptive text — glass-text-daemon writes .light or .dark on the pill ── */
 
-#custom-win-close:hover {
-    background-color: rgba(255, 100, 100, 0.60);
+window#waybar .opt-pill.light label,
+window#waybar .opt-pill-child.light label {
+    color: @opt-text-on-light;
+    text-shadow: 0 1px 2px @opt-text-light-shadow;
 }
 
-#custom-win-minimize:hover {
-    background-color: rgba(255, 200, 50, 0.50);
+window#waybar .opt-pill.light:hover label,
+window#waybar .opt-pill-child.light:hover label {
+    color: @opt-text-on-light-hov;
 }
 
-#custom-win-swap-right:hover {
-    background-color: rgba(100, 160, 255, 0.55);
-}
-
-#custom-win-move-trigger:hover {
-    background-color: rgba(100, 200, 100, 0.50);
-}
-
-#custom-win-move-new:hover {
-    background-color: rgba(80, 120, 220, 0.70);
-}
-
-/* ── Hover (power group — distinct colors) ────────────────────────── */
-
-#custom-lock:hover {
-    background-color: #6666ff;
-    color: #ffffff;
-    animation-name: blink;
-    animation-duration: 1s;
-    animation-timing-function: steps(24);
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-
-#custom-reboot:hover {
-    background-color: #66ff66;
-    color: #ffffff;
-    animation-name: blink;
-    animation-duration: 1s;
-    animation-timing-function: steps(24);
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-
-#custom-power:hover {
-    background-color: #ff9999;
-    color: #ffffff;
-    animation-name: blink;
-    animation-duration: 1s;
-    animation-timing-function: steps(24);
-    animation-iteration-count: infinite;
-    animation-direction: alternate;
-}
-
-
-/* ── BG mode ──────────────────────────────────────────────────────── */
-
-#custom-bg-mode {
-    transition: color 0.3s ease, background-color 0.3s ease;
-}
-
-#custom-bg-mode.immersive {
-    color: #a0c4ff;
-}
-
-#custom-bg-mode.autoswitch {
-    animation-name: shine;
-    animation-duration: 0.6s;
-    animation-timing-function: steps(16);
-    animation-iteration-count: 6;
-    animation-direction: alternate;
-    animation-fill-mode: none;
-}
-
-/* ── Animations ───────────────────────────────────────────────────── */
-
-@keyframes blink {
-    to {
-        background-color: #ffffff;
-        color: #000000;
-    }
-}
-
-@keyframes shine {
-    to {
-        background-color: rgba(160, 196, 255, 0.75);
-        color: #000000;
-    }
-}
-
-@keyframes pulse-plus {
-    from {
-        background-size: 14px 14px;
-        background-color: rgba(80, 120, 220, 0.70);
-    }
-    to {
-        background-size: 10px 10px;
-        background-color: rgba(100, 150, 255, 0.90);
-    }
-}
-
-/* ============================================================
-   ADAPTIVE TEXT COLOR — glass-text-daemon
-   Class-based: custom modules output "light" or "dark" CSS class.
-   GTK transitions handle smooth color change — no reload.
-   ============================================================ */
-
-/* Light background → dark text */
-window#waybar #custom-x.light label,
-window#waybar #custom-tools.light label,
-window#waybar #custom-blue.light label,
-window#waybar #custom-kill.light label,
-window#waybar #custom-scan.light label,
-window#waybar #custom-more.light label,
-window#waybar #custom-wifi.light label,
-window#waybar #custom-kill2.light label,
-window#waybar #custom-scan2.light label,
-window#waybar #custom-more2.light label,
-window#waybar #custom-new.light label,
-window#waybar #custom-hidden.light label,
-window#waybar #custom-reboot.light label,
-window#waybar #custom-lock.light label,
-window#waybar #custom-power.light label,
-window#waybar #custom-bg-mode.light label,
-window#waybar #custom-night-dimmer.light label,
-window#waybar #custom-warm-cycle.light label,
-window#waybar #custom-shader-paper.light label,
-window#waybar #custom-shader-newspaper.light label,
-window#waybar #custom-clock.light label,
-window#waybar #custom-battery.light label,
-window#waybar #custom-win-close.light label,
-window#waybar #custom-win-minimize.light label,
-window#waybar #custom-win-swap-right.light label,
-window#waybar #custom-win-move-trigger.light label,
-window#waybar #custom-win-move-1.light label,
-window#waybar #custom-win-move-2.light label,
-window#waybar #custom-win-move-3.light label,
-window#waybar #custom-win-move-4.light label,
-window#waybar #custom-win-move-5.light label,
-window#waybar #custom-win-move-6.light label,
-window#waybar #custom-win-move-7.light label,
-window#waybar #custom-win-move-8.light label,
-window#waybar #custom-win-move-9.light label,
-window#waybar #custom-win-move-new.light label,
-window#waybar #custom-window.light label,
-window#waybar #custom-ws-current.light label,
-window#waybar #custom-ws-new.light label,
-window#waybar #custom-ws-1.light label,
-window#waybar #custom-ws-2.light label,
-window#waybar #custom-ws-3.light label,
-window#waybar #custom-ws-4.light label,
-window#waybar #custom-ws-5.light label,
-window#waybar #custom-ws-6.light label,
-window#waybar #custom-ws-7.light label,
-window#waybar #custom-ws-8.light label,
-window#waybar #custom-ws-9.light label,
-window#waybar label.light {
-    color: rgba(0, 0, 0, 0.85);
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.25);
-}
-
-/* Light background → dark text (hover) */
-window#waybar #custom-x.light:hover label,
-window#waybar #custom-tools.light:hover label,
-window#waybar #custom-blue.light:hover label,
-window#waybar #custom-kill.light:hover label,
-window#waybar #custom-scan.light:hover label,
-window#waybar #custom-more.light:hover label,
-window#waybar #custom-wifi.light:hover label,
-window#waybar #custom-kill2.light:hover label,
-window#waybar #custom-scan2.light:hover label,
-window#waybar #custom-more2.light:hover label,
-window#waybar #custom-new.light:hover label,
-window#waybar #custom-hidden.light:hover label,
-window#waybar #custom-reboot.light:hover label,
-window#waybar #custom-lock.light:hover label,
-window#waybar #custom-power.light:hover label,
-window#waybar #custom-bg-mode.light:hover label,
-window#waybar #custom-night-dimmer.light:hover label,
-window#waybar #custom-warm-cycle.light:hover label,
-window#waybar #custom-shader-paper.light:hover label,
-window#waybar #custom-shader-newspaper.light:hover label,
-window#waybar #custom-clock.light:hover label,
-window#waybar #custom-battery.light:hover label,
-window#waybar #custom-win-close.light:hover label,
-window#waybar #custom-win-minimize.light:hover label,
-window#waybar #custom-win-swap-right.light:hover label,
-window#waybar #custom-win-move-trigger.light:hover label,
-window#waybar #custom-win-move-1.light:hover label,
-window#waybar #custom-win-move-2.light:hover label,
-window#waybar #custom-win-move-3.light:hover label,
-window#waybar #custom-win-move-4.light:hover label,
-window#waybar #custom-win-move-5.light:hover label,
-window#waybar #custom-win-move-6.light:hover label,
-window#waybar #custom-win-move-7.light:hover label,
-window#waybar #custom-win-move-8.light:hover label,
-window#waybar #custom-win-move-9.light:hover label,
-window#waybar #custom-win-move-new.light:hover label,
-window#waybar #custom-window.light:hover label,
-window#waybar #custom-ws-current.light:hover label,
-window#waybar #custom-ws-new.light:hover label,
-window#waybar #custom-ws-1.light:hover label,
-window#waybar #custom-ws-2.light:hover label,
-window#waybar #custom-ws-3.light:hover label,
-window#waybar #custom-ws-4.light:hover label,
-window#waybar #custom-ws-5.light:hover label,
-window#waybar #custom-ws-6.light:hover label,
-window#waybar #custom-ws-7.light:hover label,
-window#waybar #custom-ws-8.light:hover label,
-window#waybar #custom-ws-9.light:hover label,
-window#waybar label.light:hover {
-    color: rgba(0, 0, 0, 0.95);
-}
-
-/* ── Voice dictation indicator ─────────────────────────────────────── */
-/* Module is empty (no text) when idle, so it renders nothing. While    */
-/* recording or transcribing the script writes a microphone glyph and   */
-/* one of these classes; the slot stays in modules-right but only shows */
-/* when an indicator is active.                                         */
+/* ── Voice dictation indicator (legacy class names, OPTIONS-aligned paint) ── */
+/* dictate-waybar lives in modules/voice-dictation.nix (separate from this
+   refactor) and emits .recording / .transcribing. Map those to the OPTIONS
+   palette so the dictate pill speaks the same visual language. */
 
 #custom-dictate {
-    padding: 3px 9px 3px 7px;
-    margin: 3px 2px;
-    font-size: 14px;
     background: transparent;
     border-radius: 30px;
-    /* font-family inherits from the bar default (font-awesome, meslo-lg, */
-    /* meslo-lgs-nf) so U+F130 renders via font-awesome's microphone glyph */
+    padding: 1px 8px 1px 7px;
+    margin: 2px 1px;
+    font-size: 12px;
+    color: @opt-text-on-dark;
 }
 
 #custom-dictate.recording {
-    color: #2ecc71;
-    background: rgba(46, 204, 113, 0.12);
+    background: @opt-blue-state;
+    animation: opt-breathe-violet 6s ease-in-out infinite alternate;
 }
 
 #custom-dictate.transcribing {
-    color: #f1c40f;
-    background: rgba(241, 196, 15, 0.12);
+    background: @opt-yellow-state;
+    animation: opt-glow-green 2s ease-in-out infinite alternate;
 }
-

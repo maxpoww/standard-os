@@ -38,22 +38,20 @@ Every options pill — current or future — starts from this spec. Anything dif
 
 ```css
 .opt-pill {
-    background: rgba(50, 50, 70, 0.30);   /* parent surface (cool) */
+    background: rgba(50, 50, 70, 0.30);    /* parent surface (cool) */
     border-radius: 30px;
-    border: transparent;
     color: rgba(255, 255, 255, 1);
-    font-size: 14px;
-    padding: 3px 9px 3px 7px;             /* T R B L — note the 7/9 left/right asymmetry */
-    margin: 3px 2px;
+    font-size: 12px;
+    padding: 1px 8px 1px 7px;              /* T R B L — note the 8/7 left/right asymmetry */
+    margin: 2px 1px;
 }
 
 .opt-pill:hover {
-    background: <pill's current color at alpha 0.70>;
-    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(130, 130, 150, 0.70); /* @opt-hover-veil — same for every non-swap pill */
 }
 ```
 
-Hover is the pill's current color, brighter. Concretely: 30 % alpha → 70 % alpha, plus a 35 %-white hairline border edge.
+Hover is **one uniform veil**: `rgba(130, 130, 150, 0.70)`, applied identically to every non-swap pill regardless of state. State paint (yes/middle/no) lives on the rest face; hover just signals targeting. Swap pills (ws-current "+" reveal, etc.) are the only exception — they paint their own action-reveal color + motion. **No borders, ever** — outlines read as decoration, not meaning.
 
 Bar window: `background: rgba(50, 50, 70, 0.10); border-radius: 30px; height: 30px`.
 
@@ -292,7 +290,7 @@ The bar is owned by a real systemd service with `Restart=always`. Killing it man
 
 ## Hyprland quirks relevant to OPTIONS
 
-- **Bar height pin = 30 px** (set in `config.jsonc` `"height": 30`). Any pill that affects total height (e.g. `#window` icon) must respect: icon + 2× padding + 2× margin ≤ 30. Going over makes waybar oscillate between configured 30 and forced taller value every focus change.
+- **Bar height pin = 22 px** (set in `config.jsonc` `"height": 22`). Any pill that affects total height (e.g. `#window` icon) must respect: icon + 2× padding + 2× margin ≤ 22. Current `#window`: icon-size 18 + padding 1+1 + margin 1+1 = 22 (exact fit). Going over makes waybar oscillate between configured 22 and forced taller value every focus change.
 - **`hyprctl getoption general:gaps_in -j`** returns a `CssBoxStyle` `{"custom":"3 3 3 3","set":true}` — a *space-separated string*, NOT `{"int":3}`. Always parse with the `if has("int")…elif has("custom")…` jq pattern, splitting on spaces and taking `max`. Plain `.custom|tonumber` returns null and silently treats gaps as 0.
 - **socket2 subscription** is the cheap event source for window/workspace/monitor changes. Subscribe via `socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock -`. Filter line prefixes (`activewindow`, `openwindow`, etc.).
 - **Center-zone task pill** is `custom/window` today, sourced from `/tmp/waybar-cache/window`. Click opens `~/.config/rofi/window-switcher.sh` — that's the existing multitasking flow.
@@ -345,7 +343,7 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 
 1. **Closed budget.** 6 colors + 3 motions + 2 surfaces. No exceptions without written justification in a commit message.
 2. **The pill primitive is the start of every visual.** Deviate only when the deviation is itself a visible semantic (e.g. empty-collapse). Document the deviation in CSS as a comment.
-3. **Hover = current color brighter.** Never a hue swap. Brightness comes from alpha (~0.30 → ~0.70) and a 35 %-white border.
+3. **Hover = uniform veil.** `rgba(130, 130, 150, 0.70)` for every non-swap pill, regardless of state. State paint lives on the rest face; hover is just targeting. **No borders, ever** — outlines read as decoration, not meaning.
 4. **Every text-bearing pill respects `/tmp/glass-mode`** and emits a `light`/`dark` class. Forgetting this makes the pill invisible over half of wallpapers — a silent regression.
 5. **Modules don't consult each other.** Each module subscribes to context signals from its source of truth and decides its own visibility. Cross-module coupling is a maintenance smell.
 6. **Daemon, not poll, when possible.** Use event-driven sources (`socat hyprland-socket2`, `nmcli monitor`, `pw-mon`, `wl-paste --watch`). Polling is a cost ceiling — fine for low-frequency status (battery every 30 s) but never for reactive UX.
@@ -367,6 +365,10 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 - **Multi-waybar collisions.** Hyprland's legacy `exec-once = launch.sh` can race with the systemd `waybar.service`. The Nix module's `systemd.enable` toggle exists for this; don't enable both.
 - **Glyph-bearing empty pills.** `padding:0; opacity:0` collapse keeps the slot but the LABEL still has natural width unless you also set `font-size: 0`. The mpris module documented this for waybar GTK 3 specifically.
 - **Don't unload the waypaper image when cycling solid-color backgrounds.** That's a hypr-edge-bg concern but the glass-text-daemon depends on the path staying live. (Cross-project hazard.)
+- **Emit `class` as a JSON ARRAY, not a space-separated string** (2026-05-28 regression). waybar/GTK 3 treats `"class":"opt-pill dark opt-yes"` as a SINGLE class named `opt-pill dark opt-yes` — every `.opt-pill`-style CSS selector then silently fails. Use `pill_emit` from `~/.config/waybar/scripts/lib/pill.sh` (it converts the space-separated string to a proper array), or emit `"class":["opt-pill","dark","opt-yes"]` directly. Static modules with dynamic content (clock, battery, anything that interpolates text or a state class) source the lib and call `pill_emit` inline rather than `printf`-ing JSON by hand.
+- **GTK 3 CSS class selectors must be scoped** (2026-05-28 regression). A bare `.opt-pill { ... }` rule loads without error but silently doesn't match. Every class selector needs an ancestor (`window#waybar .opt-pill`), widget type (`button.opt-pill`, `label.light`), or ID (`#custom-X.empty`). When in doubt, prefix with `window#waybar `.
+- **Nerd Font glyphs look empty in plain terminals** (2026-05-28 regression). A diff of `printf '{\"text\":\"\",...}'` may show `\"\"` where the original file held three UTF-8 bytes for a Font Awesome glyph (e.g. `\xef\x81\xa7` for `` U+F067 plus). Before rewriting an exec, inspect raw bytes with `od -An -tx1` or `od -An -c`. The glyphs that bit us once: new=`U+F067` (plus), hidden=`U+F061` (arrow), tools=`U+F0AC` (globe), blue=`U+F293` (BT), more=`U+E690` (3-dots), power=`U+F011`.
+- **Hover-swap label hiding needs both button-level color AND a high-specificity light-mode label override** (2026-05-28). Setting `color: transparent` only on `.opt-swap-*:hover label` (specificity 0,2,1) loses in light mode to the canonical `.opt-pill.light:hover label` rule (0,3,1) — the resting-face number bleeds through behind the hover-face icon. Fix: put `color: transparent` on the BUTTON-level `.opt-swap-*:hover` rule (covers dark mode via cascade) AND a `.opt-pill.opt-swap-*.light:hover label` rule (0,4,1, beats the light-text override). When adding new swap kinds, extend BOTH selectors.
 
 ---
 

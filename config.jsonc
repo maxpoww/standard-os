@@ -1,7 +1,7 @@
 // =====================================================================
 //  OPTIONS — waybar implementation
 //  See README.md (the soul), CLAUDE.md (operating manual),
-//  ARCHITECTURE.md (zones, daemons, channels, signals).
+//  docs/superpowers/specs/2026-05-28-options-foundation-design.md (refactor).
 //
 //  Layout zones:
 //    LEFT   = USER   — where the user is: workspaces (current location),
@@ -18,27 +18,29 @@
 //    LEFT-zone groups   → drawer.transition-left-to-right: true   (expand right)
 //    RIGHT-zone groups  → drawer.transition-left-to-right: false  (expand left)
 //    CENTER-zone groups → expand away from the task anchor
+//
+//  Module exec patterns (post-refactor):
+//    Static pill:    "~/.config/waybar/scripts/pill '<glyph>' [opt-class ...]"
+//    Child pill:     "~/.config/waybar/scripts/pill-child '<glyph>' [opt-class ...]"
+//    Daemon-driven:  "cat /tmp/waybar-cache/<name> 2>/dev/null"
+//  The daemon writes JSON with the full class string baked in.
 // =====================================================================
 {
   "exclusive": true,
-  "spacing": 4,
-  "height": 30,
+  "spacing": 2,
+  "height": 22,
+  // Pin modules-center to the visual center of the bar. The focused-window
+  // pill (right edge of USER) and the launcher "+" (left edge of TASK) live
+  // on opposite sides of a visible gap by design.
+  "fixed-center": true,
 
   // ── USER zone (left) ────────────────────────────────────────────
-  // Where the user is. Workspaces show current location; active-window
-  // shows current focus and offers per-window actions (close, minimize,
-  // swap-right, move). The focused-window pill at the right edge of this
-  // zone touches the launcher "+" at the left edge of CENTER — the visual
-  // bridge between "the task you have" and "another task you could start."
   "modules-left": [
     "group/workspaces",
     "group/active-window"
   ],
 
   // ── TASK zone (center) ──────────────────────────────────────────
-  // Task-manipulation tools: launcher (custom/new "+"), lock (custom/hidden),
-  // task switcher (custom/window — clicking opens rofi window-switcher),
-  // restore-minimized (custom/x).
   "modules-center": [
     "group/group-rofi",
     "custom/window",
@@ -46,8 +48,6 @@
   ],
 
   // ── SYSTEM zone (right) ─────────────────────────────────────────
-  // Persistent system state, mostly read-only-with-occasional-action.
-  // Connectivity, theme controls, time, power, indicators.
   "modules-right": [
     "tray",
     "group/group-2",
@@ -64,6 +64,10 @@
     "show-passive-items": true,
     "reverse-direction": false
   },
+
+  // ── Active window group: focused-window pill + per-window actions ──
+  // hyprland/window is the trigger (parent surface, opt-swap-switch via CSS).
+  // win-* pills are revealed children → opt-pill-child via the daemon writer.
   "group/active-window": {
     "orientation": "inherit",
     "drawer": {
@@ -81,7 +85,7 @@
   "hyprland/window": {
     "format": "",
     "icon": true,
-    "icon-size": 22,
+    "icon-size": 18,
     "on-click": "~/.config/waybar/scripts/win-action.sh new-instance"
   },
   "custom/win-close": {
@@ -111,6 +115,11 @@
     "tooltip": false,
     "on-click": "/home/max/.config/waybar/scripts/swap-smart.sh"
   },
+
+  // ── Per-window move drawer ──
+  // Trigger (win-move-trigger) = opt-pill-child (it lives inside active-window
+  // which is itself a drawer). Children (win-move-N, win-move-new) emit
+  // opt-pill-child via the workspace-daemon writer.
   "group/win-move": {
     "orientation": "inherit",
     "drawer": {
@@ -141,94 +150,57 @@
   },
   "custom/win-move-1": {
     "exec": "cat /tmp/waybar-cache/win-move-1 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 1"
   },
   "custom/win-move-2": {
     "exec": "cat /tmp/waybar-cache/win-move-2 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 2"
   },
   "custom/win-move-3": {
     "exec": "cat /tmp/waybar-cache/win-move-3 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 3"
   },
   "custom/win-move-4": {
     "exec": "cat /tmp/waybar-cache/win-move-4 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 4"
   },
   "custom/win-move-5": {
     "exec": "cat /tmp/waybar-cache/win-move-5 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 5"
   },
   "custom/win-move-6": {
     "exec": "cat /tmp/waybar-cache/win-move-6 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 6"
   },
   "custom/win-move-7": {
     "exec": "cat /tmp/waybar-cache/win-move-7 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 7"
   },
   "custom/win-move-8": {
     "exec": "cat /tmp/waybar-cache/win-move-8 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 8"
   },
   "custom/win-move-9": {
     "exec": "cat /tmp/waybar-cache/win-move-9 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace 9"
   },
   "custom/win-move-new": {
     "exec": "cat /tmp/waybar-cache/win-move-new 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch movetoworkspace empty"
   },
+
+  // ── Screen-type group (warmth + texture shaders) ──
+  // Trigger: warm-cycle (parent surface). Children: shader-paper, shader-newspaper.
   "group/screen-type-group": {
     "orientation": "inherit",
     "drawer": {
@@ -243,48 +215,32 @@
   },
   "custom/warm-cycle": {
     "exec": "~/.config/waybar/scripts/warm-cycle.sh exec",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": true,
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
     "on-click": "~/.config/waybar/scripts/warm-cycle.sh click"
   },
   "custom/shader-paper": {
     "exec": "~/.config/waybar/scripts/shader-toggle.sh exec paper",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": true,
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
     "on-click": "~/.config/waybar/scripts/shader-toggle.sh click paper"
   },
   "custom/shader-newspaper": {
     "exec": "~/.config/waybar/scripts/shader-toggle.sh exec newspaper",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": true,
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
     "on-click": "~/.config/waybar/scripts/shader-toggle.sh click newspaper"
   },
   "custom/night-dimmer": {
     "exec": "~/.config/waybar/scripts/night-dimmer.sh exec",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": true,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": true,
     "on-click": "~/.config/waybar/scripts/night-dimmer.sh click"
   },
   "custom/dictate": {
     "exec": "dictate-waybar",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 11,
-    "tooltip": true
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 11, "tooltip": true
   },
+
+  // ── TASK launcher group: + (drun) and lock ──
+  // Trigger: launcher "+" (parent, opt-yes — the primary "go" action).
+  // Child: lock alternative (opt-pill-child).
   "group/group-rofi": {
     "orientation": "inherit",
     "drawer": {
@@ -297,32 +253,24 @@
     ]
   },
   "custom/new": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill '' opt-yes",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/hidden": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/x": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󱂬\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill '󱂬'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "~/.config/waybar/scripts/restore-minimized.sh"
   },
+
+  // ── System tools / BT / WiFi (group-2) ──
+  // Trigger: tools (parent). Children: blue-trigger, wifi-trigger (each is
+  // itself a drawer with its own internal trigger + children).
   "group/group-2": {
     "orientation": "inherit",
     "drawer": {
@@ -334,6 +282,10 @@
       "group/group-blue",
       "group/group-wifi"
     ]
+  },
+  "custom/tools": {
+    "exec": "~/.config/waybar/scripts/pill ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "group/group-blue": {
     "orientation": "inherit",
@@ -349,48 +301,24 @@
     ]
   },
   "custom/blue": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰂲\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰂲'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/scan": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰛔\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰛔'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/more": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
-  },
-  "custom/tools": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false
   },
   "group/group-wifi": {
     "orientation": "inherit",
@@ -406,41 +334,30 @@
     ]
   },
   "custom/wifi": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰖩\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰖩'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill2": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰖪\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰖪'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
   "custom/scan2": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󱛄\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󱛄'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/more2": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
+
+  // ── Power group ──
+  // Trigger: power (parent, hovers to opt-no — the destructive accent is
+  // intentional and only on hover; rest face is baseline).
+  // Children: reboot, lock (opt-pill-child baseline).
   "group/group-power": {
     "orientation": "inherit",
     "drawer": {
@@ -453,33 +370,26 @@
       "custom/lock"
     ]
   },
+  "custom/power": {
+    "exec": "~/.config/waybar/scripts/pill ''",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
+    "on-click": "systemctl hibernate"
+  },
   "custom/reboot": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰜉\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰜉'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "reboot"
   },
   "custom/lock": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"󰍁\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
+    "exec": "~/.config/waybar/scripts/pill-child '󰍁'",
+    "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
-  "custom/power": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"\",\"class\":\"%s\"}' \"$m\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": false,
-    "on-click": "systemctl hibernate"
-  },
+
+  // ── Workspaces group ──
+  // Trigger: ws-current (parent, opt-yes — you're here = blue good, with
+  // opt-swap-plus reveals "+" on hover). Children: ws-1..9 (opt-pill-child,
+  // the current one gets opt-yes via the daemon writer).
   "group/workspaces": {
     "orientation": "inherit",
     "drawer": {
@@ -501,117 +411,78 @@
   },
   "custom/ws-current": {
     "exec": "cat /tmp/waybar-cache/ws-current 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 1,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 1, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace empty"
   },
   "custom/ws-1": {
     "exec": "cat /tmp/waybar-cache/ws-1 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 1"
   },
   "custom/ws-2": {
     "exec": "cat /tmp/waybar-cache/ws-2 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 2"
   },
   "custom/ws-3": {
     "exec": "cat /tmp/waybar-cache/ws-3 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 3"
   },
   "custom/ws-4": {
     "exec": "cat /tmp/waybar-cache/ws-4 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 4"
   },
   "custom/ws-5": {
     "exec": "cat /tmp/waybar-cache/ws-5 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 5"
   },
   "custom/ws-6": {
     "exec": "cat /tmp/waybar-cache/ws-6 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 6"
   },
   "custom/ws-7": {
     "exec": "cat /tmp/waybar-cache/ws-7 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 7"
   },
   "custom/ws-8": {
     "exec": "cat /tmp/waybar-cache/ws-8 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 8"
   },
   "custom/ws-9": {
     "exec": "cat /tmp/waybar-cache/ws-9 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": false,
     "on-click": "hyprctl dispatch workspace 9"
   },
+
+  // ── Clock + battery (value pills) ──
+  // These emit dynamic content (current time, current capacity + state) so
+  // they can't use the bare `pill` wrapper. Instead they source lib/pill.sh
+  // inline and call pill_emit directly. pill_emit converts the space-
+  // separated class string into a JSON ARRAY — required so waybar/GTK 3
+  // splits it into individual style classes. (Emitting
+  //   "class":"opt-pill dark"
+  // as a plain string makes waybar treat the whole thing as ONE class name,
+  // silently breaking every .opt-pill selector. Bit us on 2026-05-28 — see
+  // CLAUDE.md "Known hazards" and the spec's daemon convention.)
   "custom/clock": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); printf '{\"text\":\"%s\",\"class\":\"%s\",\"tooltip\":\"%s\"}' \"$(TZ=America/Mendoza date +%H:%M)\" \"$m\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 30,
-    "signal": 10,
-    "tooltip": true
+    "exec": ". ~/.config/waybar/scripts/lib/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
+    "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
   "custom/battery": {
-    "exec": "m=$(cat /tmp/glass-mode 2>/dev/null || echo dark); cap=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo \"?\"); st=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown); if [ \"$st\" = \"Charging\" ]; then icon=\"\"; elif [ \"$st\" = \"Full\" ]; then icon=\"\"; elif [ \"$cap\" -le 15 ] 2>/dev/null; then icon=\"\"; else icon=\"󰠠\"; fi; printf '{\"text\":\"%s\",\"class\":\"%s\",\"tooltip\":\"%s%% %s\"}' \"$icon\" \"$m\" \"$cap\" \"$st\"",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 30,
-    "signal": 10,
-    "tooltip": true
+    "exec": ". ~/.config/waybar/scripts/lib/pill.sh; cap=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo \"?\"); st=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown); if [ \"$st\" = \"Charging\" ]; then icon=\"\"; elif [ \"$st\" = \"Full\" ]; then icon=\"\"; elif [ \"$cap\" -le 15 ] 2>/dev/null; then icon=\"\"; else icon=\"󰠠\"; fi; if [ \"$st\" = \"Full\" ]; then state=\"opt-yes opt-breathe\"; elif [ \"$cap\" -lt 10 ] 2>/dev/null; then state=\"opt-no opt-pulse\"; elif [ \"$cap\" -lt 20 ] 2>/dev/null; then state=\"opt-middle opt-glow\"; elif [ \"$st\" = \"Charging\" ]; then state=\"opt-yes\"; else state=\"\"; fi; pill_emit \"$icon\" \"opt-pill $(pill_theme) $state opt-swap-pct\" \"$cap% $st\"",
+    "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
+
+  // ── Center task pill: focused-window value, opens task switcher ──
   "custom/window": {
     "exec": "cat /tmp/waybar-cache/window 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 1,
-    "signal": 10,
-    "tooltip": false,
+    "return-type": "json", "format": "{}", "interval": 1, "signal": 10, "tooltip": false,
     "on-click": "~/.config/rofi/window-switcher.sh"
   }
 }
