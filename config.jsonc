@@ -260,7 +260,7 @@
     "on-click": "rofi -show drun"
   },
   "custom/hidden": {
-    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "exec": "~/.config/waybar/scripts/pill-child '󰍁'",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "swaylock"
   },
@@ -389,9 +389,11 @@
   },
 
   // ── Workspaces group ──
-  // Trigger: ws-current (parent, opt-yes — you're here = blue good, with
-  // opt-plus.opt-swap reveals "+" on hover). Children: ws-1..9 (opt-pill-child,
-  // the current one gets opt-yes via the daemon writer).
+  // Trigger: ws-current (parent, opt-plus opt-swap — neutral surface at rest
+  // showing the WS number; hover swaps to the canonical "+" face with the
+  // opt-pulse-plus beat, matching the apps launcher and win-move-new under
+  // Rule 6). Children: ws-1..9 (opt-pill-child baseline; the current one is
+  // peer-equal — dimmed via .inactive, not state-colored).
   "group/workspaces": {
     "orientation": "inherit",
     "drawer": {
@@ -477,7 +479,7 @@
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
   "custom/battery": {
-    "exec": ". ~/.config/waybar/scripts/lib/pill.sh; cap=$(cat /sys/class/power_supply/BAT0/capacity 2>/dev/null || echo \"?\"); st=$(cat /sys/class/power_supply/BAT0/status 2>/dev/null || echo Unknown); if [ \"$st\" = \"Charging\" ]; then icon=\"\"; elif [ \"$st\" = \"Full\" ]; then icon=\"\"; elif [ \"$cap\" -le 15 ] 2>/dev/null; then icon=\"\"; else icon=\"󰠠\"; fi; if [ \"$st\" = \"Full\" ]; then state=\"opt-yes opt-breathe\"; elif [ \"$cap\" -lt 10 ] 2>/dev/null; then state=\"opt-no opt-pulse\"; elif [ \"$cap\" -lt 20 ] 2>/dev/null; then state=\"opt-middle opt-glow\"; elif [ \"$st\" = \"Charging\" ]; then state=\"opt-yes\"; else state=\"\"; fi; pill_emit \"$icon\" \"opt-pill $(pill_theme) $state opt-swap-pct\" \"$cap% $st\"",
+    "exec": "~/.config/waybar/scripts/battery.sh",
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
 

@@ -20,10 +20,13 @@ for the maintenance contract.
 
 ## TODO
 
-- [ ] **opt-pushed adoption pass** — apply `opt-pushed` to `custom/shader-paper`,
-      `custom/shader-newspaper`, `custom/night-dimmer`, and `custom/dictate`'s
-      recording state. Visible bar improvement, zero new daemon work, low risk.
-      Confidence-building win that confirms the new CSS reads as intended live.
+- [ ] **opt-pushed for dictate's recording state** — three of the four
+      planned opt-pushed adoptions shipped 2026-05-28 (shader-paper,
+      shader-newspaper, night-dimmer). Dictate remains: its `.recording`
+      class is emitted by the `dictate-waybar` binary in
+      `modules/voice-dictation.nix`, so the change is a Nix module + binary
+      update, not a script edit. Refactor target: emit `opt-pill opt-pushed
+      opt-breathe` directly instead of the legacy `.recording` class.
 - [ ] **Tooltip coverage pass** — one-line tooltip decisions (on / off + text)
       for every existing pill per the README "Tooltips" rule. Tooltips name
       what the pill IS (`"Volume"`, `"Screen"`, `"Battery"`); current values
@@ -76,6 +79,28 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-05-28** — Consistency pass: CSS dedup, opt-pushed adoption for
+  shader-paper / shader-newspaper / night-dimmer, lock glyph unified
+  (Material 󰍁 everywhere), stale ws-current comment fixed, battery
+  exec extracted from a 400-char inline one-liner to a real
+  `~/.config/waybar/scripts/battery.sh`.
+  *Hint:* `.opt-pushed.opt-yes/middle/no` lost their redundant
+  `box-shadow` declaration — they inherit from `.opt-pushed`'s parent
+  rule. shader-toggle.sh / night-dimmer.sh now emit `opt-pushed`
+  instead of `opt-yes` when engaged (textbook toggle-ON semantic).
+  The lock alternative in `group/group-rofi` was using a Font Awesome
+  arrow glyph U+F061 instead of the Material lock — both now use
+  `󰍁` (U+F0341), matching `custom/lock` in the power group (Rule 6).
+  The battery extraction also revealed two pre-existing bugs that the
+  inline was silently carrying: (1) hard-coded `BAT0` while this
+  hardware exposes `BAT1` (auto-detection via glob fixes it; the bar
+  was showing "?% Unknown" indefinitely), and (2) empty icons for
+  Charging/Full/Critical states (waybar hides empty-text modules, so
+  the battery pill was invisible in three of four states). Bug (1) is
+  fixed in this commit. Bug (2) is PRESERVED to keep the refactor
+  free of design decisions — pick Nerd Font glyphs for those three
+  states in a follow-up.
 
 - **2026-05-28** — Hover system consolidation: one mechanism, one place.
   Window/clock/battery labels were vanishing on hover because a shared

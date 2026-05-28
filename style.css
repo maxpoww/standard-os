@@ -197,13 +197,14 @@ window#waybar .opt-pill-child.opt-pushed {
 }
 
 /* When pushed AND state-colored, the state color paints over the pushed
-   surface but the inset border stays — "this toggle is ON and in <state>." */
+   surface; the inset border stays automatically — the parent .opt-pushed
+   rule's box-shadow inherits because the state overrides don't touch it. */
 window#waybar .opt-pill.opt-pushed.opt-yes,
-window#waybar .opt-pill-child.opt-pushed.opt-yes      { background: @opt-blue-state;   box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+window#waybar .opt-pill-child.opt-pushed.opt-yes      { background: @opt-blue-state;   }
 window#waybar .opt-pill.opt-pushed.opt-middle,
-window#waybar .opt-pill-child.opt-pushed.opt-middle   { background: @opt-yellow-state; box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+window#waybar .opt-pill-child.opt-pushed.opt-middle   { background: @opt-yellow-state; }
 window#waybar .opt-pill.opt-pushed.opt-no,
-window#waybar .opt-pill-child.opt-pushed.opt-no       { background: @opt-red-state;    box-shadow: inset 0 0 0 1px @opt-pushed-border; }
+window#waybar .opt-pill-child.opt-pushed.opt-no       { background: @opt-red-state;    }
 
 /* Pushed pills brighten on hover AND keep their 1px inset border. The box-shadow
    stacks two layers: the inner 1px border (drawn first, innermost) preserves
