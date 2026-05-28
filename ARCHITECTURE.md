@@ -77,6 +77,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **audio-daemon** | Default sink, volume, mute, playing-apps count | `/tmp/waybar-cache/audio-{sink, volume, mute, streams}` | RTMIN+14 | `pw-mon --color=never` filtered to `^changed:` |
 | **clipboard-daemon** | Selection / clipboard contents | `/tmp/waybar-cache/clip-{selection, clipboard}` | RTMIN+15 | `wl-paste --watch` (primary and clipboard) |
 | **media-daemon** | MPRIS players, cava bars, active player | TBD — moved to `/home/max/mpris-waybar/` for rewrite | RTMIN+16 (reserved) | `playerctl --follow`, `dbus-monitor`, `pw-mon` |
+| **context-daemon** | Hardware-button reflection: volume, brightness, mute, play/pause, screenshot, airplane. Owns the 4-s transient timer per concern, the `opt-flash` write on key receipt, and the "permanent-home is transient-home" pattern (see CLAUDE.md → Hardware-button reflection). | `/tmp/waybar-cache/{audio, brightness, screenshot, …}` (each concern shares its permanent module's cache file) | RTMIN+17 | Hyprland keybindings for the XF86 keys dispatch into a thin shim script that touches a state FIFO/file the daemon watches; daemon writes the cache file and signals waybar. |
 
 Bluetooth and network share RTMIN+13 because they collectively describe "connectivity" and almost no module needs one without the other; one signal refreshes every connectivity pill at once.
 
@@ -91,7 +92,8 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 | RTMIN+14 | audio-daemon (planned) | Sink/volume/streams |
 | RTMIN+15 | clipboard-daemon (planned) | Selection/clipboard |
 | RTMIN+16 | media-daemon (reserved) | MPRIS / cava |
-| RTMIN+17..+30 | **FREE** | future expansion |
+| RTMIN+17 | context-daemon (planned) | Hardware-button reflection, 4-s transient timer |
+| RTMIN+18..+30 | **FREE** | future expansion |
 
 When picking a signal: read this table, take the next free one, edit this table in the same commit. The Linux kernel guarantees RTMIN through RTMIN+30 are safe for application use.
 
@@ -133,7 +135,9 @@ A pill's `class` field carries the actual CSS classes. The canonical vocabulary 
 Structure (required):   opt-pill | opt-pill-child
 Theme (required):       dark | light                      (glass-text-daemon)
 State (0/1):            opt-yes | opt-middle | opt-no     (rare on parents — see README)
-Animation (0/1):        opt-pulse | opt-glow | opt-breathe
+Animation (0/1):        opt-pulse | opt-glow | opt-breathe        (state-meaning, infinite)
+Flash (0/1):            opt-flash                          (one-shot 250ms input-acknowledged;
+                                                            no state meaning, just "I heard you")
 Pin (0/1):              opt-pin-violet | opt-pin-green | opt-pin-orange
 Pushed (0/1):           opt-pushed                        (toggle ON, only carrier of a border)
 Dimmed (0/1):           inactive                          (peer occupied but not selected)
@@ -238,12 +242,15 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — wired in `style.css`; legacy `blink`/`shine`/`pulse-plus` retained only inside `opt-swap-plus`
 - ✓ `opt-pushed` (toggle ON) — the single border-carrier in the system
 - ✓ `opt-pin-violet | opt-pin-green | opt-pin-orange` — post-animation persistence
+- ✓ `opt-flash` — one-shot 250 ms input-acknowledgement motion (4th in the motion budget)
+- ✓ Pillar 6 — Quiet invitation (mouse-first, buttons earn their place) codified in README
+- ✓ Input-acknowledged / context-silent rule — codified as design rule and coding directive
 - ✓ Tooltip popup styling — `tooltip` selector matches pill aesthetic
 - ~ `opt-pushed` adoption — class defined; not yet applied to `shader-paper`, `shader-newspaper`, `night-dimmer`, `dictate.recording` (those still use legacy paint)
 - ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
 - ~ Dimmed class rename to `opt-dimmed` — deferred until workspace-daemon migrates to Nix; today the class is `.inactive`
 - ✗ system-daemon, network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — none of the planned daemons exist yet
-- ✗ Context daemon (hardware-button-driven transient pill) — designed; not yet implemented
+- ✗ context-daemon (hardware-button reflection, RTMIN+17) — designed; not yet implemented
 - ✗ Composite-module pattern with inotify on `/tmp/waybar-cache/` — pattern documented, not implemented for any pill
 
 When this list reaches all ✓, OPTIONS is fully wired and the rest is just adding options that fit the grammar.

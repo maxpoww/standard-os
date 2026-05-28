@@ -23,6 +23,7 @@ The system always offers help without ever demanding the user ask for it. Frustr
 3. **Resources appear when their use is logical.** No persistent toolbars of buttons that are 95% irrelevant 95% of the time.
 4. **Help scales to skill.** A newcomer sees more scaffolding; a fluent user sees less, until the system dissolves into the workflow.
 5. **Diegetic information.** Tools live *in* the environment, not stacked on top of it.
+6. **Quiet invitation.** Standard-OS is for every person — students, parents, professionals coming from macOS or Windows. The mouse is the entry door, and every option is fully reachable with it. *Above* that floor, the OS quietly invites the user toward a richer vocabulary: pressing a basic hardware key (volume, brightness, mute, play/pause, screenshot, airplane) makes the same pill respond as a mouse click would. The button does the same job faster, and over time the user notices. The OS never advertises the keyboard, never nags, never shows a "did you know?" tip. Discovery is voluntary and earned. The mouse user who never presses a hardware button experiences no degradation. Only basic, universal keys are part of the invitation — niche actions stay mouse-driven or discoverable through the option grammar itself; we do not train the user on Hyprland.
 
 ---
 
@@ -72,7 +73,7 @@ Vertical below-pill stacks (the rofi-style "more options" column under a clicked
 
 ## Color and motion
 
-Options uses **six colors and three motions** to express *meaning*, painted onto **two surfaces** that express *structure*. The set is closed: anything new must replace something existing, not extend the budget.
+Options uses **six colors and four motions** to express *meaning*, painted onto **two surfaces** that express *structure*. The set is closed: anything new must replace something existing, not extend the budget.
 
 The system distinguishes between *what the user is doing to an option* (primary) and *what the system is saying about that option* (secondary).
 
@@ -157,8 +158,18 @@ Three motions. The motion is the *shape* of the change; the *color* carries the 
 - **Pulse** — opacity 0.5 → 1.0 → 0.5, ~1 Hz. Used when the system needs the user to look *now*.
 - **Glow** — slow fade in, hold ~2 s, fade out. Used when the system wants to *offer* something the user may or may not act on.
 - **Breathe** — very slow opacity sine, ~6 s cycle. Used when *background activity is ongoing* (sync, render, healthy continuous state).
+- **Flash** — one-shot ~250 ms. The pill briefly darkens with a small inset shadow that reads as a physical button being pressed in. Used **only** to acknowledge a hardware-key press or a fresh transient pill appearing in direct response to user input. Carries no state meaning — it's just the bar saying "I received that." Composes with everything: an `opt-pushed` pill flashing reads as *deeper-pressed* for the moment, then settles back; an `opt-yes` pill flashing reads as briefly-darker-blue. Mute-while-flashing shows the press-feedback layered over the muted state — the user sees they pressed something AND that nothing succeeded (because mute is still on).
 
 Primary state colors do **not** animate. State is state; if it's changing, a secondary-color animation paints over it to show the change. State itself is calm.
+
+### Input is acknowledged; context shifts are silent
+
+A precise rule about *when* the bar performs and when it doesn't:
+
+- The bar **performs** for the user — `opt-flash`, the swap-reveal animation, the hover veil, the drawer expansion. These are *acknowledgements* of input. Direct input → direct response.
+- The bar **does not perform** for itself. When pills appear or disappear because *context* changed — the focused window's class shifted, a USB audio device showed up, the dive flag flipped, the workspace's occupancy changed — the swap is silent. No fade, no flash, no transition. The pill is just *there now* or *not anymore*. The user shouldn't be drawn to notice; the environment simply adapts.
+
+The reason: any system-driven motion competes with the user's actual task for attention. A pill that announces its own appearance is asking to be looked at, and 99 % of the time the user neither needs nor wants to look at it. Silent context adaptation is what makes the bar disappear into the workflow — pillar 5's diegesis, applied to motion.
 
 ### Pushed (toggle ON)
 
@@ -266,8 +277,9 @@ A future maintainer of Options should keep three rules in mind:
 
 1. **Every new pill declares its size class, its zone, and its color rules before any code is written.** If the answer to "is this a trigger or a value pill", "which zone", or "which primary state(s) does it have" is not obvious, the option is not ready.
 2. **Parents are naturally uncolored.** If a parent acquires color, it is one of: a hover-swap action-reveal face, a secondary-color animation, a pin, or `opt-pushed`. Never persistent primary state.
-3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, three motions, two surfaces, and the one border that lives on `opt-pushed` — that is the budget.
-4. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
+3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, four motions, two surfaces, and the one border that lives on `opt-pushed` — that is the budget.
+4. **Input is acknowledged; context shifts are silent.** Motion happens in response to user action (a press, a hover, a click) or as a call for attention the user should resolve. The bar never animates *itself* — context-driven appearance and disappearance is instantaneous and quiet.
+5. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
 
 The hardest part of Options is not building it. It is having the discipline to *not* add the obvious-feeling seventh color, the eighth motion, the toolbar that is always there. The user's attention is finite. Options spends it carefully.
 

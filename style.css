@@ -7,7 +7,10 @@
        Structure (required): .opt-pill | .opt-pill-child
        Theme (required):     .dark | .light                 (glass-text-daemon)
        State (0/1):          .opt-yes | .opt-middle | .opt-no
-       Animation (0/1):      .opt-pulse | .opt-glow | .opt-breathe
+       Animation (0/1):      .opt-pulse | .opt-glow | .opt-breathe   (state-meaning, infinite)
+       Flash (0/1):          .opt-flash                              (input acknowledged —
+                             one-shot 250ms inset shadow that reads as a button being
+                             pressed in. No color, no state meaning. Composes with everything.)
        Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange
                              (solid secondary color held after animation resolves;
                               calm, no motion — the eye stays, the CPU doesn't)
@@ -83,6 +86,24 @@
 @keyframes opt-pulse-plus {
     from { background-size: 14px 14px; background-color: @opt-blue; }
     to   { background-size: 10px 10px; background-color: rgba(100, 150, 255, 0.90); }
+}
+
+/* opt-flash — input acknowledged. One-shot 250ms motion that briefly depresses
+   the pill: a small top-edge inset highlight + a whole-pill darkening overlay
+   via large inset spread. Reads as "this button was just pressed." Plays once,
+   then fill-mode default reverts box-shadow to the pill's static rule (so an
+   opt-pushed pill's 1px border returns automatically after the flash settles).
+   Touches ONLY box-shadow — never background-color, never background-image —
+   so it composes cleanly with state colors (opt-yes/middle/no) and with
+   opt-swap-plus's background-image SVG. The whole-pill darkening uses spread
+   30px which safely exceeds any pill height (~22px). See README → Motion
+   vocabulary (Flash) and CLAUDE.md → Hardware-button reflection. */
+@keyframes opt-flash {
+    0%, 100% { box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0); }
+    50%      { box-shadow:
+                 inset 0 1px 2px rgba(0, 0, 0, 0.45),
+                 inset 0 0 0 30px rgba(0, 0, 0, 0.20);
+             }
 }
 
 /* ── Bar window ──────────────────────────────────────────────────────────── */
@@ -204,6 +225,13 @@ window#waybar .opt-glow.opt-tone-yellow   { animation: opt-glow-yellow 2s ease-i
 
 window#waybar .opt-breathe                { animation: opt-breathe-violet 6s ease-in-out infinite alternate; }
 window#waybar .opt-breathe.opt-tone-blue  { animation: opt-breathe-blue   6s ease-in-out infinite alternate; }
+
+/* opt-flash plays once per class application. Daemons writing rapid same-key
+   repeats must vary the class string between snapshots (e.g. alternate
+   opt-flash and opt-flash-r) to re-trigger the animation — single-class
+   repeats don't replay. The CSS treats both alternates identically. */
+window#waybar .opt-flash,
+window#waybar .opt-flash-r                { animation: opt-flash 250ms ease-out 1; }
 
 /* ── Hover-swap pattern — rest face shows info, hover reveals action ─────── */
 /* Shared mechanic: on hover, hide the label and let a background-image take

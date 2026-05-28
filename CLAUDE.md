@@ -4,7 +4,7 @@ This is the operating manual. The design treatise is `README.md` next to this fi
 
 1. The unit is the **option**, a pill. Pills are the only visible primitive.
 2. The bar has three zones — **user** (left, where the user IS: workspaces + focused window + per-window actions), **task** (center, task-manipulation tools: launcher / switcher / restore), **system** (right, persistent state). The focused-window pill at the right edge of USER touches the launcher "+" at the left edge of TASK — that boundary is the visual bridge between current and next.
-3. Color is meaning, not decoration. **6 colors + 3 motions + 2 surfaces** — this is a closed budget. Anything new replaces something existing.
+3. Color is meaning, not decoration. **6 colors + 4 motions + 2 surfaces + 1 border** — this is a closed budget. Anything new replaces something existing.
 4. Help appears when its use is logical and disappears when it isn't. Modules subscribe to context; the bar composes.
 5. Frustration → revelation. The user feels clever, not guided.
 
@@ -59,7 +59,7 @@ Bar window: `background: rgba(50, 50, 70, 0.10); border-radius: 30px; height: 30
 
 ## Color and motion budget (closed)
 
-Total set: **6 colors + 3 motions + 2 surfaces + 1 border** (the border lives only on `opt-pushed`). Adding to it requires a justification that no existing element suffices.
+Total set: **6 colors + 4 motions + 2 surfaces + 1 border** (the border lives only on `opt-pushed`). Adding to it requires a justification that no existing element suffices.
 
 **Parent pills are naturally uncolored** at rest — `ws-current`, `custom/tools`, `custom/power`, `hyprland/window`, `custom/new`, the focused-window pill all sit on bare surface tint with no primary state class. A parent acquires color only as: (a) a hover-swap action-reveal face (`opt-swap-*`), (b) a secondary-color animation (`opt-pulse|glow|breathe`), (c) a pin (`opt-pin-violet|green|orange`), or (d) `opt-pushed` (darker surface + 1px inset border, the only border in the system). **Primary state colors live on children** — pills inside an expanded cluster — where they express action semantics (`opt-no` = destructive, `opt-yes` = forward / "you are here") rather than ambient mood.
 
@@ -92,15 +92,16 @@ Correlative pairs (blue↔violet, yellow↔green, red↔orange) make transitions
 
 ### Motions (the shape; color carries meaning)
 
-| Name | Specs | Default pairing |
-|---|---|---|
-| **Pulse** | opacity / bg 0.5 → 1.0 → 0.5, ~1 Hz, infinite | Orange (urgent) |
-| **Glow** | fade-in, hold ~2 s, fade-out | Green (suggest) |
-| **Breathe** | very slow opacity sine, ~6 s cycle | Violet (ambient healthy) |
+| Name | Specs | Default pairing | Purpose |
+|---|---|---|---|
+| **Pulse** | opacity / bg 0.5 → 1.0 → 0.5, ~1 Hz, infinite | Orange (urgent) | system wants the user to look NOW |
+| **Glow** | fade-in, hold ~2 s, fade-out | Green (suggest) | system OFFERS something the user may take |
+| **Breathe** | very slow opacity sine, ~6 s cycle | Violet (ambient healthy) | background activity ongoing |
+| **Flash** | one-shot 250 ms, inset shadow + darkening (no color) | n/a — carries no state meaning | user input acknowledged (hardware key, transient pill appearing in direct response) |
 
-Primary state colors do NOT animate by themselves. If something is changing, an animation in the *secondary* palette paints over the state to show the change.
+Primary state colors do NOT animate by themselves. If something is changing, a state-meaning animation (pulse/glow/breathe in the *secondary* palette) paints over the state to show the change. Flash is the exception — it has no color or state, only the brief pressed-in shape.
 
-Existing `@keyframes` in `style.css` (`blink`, `shine`, `pulse-plus`) are pre-OPTIONS-naming forms of these three motions and are good references for how the live GTK 3 build accepts animation. New keyframes are added under the names `opt-pulse`, `opt-glow`, `opt-breathe`.
+Existing `@keyframes` in `style.css` (`blink`, `shine`, `pulse-plus`) are pre-OPTIONS-naming forms of three of these motions and are good references for how the live GTK 3 build accepts animation. New keyframes are added under the names `opt-pulse`, `opt-glow`, `opt-breathe`, `opt-flash`.
 
 ### Pins (post-animation persistence)
 
@@ -134,9 +135,38 @@ Every text-bearing pill whose function isn't fully self-evident from icon + labe
 
 Tooltip text rules:
 
-- One line, imperative for triggers (`"Lock screen"`, `"Open task switcher"`), status-then-action for value pills (`"23% — Discharging"`).
-- Forbidden: restating the icon, naming the technology (`"swaylock"`, `"rofi -show drun"`), multi-line essays.
+- One word naming what the pill IS — `"Volume"`, `"Screen"`, `"Battery"`, `"Network"`. Current value lives ON the pill, not in the tooltip.
+- The tooltip answers "what does this pill do?", not "what's its current state" and not "is there a keyboard shortcut?".
+- Forbidden: restating the icon, naming the technology (`"swaylock"`, `"rofi -show drun"`), hinting at hardware keys (`"F3 raises"`), multi-line essays.
 - Self-evident pills get `"tooltip": false` (launcher `+`, workspace numbers, focused-window title).
+- The quiet-invitation pillar is implemented through PHYSICAL ease (pressing F3 is faster than hunting for the pill), NOT through textual nags. Discovery happens because buttons are physically easier, not because the bar advertises them.
+
+### Hardware-button reflection (pillar 6, operationalised)
+
+The OS reflects user-pressed hardware keys in the bar so the user sees their input acknowledged in the same OPTIONS vocabulary they'd touch with the mouse. This is the surface of pillar 6 — mouse-first, button-easier — made concrete.
+
+**Single source of truth: the permanent home IS the transient home.** Each basic-action concern (volume, brightness, screenshot, mute, media, airplane) is a *single* module with one cache file at `/tmp/waybar-cache/<name>` and two surfacing conditions:
+
+- **Real state present** → the module renders permanently (player open → player pill is up; mute on → audio pill is `opt-pushed`; volume nonzero AND default sink present → audio pill visible). No 4-s timer involved.
+- **Hardware key fired AND no permanent state to anchor on** → the module surfaces for **4 s after the last interaction** (key press, hover, click), then collapses to `.empty`. The 4-s timer resets on any subsequent same-key press, hover, or click on the pill.
+
+No separate "transient pill" exists. The daemon writes the same cache file regardless of why the pill is up. When the user sees the audio pill, it always means the same thing.
+
+**Per-concern zone home:** each action has a home zone where the pill lives — both permanent and transient.
+
+| Concern | Zone | Permanent condition | Transient trigger |
+|---|---|---|---|
+| Volume / mute | SYSTEM | always (default sink exists) | (n/a — permanent) |
+| Brightness | SYSTEM | (transient only) | XF86MonBrightness{Up,Down} |
+| Airplane / radios | SYSTEM | always (the radios cluster exists) | XF86RFKill (toggles `opt-pushed` on the cluster) |
+| Media player | USER (where the user IS — bound to the focused work) | MPRIS player exists | XF86Audio{Play,Pause,Next,Prev} when player exists; if no player, the key is a no-op |
+| Screenshot | SYSTEM | (transient only) | screenshot key OR mouse-path option click |
+
+**`opt-flash` lifecycle (CSS).** The daemon writes `opt-flash` in the class list on the snapshot that follows a key press. The CSS animation is one-shot 250 ms, default fill-mode — it plays once and the property reverts to the pill's static styling. The class can sit in the JSON output after the animation completes (GTK won't replay) until the next snapshot. The daemon is *not* required to remove it — it's harmless once played. For rapid same-key repeats where the user expects each press to flash, the daemon must vary the class string between snapshots (e.g., alternate `opt-flash` and `opt-flash-r`); single-class repeats won't re-trigger the animation. (Wire this in the per-key daemon, not in CSS.)
+
+**Screenshot module shape.** Screenshot is fire-and-forget but produces an artifact. The module's transient face shows `"Saved"` (or a short filename) for 4 s after the keystroke. Click opens the image in the user's image viewer. Hover surfaces a cluster of screenshot-related options (open folder, copy path, delete, share, edit). Mouse-path: the explicit screenshot option lives somewhere in the SYSTEM zone or future control-panel row — clicking it triggers the same daemon path the hardware key does, producing the same "Saved" pill response. Single code path, two entry points.
+
+**Hardware coverage stance.** Not every machine has every key. Wire the common ones (volume up/down/mute, brightness up/down, play/pause/next/prev, screenshot, airplane). Less-common keys (keyboard backlight, dedicated mic mute, media-source toggle) get added best-effort as users surface them. Document in the daemon source what's wired and what isn't; do not block shipping on full hardware-key parity. The distro pillar — works for every person — is served better by 80 % of keys working everywhere than by a perfectionist guardrail.
 
 ---
 
@@ -379,16 +409,17 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 
 ## Coding directives (priority order)
 
-1. **Closed budget.** 6 colors + 3 motions + 2 surfaces. No exceptions without written justification in a commit message.
+1. **Closed budget.** 6 colors + 4 motions + 2 surfaces + 1 border. No exceptions without written justification in a commit message.
 2. **The pill primitive is the start of every visual.** Deviate only when the deviation is itself a visible semantic (e.g. empty-collapse). Document the deviation in CSS as a comment.
 3. **Hover = uniform veil.** `rgba(130, 130, 150, 0.70)` for every non-swap pill, regardless of state. State paint lives on the rest face; hover is just targeting. **Borders only carry `opt-pushed`** — the single 1 px inset shadow that says "this toggle is engaged." Outlines never carry hover, state, swap, or decoration.
-4. **Every text-bearing pill respects `/tmp/glass-mode`** and emits a `light`/`dark` class. Forgetting this makes the pill invisible over half of wallpapers — a silent regression.
-5. **Modules don't consult each other.** Each module subscribes to context signals from its source of truth and decides its own visibility. Cross-module coupling is a maintenance smell.
-6. **Daemon, not poll, when possible.** Use event-driven sources (`socat hyprland-socket2`, `nmcli monitor`, `pw-mon`, `wl-paste --watch`). Polling is a cost ceiling — fine for low-frequency status (battery every 30 s) but never for reactive UX.
-7. **`pkill -RTMIN+N waybar` only on real change.** Dedup the cache write at the writer (in-memory `last_value` compare). The mpris CPU regression of 2026-05-27 was caused by signaling on every tick whether content changed or not.
-8. **Atomic file writes.** Every `/tmp/waybar-cache/*` write is `printf '%s' "$content" > "$cache.tmp" && mv -f "$cache.tmp" "$cache"`. Half-written cache files make waybar render empty pills.
-9. **Trigger vs action.** Small icon-only pill = trigger (opens a cluster). Long pill displaying a value = action target. Choose explicitly when adding a new pill; the choice is binding for the pill's lifetime.
-10. **Expansion direction follows the zone.** Left zone groups → `transition-left-to-right: true`. Right zone groups → `false`. Center zone follows the task-anchor rule (right of task → right, left of task → left).
+4. **Input is acknowledged; context shifts are silent.** Motion runs in response to user action (key press, hover, click) or as a system call for attention the user should resolve (pulse/glow/breathe/pin). Context-driven appearance and disappearance — focused window class changed, audio sink came up, workspace went empty — is instantaneous, no fade, no flash. The bar adapts; it does not perform on its own.
+5. **Every text-bearing pill respects `/tmp/glass-mode`** and emits a `light`/`dark` class. Forgetting this makes the pill invisible over half of wallpapers — a silent regression.
+6. **Modules don't consult each other.** Each module subscribes to context signals from its source of truth and decides its own visibility. Cross-module coupling is a maintenance smell.
+7. **Daemon, not poll, when possible.** Use event-driven sources (`socat hyprland-socket2`, `nmcli monitor`, `pw-mon`, `wl-paste --watch`). Polling is a cost ceiling — fine for low-frequency status (battery every 30 s) but never for reactive UX.
+8. **`pkill -RTMIN+N waybar` only on real change.** Dedup the cache write at the writer (in-memory `last_value` compare). The mpris CPU regression of 2026-05-27 was caused by signaling on every tick whether content changed or not.
+9. **Atomic file writes.** Every `/tmp/waybar-cache/*` write is `printf '%s' "$content" > "$cache.tmp" && mv -f "$cache.tmp" "$cache"`. Half-written cache files make waybar render empty pills.
+10. **Trigger vs action.** Small icon-only pill = trigger (opens a cluster). Long pill displaying a value = action target. Choose explicitly when adding a new pill; the choice is binding for the pill's lifetime.
+11. **Expansion direction follows the zone.** Left zone groups → `transition-left-to-right: true`. Right zone groups → `false`. Center zone follows the task-anchor rule (right of task → right, left of task → left).
 
 ---
 
