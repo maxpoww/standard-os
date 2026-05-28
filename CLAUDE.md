@@ -1,5 +1,7 @@
 # CLAUDE.md — OPTIONS (Standard-OS UX layer)
 
+> **Session start: invoke the global `standard-os` skill before any work in this directory.** It loads the navigator, the named patterns, the verification checklist, the condensed hazards, and the five-rules summary in ~150 lines — instead of forcing you to re-read every doc wholesale. Read this file *by section* (grep for what you need); use the skill as the index.
+
 This is the operating manual. The design treatise is `README.md` next to this file — read it once per session and treat it as load-bearing. The soul of the project lives in five sentences:
 
 1. The unit is the **option**, a pill. Pills are the only visible primitive.
@@ -44,12 +46,14 @@ The waybar tree is git-tracked from `e8ad8b1` onward. Every change to `config.js
 
 **Maintenance rules for the file:**
 
-1. **When starting work on an item**, ensure it's in TODO (promote from NEXT or, with user approval, add directly). Mark `[ ]` → `[x]` only when shipped.
-2. **When shipping an item**, move it to DONE with the date and a Hint line. Remove from TODO in the same edit.
-3. **Never exceed 6 TODO items.** If the user proposes new work while TODO is full, push back: ask what to defer to NEXT, or what to finish first. Do not silently grow the section.
-4. **Update the file in the same commit as the code change** when possible. A commit that ships an item should also move that item to DONE — the file and the codebase stay coherent that way.
-5. **TODO.md is not a planning document.** It does not contain design discussion, tradeoffs, or acceptance criteria. Those live in the user's mind and in the commits. TODO.md is a one-line-per-thing map. Keep entries terse.
-6. **Both Claude and the user maintain it.** Claude updates after shipping or when the user signals intent to start something; the user prunes / reorders freely.
+1. **Check at session start.** Every session that begins work in this directory reads TODO.md first. The cost is ~120 lines for an authoritative snapshot of what is in flight; skipping it leaves Claude blind. The `standard-os` skill enforces this in its session-start protocol.
+2. **When starting work on an item**, ensure it is in TODO (promote from NEXT or, with user approval, add directly). Mark `[ ]` → `[x]` only when shipped.
+3. **When shipping an item**, move it to DONE with the date and a Hint line. Remove from TODO in the same edit.
+4. **Work completed that was NOT on TODO goes straight to DONE.** Add it with date + Hint as if it had been planned. Do not retroactively add to TODO just to ceremoniously move it through. TODO is for planned active work; DONE is the history of all shipped work — planned or not. This keeps TODO honest about *future* intent rather than backfilling past completions.
+5. **Never exceed 6 TODO items.** If the user proposes new work while TODO is full, push back: ask what to defer to NEXT, or what to finish first. Do not silently grow the section.
+6. **Update the file in the same commit as the code change** when possible. A commit that ships an item should also move that item to DONE — the file and the codebase stay coherent that way.
+7. **TODO.md is not a planning document.** It does not contain design discussion, tradeoffs, or acceptance criteria. Those live in the user's mind and in the commits. TODO.md is a one-line-per-thing map. Keep entries terse.
+8. **Both Claude and the user maintain it.** Claude updates after shipping or when the user signals intent to start something; the user prunes / reorders freely.
 
 If a NEXT item gets stale (no longer relevant), the user removes it; do not auto-prune NEXT.
 

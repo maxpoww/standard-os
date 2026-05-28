@@ -9,7 +9,12 @@ Promotion is one-directional: an idea moves NEXT → TODO when work begins, and
 TODO → DONE when it ships. **TODO cap = 6.** When TODO is full, nothing
 promotes from NEXT until something completes. The cap keeps focus honest.
 
-See `CLAUDE.md` → "TODO.md (the work map)" for the maintenance contract.
+**Check this file at the start of every session that touches a Standard-OS
+directory.** If work completes that was NOT on TODO, it goes straight to DONE
+with a Hint line — do not retroactively add to TODO just to move it through.
+
+See `CLAUDE.md` → "TODO.md (the work map)" and the global `standard-os` skill
+for the maintenance contract.
 
 ---
 
@@ -72,6 +77,17 @@ See `CLAUDE.md` → "TODO.md (the work map)" for the maintenance contract.
 
 ## DONE
 
+- **2026-05-28** — Global `standard-os` skill + TODO.md contract refinements
+  (session-start check, unplanned-→-DONE rule). Skill at
+  `~/.claude/skills/standard-os/SKILL.md` (NOT in this git repo — lives in
+  user-level Claude config so it ships with every session, including work on
+  `hypr-edge-bg`, `mpris-waybar`, modules/, etc.).
+  *Hint:* The skill is a NAVIGATOR not a duplicate of the docs — ~150 lines
+  routing Claude to the right doc section, encoding named patterns, and
+  enforcing the verification checklist. The only deliberate duplication is
+  the five-sentence soul (kept inline so the philosophy loads with the skill).
+  When adding a new named pattern, add it to the skill AND to a doc section
+  it points to — never let a pattern live only in the skill.
 - **2026-05-28** — Pillar 6 (Quiet invitation) + `opt-flash` motion + the
   input-acknowledged / context-silent rule. Commit `bbd4b24`.
   *Hint:* `opt-flash` CSS uses `box-shadow` only — no `background-color` or
