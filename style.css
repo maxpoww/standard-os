@@ -51,26 +51,26 @@
    docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
-/* Catppuccin Mocha palette mapped to the 6-color OPTIONS budget (2026-05-28).
-   Blue / Yellow / Red are the canonical Mocha ANSI terminal colors; Mauve,
-   Green, Peach map to Violet / Green / Orange in the OPTIONS vocabulary.
-   Tokens keep the prior alpha discipline: 0.70 for the full saturation
-   variant (used in animations + opt-plus hover beat) and 0.30 for the
-   -state variant (rest face for opt-yes / opt-middle / opt-no).
-   Mocha hex reference:  Blue #89b4fa  Yellow #f9e2af  Red #f38ba8
-                         Mauve #cba6f7  Green #a6e3a1  Peach #fab387 */
-@define-color opt-blue              rgba(137, 180, 250, 0.70);
-@define-color opt-blue-state        rgba(137, 180, 250, 0.30);
-@define-color opt-yellow            rgba(249, 226, 175, 0.70);
-@define-color opt-yellow-state      rgba(249, 226, 175, 0.30);
-@define-color opt-red               rgba(243, 139, 168, 0.70);
-@define-color opt-red-state         rgba(243, 139, 168, 0.30);
+/* Catppuccin Latte palette mapped to the 6-color OPTIONS budget (2026-05-28).
+   Latte is the light flavor — its primaries are more saturated and darker
+   than Mocha's (Latte was tuned for light backgrounds, so the hues need to
+   stand out against a bright surface). On dark wallpapers they read as
+   punchier than Mocha. Alpha discipline unchanged: 0.70 full / 0.30 state.
+   Latte hex reference:  Blue #1e66f5  Yellow #df8e1d  Red #d20f39
+                         Mauve #8839ef  Green #40a02b  Peach #fe640b */
+@define-color opt-blue              rgba( 30, 102, 245, 0.70);
+@define-color opt-blue-state        rgba( 30, 102, 245, 0.30);
+@define-color opt-yellow            rgba(223, 142,  29, 0.70);
+@define-color opt-yellow-state      rgba(223, 142,  29, 0.30);
+@define-color opt-red               rgba(210,  15,  57, 0.70);
+@define-color opt-red-state         rgba(210,  15,  57, 0.30);
 
-/* Secondary triplet — Catppuccin Mocha Mauve / Green / Peach (the
-   pastel secondaries that pair naturally with the primary triplet). */
-@define-color opt-violet            rgba(203, 166, 247, 0.70);
-@define-color opt-green             rgba(166, 227, 161, 0.70);
-@define-color opt-orange            rgba(250, 179, 135, 0.70);
+/* Secondary triplet — Catppuccin Latte Mauve / Green / Peach. Same role
+   as the Mocha secondaries (deep pastel pair for the primary triplet)
+   but Latte-saturated to match the primaries. */
+@define-color opt-violet            rgba(136,  57, 239, 0.70);
+@define-color opt-green             rgba( 64, 160,  43, 0.70);
+@define-color opt-orange            rgba(254, 100,  11, 0.70);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
