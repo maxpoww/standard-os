@@ -239,7 +239,9 @@
   },
 
   // ── TASK launcher group: + (drun) and lock ──
-  // Trigger: launcher "+" (parent, opt-yes — the primary "go" action).
+  // Trigger: launcher "+" — same-option rule: shares opt-plus class with
+  // ws-current's hover face and win-move-new. Neutral surface at rest with
+  // the + SVG visible; hover paints blue and runs opt-pulse-plus animation.
   // Child: lock alternative (opt-pill-child).
   "group/group-rofi": {
     "orientation": "inherit",
@@ -253,7 +255,7 @@
     ]
   },
   "custom/new": {
-    "exec": "~/.config/waybar/scripts/pill '' opt-yes",
+    "exec": "~/.config/waybar/scripts/pill '' opt-plus",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -388,7 +390,7 @@
 
   // ── Workspaces group ──
   // Trigger: ws-current (parent, opt-yes — you're here = blue good, with
-  // opt-swap-plus reveals "+" on hover). Children: ws-1..9 (opt-pill-child,
+  // opt-plus.opt-swap reveals "+" on hover). Children: ws-1..9 (opt-pill-child,
   // the current one gets opt-yes via the daemon writer).
   "group/workspaces": {
     "orientation": "inherit",

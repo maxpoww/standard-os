@@ -156,6 +156,32 @@ CSS: darker surface (`rgba(25, 25, 40, 0.50)`) + `box-shadow: inset 0 0 0 1px rg
 
 A peer item that exists but is not the focus. Reduced opacity (0.45), surface unchanged, no state color. Implemented in `style.css` as `.inactive` — the class the workspace daemon already writes for `ws-1..9` when those workspaces have windows but aren't current. The semantic vocabulary name is **dimmed**; the wired class is `.inactive`. Rename to `.opt-dimmed` is deferred until the workspace daemon migrates from `~/.config/waybar/scripts/` to a Nix-managed script — cross-repo coupling would break dimming during the transition window otherwise.
 
+### The hover system (bright vs beat)
+
+Every pill's hover falls into one of two tiers, picked by class composition.
+
+**Tier 1 — `opt-hover-bright` (default, applies to every `.opt-pill` / `.opt-pill-child`).** A semi-transparent white film (`rgba(255,255,255,0.30)`) layered *over* the pill's existing background via `box-shadow: inset 0 0 0 999px @opt-hover-bright`. Identity preserved: blue brightens to light-blue, red to light-red, neutral to near-white-gray. The hover overlay rule is unconditional — every pill gets it for free. Action pills (Tier 2) override their hover face below.
+
+**Tier 2 — action pills (`opt-plus` family).** Pills whose click changes the world — verbs with consequence. Beat on hover: glyph pulses in size, color cycles between rest and a brighter same-tone. Today only `opt-plus` is wired (every `+` button — apps launcher, ws-current's hover face, win-move-new). Future destructive verbs (kill, shutdown, disconnect) will get a parallel beat-on-red class; toggle-off verbs (mute, disable) a beat-on-orange. The motion vocabulary stays at 4 — `opt-plus`'s `opt-pulse-plus` animation is hover-scoped reuse of `opt-pulse` semantics, NOT a 5th motion.
+
+**Pushed pills hover too.** `opt-pushed:hover` keeps the 1 px inset border AND adds the brighten film — implemented as a two-stop `box-shadow: inset 0 0 0 1px @opt-pushed-border, inset 0 0 0 999px @opt-hover-bright`. The inner 1 px border is drawn first (innermost layer); the 999 px film fills the rest.
+
+### Action pill (`opt-plus`) — the same-option rule operationalised
+
+**Rule 6 from the README** (same option = same look) is implemented today by the `opt-plus` class. Every `+` pill in the bar carries it:
+
+- `custom/new` (apps launcher) — `opt-pill opt-plus`. Empty label content; the + SVG is the visible glyph at rest.
+- `win-move-new` (move-window-to-new-workspace) — `opt-pill-child opt-plus`. Same shape, child surface.
+- `ws-current` (workspace pill) — `opt-pill opt-plus opt-swap`. The `opt-swap` modifier hides the + SVG at rest and shows the workspace number instead. On hover, the number disappears and the canonical `+`/blue/`opt-pulse-plus` face appears — pixel-identical to the other two `+` pills at the moment of hover.
+
+CSS contract for `opt-plus`:
+
+- At rest: `background-image: url(plus-{white,black}.svg)` (theme-adapted), `background-size: 14px 14px`, `color: transparent` (label text hidden so the SVG is the only visible glyph), `min-width: 14px` (gives the empty-label pill physical presence).
+- On hover: `background-color: @opt-blue`, same SVG, `animation: opt-pulse-plus 1s ease-in-out infinite alternate`.
+- `opt-plus.opt-swap` at rest: SVG hidden (`background-image: none`), label visible (`color: @opt-text-on-dark` / `@opt-text-on-light`). Hover reverts to the parent `opt-plus:hover` rule.
+
+When adding a NEW recurring option (kill, shutdown, lock — any verb that will appear in multiple places), name a class for it (`opt-kill`, `opt-shutdown`, …), define its rest + hover faces ONCE in `style.css`, and wire every instance to that single class. Same-option-rule violations are caught at code-review by checking: "are two pills emitting the same verb via different class strings?"
+
 ### Tooltips
 
 Every text-bearing pill whose function isn't fully self-evident from icon + label declares `"tooltip": true` and emits a `tooltip` field in its JSON output. The tooltip popup is styled in `style.css` via the bare `tooltip` selector (the popup floats outside `window#waybar`, so the usual ancestor-scoping convention doesn't apply here). GTK's hover delay (~700 ms) is the canonical reveal; we do NOT try to override it — consistency with system-wide GTK feel is more valuable than precision.
@@ -464,7 +490,8 @@ Wire it from `/etc/nixos/home.nix` with `./home/modules/option-<name>.nix` in `i
 - **Emit `class` as a JSON ARRAY, not a space-separated string** (2026-05-28 regression). waybar/GTK 3 treats `"class":"opt-pill dark opt-yes"` as a SINGLE class named `opt-pill dark opt-yes` — every `.opt-pill`-style CSS selector then silently fails. Use `pill_emit` from `~/.config/waybar/scripts/lib/pill.sh` (it converts the space-separated string to a proper array), or emit `"class":["opt-pill","dark","opt-yes"]` directly. Static modules with dynamic content (clock, battery, anything that interpolates text or a state class) source the lib and call `pill_emit` inline rather than `printf`-ing JSON by hand.
 - **GTK 3 CSS class selectors must be scoped** (2026-05-28 regression). A bare `.opt-pill { ... }` rule loads without error but silently doesn't match. Every class selector needs an ancestor (`window#waybar .opt-pill`), widget type (`button.opt-pill`, `label.light`), or ID (`#custom-X.empty`). When in doubt, prefix with `window#waybar `.
 - **Nerd Font glyphs look empty in plain terminals** (2026-05-28 regression). A diff of `printf '{\"text\":\"\",...}'` may show `\"\"` where the original file held three UTF-8 bytes for a Font Awesome glyph (e.g. `\xef\x81\xa7` for `` U+F067 plus). Before rewriting an exec, inspect raw bytes with `od -An -tx1` or `od -An -c`. The glyphs that bit us once: new=`U+F067` (plus), hidden=`U+F061` (arrow), tools=`U+F0AC` (globe), blue=`U+F293` (BT), more=`U+E690` (3-dots), power=`U+F011`.
-- **Hover-swap label hiding needs both button-level color AND a high-specificity light-mode label override** (2026-05-28). Setting `color: transparent` only on `.opt-swap-*:hover label` (specificity 0,2,1) loses in light mode to the canonical `.opt-pill.light:hover label` rule (0,3,1) — the resting-face number bleeds through behind the hover-face icon. Fix: put `color: transparent` on the BUTTON-level `.opt-swap-*:hover` rule (covers dark mode via cascade) AND a `.opt-pill.opt-swap-*.light:hover label` rule (0,4,1, beats the light-text override). When adding new swap kinds, extend BOTH selectors.
+- **Hover-swap label hiding needs both button-level color AND a high-specificity light-mode label override** (2026-05-28). Setting `color: transparent` only on `.opt-swap-*:hover label` (specificity 0,2,1) loses in light mode to the canonical `.opt-pill.light:hover label` rule (0,3,1) — the resting-face number bleeds through behind the hover-face icon. Fix: put `color: transparent` on the BUTTON-level `.opt-swap-*:hover` rule (covers dark mode via cascade) AND a `.opt-pill.opt-swap-*.light:hover label` rule (0,4,1, beats the light-text override). When adding new swap kinds, extend BOTH selectors. Same fix is applied for `opt-plus.opt-swap` (used by ws-current) via the `.opt-pill.opt-plus.opt-swap.light:hover label` selector.
+- **Persistent blue (`opt-yes`) is for STATE, not for action verbs** (2026-05-28). The apps launcher used to be `opt-yes` ("primary go action" — but that's a verb, not a state). Under Rule 6 it now uses `opt-plus`. When you find yourself reaching for `opt-yes` to make a button "look like it does something", check: is the blue communicating a state (this thing is good / on / connected) or just decoration on an action verb? If the latter, the action belongs in the same-option family (`opt-plus`, future `opt-kill`, etc.) — not in `opt-yes`.
 
 ---
 

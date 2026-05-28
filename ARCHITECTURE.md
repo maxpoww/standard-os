@@ -239,7 +239,9 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ Color system primary/secondary/parent-uncolored rule — codified in README/CLAUDE.md; `opt-yes/middle/no` classes wired
 - ✓ Three-zone layout — explicit in `config.jsonc` (`modules-left/center/right` blocks labelled USER / TASK / SYSTEM)
 - ✓ Parent vs child surface differentiation (`opt-pill` = cool 50,50,70 / `opt-pill-child` = warm 70,50,50)
-- ✓ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — wired in `style.css`; legacy `blink`/`shine`/`pulse-plus` retained only inside `opt-swap-plus`
+- ✓ `opt-pulse` / `opt-glow` / `opt-breathe` named animations — wired in `style.css`; `opt-pulse-plus` is the canonical "+" hover beat used by `opt-plus` (incl. `opt-plus.opt-swap` on ws-current)
+- ✓ `opt-plus` (Rule 6 — same option, same look) — single class binding apps launcher, ws-current's hover face, and win-move-new. Same SVG, same blue beat, same animation.
+- ✓ `opt-hover-bright` (universal hover overlay) — `box-shadow: inset 0 0 0 999px rgba(255,255,255,0.30)` brightens each pill's own rest color. Replaces the earlier flat `opt-hover-veil` gray.
 - ✓ `opt-pushed` (toggle ON) — the single border-carrier in the system
 - ✓ `opt-pin-violet | opt-pin-green | opt-pin-orange` — post-animation persistence
 - ✓ `opt-flash` — one-shot 250 ms input-acknowledgement motion (4th in the motion budget)

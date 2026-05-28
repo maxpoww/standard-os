@@ -1,7 +1,27 @@
 # Same-option rule + the bright/beat hover system
 
 **Date:** 2026-05-28
-**Status:** approved, implementing
+**Status:** shipped
+
+## Implementation deviation (noted post-build)
+
+The spec below proposes `opt-beat opt-tone-blue` (text-glyph font-size + color beat) for the apps launcher and win-move-new, and `opt-swap-plus` (unchanged) for ws-current. During implementation we noticed that those two motion shapes — text font-size beat vs SVG background-size beat — are *visually distinct*, and Rule 6 requires "exactly the same look" across all three + pills.
+
+**Final implementation:** unified on a single class `opt-plus` (SVG-based). All three + pills use `opt-plus`; ws-current additionally carries `opt-swap` (hide + at rest, reveal on hover behind the workspace number). Hover face is identical for all three: blue background + plus-{white,black}.svg + `opt-pulse-plus` animation (bg-size 14→10, blue color ladder).
+
+**`opt-beat` is deferred** — not built. The infrastructure for text-glyph hover-beats is YAGNI today (no kill/shutdown/disable buttons exist in the bar yet). When such verbs arrive, we'll define `opt-beat` then (and likely choose between SVG icons + opt-plus-style implementation, or text + font-size animation, based on the actual icons available).
+
+What the spec gets right that the implementation keeps:
+- The same-option meta-rule (Rule 6) — codified verbatim.
+- The hover system split — `opt-hover-bright` is the universal default; action pills get the beat.
+- The CSS technique for `opt-hover-bright` — `box-shadow: inset 0 0 0 999px rgba(255,255,255,0.30)` layered over existing background-color, preserving identity.
+- The pushed pills' two-stop box-shadow on hover (1 px border + 999 px brighten film).
+
+What changed:
+- "Action pill class" was specced as `opt-beat opt-tone-blue`; shipped as `opt-plus` (one class, not a base + tone modifier).
+- `opt-tone-red` / `opt-tone-orange` for destructive / toggle-off verbs: deferred (no consumers exist).
+
+---
 
 ## Why
 

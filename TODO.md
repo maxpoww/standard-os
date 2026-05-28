@@ -77,6 +77,25 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-05-28** — Same-option rule (Rule 6) + bright/beat hover system. The
+  three `+` buttons (apps launcher, ws-current's hover face, win-move-new) now
+  all share `opt-plus` — same SVG, same blue beat, same `opt-pulse-plus`
+  animation on hover. Universal hover changes from a flat gray veil
+  (`@opt-hover-veil`) to a brighten-the-rest-color rule (`opt-hover-bright`
+  = inset white film at 0.30 alpha, layered OVER the existing background).
+  *Hint:* `opt-plus` is the canonical operationalisation of Rule 6 — the
+  precedent that the same option SHARES a class string. ws-current uses
+  `opt-plus opt-swap` (hide the + at rest, swap in on hover). Apps launcher
+  and win-move-new use `opt-plus` alone (+ always visible). The CSS is
+  symmetrical: `.opt-plus:hover` is the same for both. When a future
+  recurring option arrives (kill, shutdown, lock), name ONE class for it and
+  wire every instance to that single class — same discipline. Spec at
+  `docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md`
+  (deviation noted there: implementation unified on SVG-based `opt-plus`
+  instead of the text-based `opt-beat opt-tone-blue` originally specced, for
+  pixel-identical motion across all three + pills. `opt-beat` deferred until
+  a future text-glyph action verb actually needs it — YAGNI).
+
 - **2026-05-28** — Global `standard-os` skill + TODO.md contract refinements
   (session-start check, unplanned-→-DONE rule). Skill at
   `~/.claude/skills/standard-os/SKILL.md` (NOT in this git repo — lives in

@@ -143,11 +143,23 @@ The animation (pulse / glow / breathe) calls the user's attention; the pin keeps
 
 ### Hover
 
-Hover is **one uniform veil** — `rgba(130, 130, 150, 0.70)`, a soft white-ish translucent lift — applied identically to every non-swap pill, regardless of state.
+Hover splits into two tiers. The pill's class composition picks which.
 
-The pill's REST face is where meaning lives (blue = yes, red = no, yellow = middle). Hover just signals "you're targeting this option right now"; making hover also color-coded would be redundant noise. Same simple lift everywhere is easier on the eye and easier to learn.
+**Default — brighten the rest color.** Every pill gets a semi-transparent white film layered over its existing background-color (`opt-hover-bright`, implemented as `box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.30)`). A blue pill brightens to light-blue; a red pill to light-red; a neutral parent to near-white-gray. Identity is *preserved, not erased*. Hover says "you're targeting *this specific* option."
 
-Swap pills are the exception. A swap pill's hover is the *action reveal* (e.g. ws-current's "+" pulse) — a deliberate, designed transition specific to that pill. Swap hovers paint their own colors and run their own motions.
+This replaces the earlier uniform gray veil, which painted every hovered pill the same color regardless of its state — flat, muddied colors, and erased identity. Brightening the pill's own color reads cleaner and teaches the user what the option IS, not just that it exists.
+
+**Action — beat on hover.** Pills whose click *changes the world* — verbs with consequence — beat on hover instead of brightening. Font/glyph pulses in size; color cycles between the pill's rest tone and a brighter same-tone. Motion = "this matters." Static brighten = "you're just looking." Reserve motion so it keeps meaning.
+
+The "+" option is the canonical example: every "+" pill in the bar (apps launcher, ws-current's hover face, win-move-new) shares the `opt-plus` class, which paints the + SVG at rest and runs `opt-pulse-plus` (size + blue color ladder) on hover. The user reads "+" as ONE option no matter where it appears.
+
+Forward-looking, the same beat pattern extends to:
+- **Destructive verbs** (kill, close, shutdown, disconnect) — beats red.
+- **Toggle-off verbs** (mute, disable, turn off) — beats orange.
+
+Today only blue (the `+` family) is wired; the red/orange tones are defined in the design vocabulary so future action pills join the same discipline.
+
+**Swap pills** (`opt-swap-*`) are a third special case: their hover is the *action reveal* — the rest face shows the pill's info content, hover shows the action. Swap hovers paint their own colors and run their own motions. The `opt-plus.opt-swap` composition (used by ws-current) marries the canonical `+` pattern to the swap mechanic — same hover face as a non-swap `+` pill, just hidden at rest behind the workspace number.
 
 **Borders carry one thing only: `opt-pushed`** (see below). No hover border, no state border, no decorative border. The single carve-out exists because a binary toggle in the ON state needs to read as a *pressed-in* surface, and the inset edge is the cheapest, most universal way to say "depressed." Everywhere else: surfaces and motion carry the lift; outlines do not.
 
@@ -273,13 +285,14 @@ Both are replaceable. Options is the specification; waybar and rofi are the curr
 
 ## Maintenance rules
 
-A future maintainer of Options should keep three rules in mind:
+A future maintainer of Options should keep these rules in mind:
 
 1. **Every new pill declares its size class, its zone, and its color rules before any code is written.** If the answer to "is this a trigger or a value pill", "which zone", or "which primary state(s) does it have" is not obvious, the option is not ready.
 2. **Parents are naturally uncolored.** If a parent acquires color, it is one of: a hover-swap action-reveal face, a secondary-color animation, a pin, or `opt-pushed`. Never persistent primary state.
 3. **Animations are grammar, not decoration.** Adding a new motion, color, or surface requires a written justification that no existing one suffices. The set is six colors, four motions, two surfaces, and the one border that lives on `opt-pushed` — that is the budget.
 4. **Input is acknowledged; context shifts are silent.** Motion happens in response to user action (a press, a hover, a click) or as a call for attention the user should resolve. The bar never animates *itself* — context-driven appearance and disappearance is instantaneous and quiet.
 5. **Modules do not consult each other.** A module subscribes to context signals and decides its own visibility. Coupling between modules is a maintenance smell. The bar composes; modules author; the context is the only shared world.
+6. **Same option, same look.** When the same option (verb + glyph) appears in multiple places — every `+`, every "kill", every "open", every "lock" — it MUST share class composition across all instances. The user reads it as ONE option no matter where it appears; inconsistent treatment teaches contradictory mental models. New code adding a recurring option reuses the canonical class string. It does not reinvent one. The first example is `opt-plus`: a single class binding apps launcher, ws-current's hover face, and win-move-new to one shared visual.
 
 The hardest part of Options is not building it. It is having the discipline to *not* add the obvious-feeling seventh color, the eighth motion, the toolbar that is always there. The user's attention is finite. Options spends it carefully.
 
