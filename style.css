@@ -1,14 +1,68 @@
+/* ==========================================================================
+   OPTIONS — Standard-OS UX layer
+   See README.md (soul), CLAUDE.md (operating manual), ARCHITECTURE.md (wiring).
+   This stylesheet is in transition: existing rules use rgba literals; new
+   rules use the OPTIONS color tokens declared below. When touching a rule,
+   migrate it to tokens.
+   ========================================================================== */
+
+/* ── OPTIONS color tokens (closed budget) ────────────────────────────────── */
+/* Surfaces (structure) */
+@define-color opt-bar-veil          rgba(50, 50, 70, 0.10);
+@define-color opt-surface-parent    rgba(50, 50, 70, 0.30);
+@define-color opt-surface-child     rgba(70, 50, 50, 0.30);
+@define-color opt-hover-veil        rgba(130, 130, 150, 0.70);
+@define-color opt-hover-border      rgba(255, 255, 255, 0.35);
+
+/* Primary state colors (persistent, painted ON the pill) */
+@define-color opt-blue              rgba( 80, 120, 220, 0.70);
+@define-color opt-blue-state        rgba( 80, 120, 220, 0.30);
+@define-color opt-yellow            rgba(255, 200,  50, 0.70);
+@define-color opt-yellow-state      rgba(255, 200,  50, 0.30);
+@define-color opt-red               rgba(255, 100, 100, 0.70);
+@define-color opt-red-state         rgba(255, 100, 100, 0.30);
+
+/* Secondary animation colors (transient, painted OVER the state) */
+@define-color opt-violet            rgba(160, 100, 220, 0.70);
+@define-color opt-green             rgba(100, 200, 100, 0.70);
+@define-color opt-orange            rgba(255, 140,  50, 0.70);
+
+/* Text */
+@define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
+@define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
+@define-color opt-text-on-light-hov rgba(  0,   0,   0, 0.95);
+@define-color opt-text-light-shadow rgba(255, 255, 255, 0.25);
+
+/* ── OPTIONS canonical motions (color carries meaning; motion is shape) ──── */
+/* These animate the pill's background-color *toward* the named color and back
+   when used with animation-direction: alternate. Apply with:
+     animation: opt-pulse-orange 1s ease-in-out infinite alternate;
+   The pill's existing base bg stays the "from" anchor.
+   See README.md → Color and motion for the meaning of each pairing. */
+
+@keyframes opt-pulse-orange   { to { background-color: @opt-orange; color: #ffffff; } }
+@keyframes opt-pulse-red      { to { background-color: @opt-red;    color: #ffffff; } }
+@keyframes opt-glow-green     { to { background-color: @opt-green;  color: #ffffff; } }
+@keyframes opt-glow-yellow    { to { background-color: @opt-yellow; color: #000000; } }
+@keyframes opt-breathe-violet { to { background-color: @opt-violet; color: #ffffff; } }
+@keyframes opt-breathe-blue   { to { background-color: @opt-blue;   color: #ffffff; } }
+
+/* ── Bar window ──────────────────────────────────────────────────────────── */
+
 * {
     font-family: font-awesome, meslo-lg, meslo-lgs-nf;
     font-size: 13px;
 }
 
 window#waybar {
- background: rgba(50, 50, 70, 0.10);
+ background: @opt-bar-veil;
  border-radius: 30px;
 }
 
-/* ── Glass pills (uniform base style) ────────────────────────────── */
+/* ── Pill primitive (the OPTIONS canonical glass pill) ───────────────────── */
+/* Every pill listed below shares: 30px border-radius, parent surface
+   background, 14px font, asymmetric padding (3 9 3 7), 3px/2px margin.
+   New pills should use these tokens rather than repeating literals. */
 
 #custom-night-dimmer,
 #custom-warm-cycle,
@@ -80,7 +134,10 @@ window#waybar {
     opacity: 0.45;
 }
 
-/* ── Hover (general) ─────────────────────────────────────────────── */
+/* ── Canonical hover (current color, brighter — the OPTIONS hover rule) ──── */
+/* Alpha 0.30 → 0.70 (~2.3× brighter) plus a hairline white edge. Specialized
+   action pills further down override the background with their semantic color
+   (red for destructive, yellow for caution, blue for primary). */
 
 #screen-type-group > *:hover,
 #screen-type-group button:hover,

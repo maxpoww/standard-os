@@ -1,15 +1,47 @@
+// =====================================================================
+//  OPTIONS — waybar implementation
+//  See README.md (the soul), CLAUDE.md (operating manual),
+//  ARCHITECTURE.md (zones, daemons, channels, signals).
+//
+//  Layout zones:
+//    LEFT   = USER   — user-initiated actions (clipboard, translate, launcher, ...)
+//    CENTER = TASK   — focused window pill (anchor), workspaces, window actions
+//    RIGHT  = SYSTEM — persistent state (network, audio, theme, battery, power)
+//
+//  Cluster expansion direction:
+//    LEFT-zone groups   → drawer.transition-left-to-right: true   (expand right)
+//    RIGHT-zone groups  → drawer.transition-left-to-right: false  (expand left)
+//    CENTER-zone groups → expand away from the task anchor
+// =====================================================================
 {
   "exclusive": true,
   "spacing": 4,
+  "height": 30,
+
+  // ── USER zone (left) ────────────────────────────────────────────
+  // User-initiated tools and ad-hoc actions. Currently sparse — most
+  // entries are planned and will arrive as daemons land. Existing
+  // entries that conceptually belong here but live elsewhere today
+  // are noted in ARCHITECTURE.md (e.g. dictate).
   "modules-left": [
-    "group/workspaces",
-    "group/active-window"
+    "group/group-rofi"
   ],
+
+  // ── TASK zone (center) ──────────────────────────────────────────
+  // The task anchor and everything that acts on the current task.
+  // group/active-window's first module (hyprland/window) is the
+  // immovable anchor; surrounding pills (close, minimize, swap,
+  // move) cluster around it. group/workspaces sits to its left.
   "modules-center": [
-    "group/group-rofi",
+    "group/workspaces",
+    "group/active-window",
     "custom/window",
     "custom/x"
   ],
+
+  // ── SYSTEM zone (right) ─────────────────────────────────────────
+  // Persistent system state, mostly read-only-with-occasional-action.
+  // Connectivity, theme controls, time, power, indicators.
   "modules-right": [
     "tray",
     "group/group-2",
@@ -442,7 +474,6 @@
     "tooltip": false,
     "on-click": "systemctl hibernate"
   },
-  "height": 30,
   "group/workspaces": {
     "orientation": "inherit",
     "drawer": {
