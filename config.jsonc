@@ -265,7 +265,7 @@
     "on-click": "swaylock"
   },
   "custom/x": {
-    "exec": "~/.config/waybar/scripts/pill '󱂬' opt-yes",
+    "exec": "~/.config/waybar/scripts/pill '󱂬' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "~/.config/waybar/scripts/restore-minimized.sh"
   },
@@ -303,7 +303,7 @@
     ]
   },
   "custom/blue": {
-    "exec": "~/.config/waybar/scripts/pill-child '' opt-yes",
+    "exec": "~/.config/waybar/scripts/pill-child '' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -336,7 +336,7 @@
     ]
   },
   "custom/wifi": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰖩' opt-yes",
+    "exec": "~/.config/waybar/scripts/pill-child '󰖩' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
@@ -373,7 +373,7 @@
     ]
   },
   "custom/power": {
-    "exec": "~/.config/waybar/scripts/pill '' opt-no",
+    "exec": "~/.config/waybar/scripts/pill '' opt-hover-red",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "systemctl hibernate"
   },

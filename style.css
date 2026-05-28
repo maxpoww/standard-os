@@ -62,23 +62,22 @@
 
    Hex reference:    Blue #8aadf4   Yellow #eed49f   Red #ed8796
                      Mauve #c6a0f6  Green #a6da95   Peach #f5a97f
-   Alpha discipline: full saturation token = 0.394 (used in animation
+   Alpha discipline: full saturation token = 0.525 (used in animation
                      keyframes + opt-plus hover beat); state-variant token
-                     = 0.169 (rest face for opt-yes / opt-middle / opt-no).
+                     = 0.225 (rest face for opt-yes / opt-middle / opt-no).
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-@define-color opt-blue              rgba(138, 173, 244, 0.394);
-@define-color opt-blue-state        rgba(138, 173, 244, 0.169);
-@define-color opt-yellow            rgba(238, 212, 159, 0.394);
-@define-color opt-yellow-state      rgba(238, 212, 159, 0.169);
-@define-color opt-red               rgba(237, 135, 150, 0.394);
-@define-color opt-red-state         rgba(237, 135, 150, 0.169);
+@define-color opt-blue              rgba(138, 173, 244, 0.525);
+@define-color opt-blue-state        rgba(138, 173, 244, 0.225);
+@define-color opt-yellow            rgba(238, 212, 159, 0.525);
+@define-color opt-yellow-state      rgba(238, 212, 159, 0.225);
+@define-color opt-red               rgba(237, 135, 150, 0.525);
+@define-color opt-red-state         rgba(237, 135, 150, 0.225);
 
 /* Secondary triplet — Catppuccin Macchiato Mauve / Green / Peach. Matches
-   the primary saturation; secondaries read as "deeper accent" rather than
-   as a separate family. Same compound 0.70 → 0.394 alpha as the primaries. */
-@define-color opt-violet            rgba(198, 160, 246, 0.394);
-@define-color opt-green             rgba(166, 218, 149, 0.394);
-@define-color opt-orange            rgba(245, 169, 127, 0.394);
+   the primary saturation; same 0.525 alpha as the primaries. */
+@define-color opt-violet            rgba(198, 160, 246, 0.525);
+@define-color opt-green             rgba(166, 218, 149, 0.525);
+@define-color opt-orange            rgba(245, 169, 127, 0.525);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
@@ -234,24 +233,38 @@ window#waybar .opt-pill-child.opt-pushed:hover {
                 inset 0 0 0 999px @opt-hover-bright;
 }
 
-/* ── Hover beats for state-colored action pills (verbs only) ─────────────── */
-/* Pills carrying a state class (opt-yes / opt-middle / opt-no) are action
-   verbs: their click changes something. On hover they BEAT in their tone —
-   destructive red beats fast, defer yellow glows slow, forward blue beats
-   fast. Same keyframes the rest faces would use, just scoped to :hover so
-   the rest face stays calm. Composes with the universal opt-hover-bright
-   overlay — both visible at once (color cycle + white film). */
+/* ── Hover beats — two flavors (state-colored vs neutral parents) ────────── */
+/* Children carry permanent state colors (opt-no / opt-middle / opt-yes) —
+   their identity. On hover they BEAT in their tone — destructive red,
+   defer yellow, forward blue. Rest face calm, hover invites the eye.
 
+   Parents stay neutral at rest (Rule 2) and gain color ONLY on hover via
+   opt-hover-red / opt-hover-yellow / opt-hover-blue. Same keyframes, same
+   tempo — only the rest face differs. A parent hover-beating red signals
+   "the drawer this opens contains destructive options" without painting
+   the parent surface at rest. Permanent color belongs to children; parents
+   borrow it momentarily.
+
+   Both flavors compose with the universal opt-hover-bright overlay — color
+   cycle layered with white film, both visible at once. */
+
+/* Child action pills (permanent rest color + hover beat) */
 window#waybar .opt-pill.opt-no:hover,
-window#waybar .opt-pill-child.opt-no:hover {
+window#waybar .opt-pill-child.opt-no:hover,
+window#waybar .opt-pill.opt-hover-red:hover,
+window#waybar .opt-pill-child.opt-hover-red:hover {
     animation: opt-pulse-red 1s ease-in-out infinite alternate;
 }
 window#waybar .opt-pill.opt-middle:hover,
-window#waybar .opt-pill-child.opt-middle:hover {
+window#waybar .opt-pill-child.opt-middle:hover,
+window#waybar .opt-pill.opt-hover-yellow:hover,
+window#waybar .opt-pill-child.opt-hover-yellow:hover {
     animation: opt-glow-yellow 2s ease-in-out infinite alternate;
 }
 window#waybar .opt-pill.opt-yes:hover,
-window#waybar .opt-pill-child.opt-yes:hover {
+window#waybar .opt-pill-child.opt-yes:hover,
+window#waybar .opt-pill.opt-hover-blue:hover,
+window#waybar .opt-pill-child.opt-hover-blue:hover {
     animation: opt-pulse-blue 1s ease-in-out infinite alternate;
 }
 
