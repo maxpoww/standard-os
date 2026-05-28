@@ -51,25 +51,25 @@
    docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
-/* Catppuccin Frappé palette mapped to the 6-color OPTIONS budget (2026-05-28).
-   Frappé sits between Mocha and Macchiato — warmer and softer than Mocha,
-   slightly more saturated than Macchiato. Designed for dark backgrounds
-   with a gentler tone than Mocha's cool pastels. Alpha discipline unchanged.
-   Frappé hex reference:  Blue #8caaee  Yellow #e5c890  Red #e78284
-                          Mauve #ca9ee6  Green #a6d189  Peach #ef9f76 */
-@define-color opt-blue              rgba(140, 170, 238, 0.70);
-@define-color opt-blue-state        rgba(140, 170, 238, 0.30);
-@define-color opt-yellow            rgba(229, 200, 144, 0.70);
-@define-color opt-yellow-state      rgba(229, 200, 144, 0.30);
-@define-color opt-red               rgba(231, 130, 132, 0.70);
-@define-color opt-red-state         rgba(231, 130, 132, 0.30);
+/* Catppuccin Macchiato palette mapped to the 6-color OPTIONS budget (2026-05-28).
+   Macchiato is darker and more saturated than Frappé, slightly more saturated
+   than Mocha and a hair warmer. Pairs well with very dark wallpapers — colors
+   pop without going pastel. Alpha discipline unchanged.
+   Macchiato hex reference:  Blue #8aadf4  Yellow #eed49f  Red #ed8796
+                             Mauve #c6a0f6  Green #a6da95  Peach #f5a97f */
+@define-color opt-blue              rgba(138, 173, 244, 0.70);
+@define-color opt-blue-state        rgba(138, 173, 244, 0.30);
+@define-color opt-yellow            rgba(238, 212, 159, 0.70);
+@define-color opt-yellow-state      rgba(238, 212, 159, 0.30);
+@define-color opt-red               rgba(237, 135, 150, 0.70);
+@define-color opt-red-state         rgba(237, 135, 150, 0.30);
 
-/* Secondary triplet — Catppuccin Frappé Mauve / Green / Peach. Same
-   warmth + softness as the Frappé primaries; pairs cleanly without
-   pulling attention away from the primary triplet. */
-@define-color opt-violet            rgba(202, 158, 230, 0.70);
-@define-color opt-green             rgba(166, 209, 137, 0.70);
-@define-color opt-orange            rgba(239, 159, 118, 0.70);
+/* Secondary triplet — Catppuccin Macchiato Mauve / Green / Peach. Matches
+   the primary saturation; secondaries read as "deeper accent" rather than
+   as a separate family. */
+@define-color opt-violet            rgba(198, 160, 246, 0.70);
+@define-color opt-green             rgba(166, 218, 149, 0.70);
+@define-color opt-orange            rgba(245, 169, 127, 0.70);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
