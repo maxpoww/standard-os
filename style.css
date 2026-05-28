@@ -51,12 +51,19 @@
    docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
-@define-color opt-blue              rgba( 80, 120, 220, 0.70);
-@define-color opt-blue-state        rgba( 80, 120, 220, 0.30);
-@define-color opt-yellow            rgba(255, 200,  50, 0.70);
-@define-color opt-yellow-state      rgba(255, 200,  50, 0.30);
-@define-color opt-red               rgba(255, 100, 100, 0.70);
-@define-color opt-red-state         rgba(255, 100, 100, 0.30);
+/* Primary triplet — pure R/Y/B starting point for tuning (2026-05-28).
+   Earlier softened hues (220-blue, 200-yellow, 100-red) replaced with
+   saturated primaries so the action-color experiment on win-close /
+   win-minimize / win-move-trigger reads at full saturation. Adjust RGB
+   in place when the bar lands on its final palette — these tokens are
+   referenced everywhere (state surfaces, animation keyframes, opt-plus
+   hover beat) so every downstream visual updates together. */
+@define-color opt-blue              rgba(  0,   0, 255, 0.70);
+@define-color opt-blue-state        rgba(  0,   0, 255, 0.30);
+@define-color opt-yellow            rgba(255, 255,   0, 0.70);
+@define-color opt-yellow-state      rgba(255, 255,   0, 0.30);
+@define-color opt-red               rgba(255,   0,   0, 0.70);
+@define-color opt-red-state         rgba(255,   0,   0, 0.30);
 
 @define-color opt-violet            rgba(160, 100, 220, 0.70);
 @define-color opt-green             rgba(100, 200, 100, 0.70);
