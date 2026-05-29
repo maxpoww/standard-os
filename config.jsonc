@@ -357,16 +357,16 @@
   },
 
   // ── Power group ──
-  // Trigger: lock (always visible) — the safe default in this group.
-  // Children: reboot (yellow defer) and power (red shutdown), revealed
-  // only on hover. Destructive options requiring explicit hover is a
-  // safety pattern.
-  // SYSTEM zone rule: right-zone groups expand right-to-left
-  // (transition-left-to-right: false). Modules listed in source order
-  // such that visual L→R reads as the R/Y/B family:
-  //   modules [lock, reboot, power]  with drawer expanding left
-  //   →  visual: power(R) | reboot(Y) | lock(B)  — R/Y/B family
-  // See CLAUDE.md "Bar layout and expansion direction".
+  // Trigger: power (parent, opt-hover-red — neutral rest per Rule 2,
+  // red beat on hover because the group contains destructive options).
+  // Children: reboot (opt-middle, yellow defer) and lock (opt-yes,
+  // blue forward). Children slide in from the right toward the left
+  // (transition-left-to-right: false — SYSTEM zone rule, CLAUDE.md
+  // L253/L480), so visual L→R reads:
+  //   lock(B) | reboot(Y) | power(R)
+  // Color family + importance: B/Y/R left-to-right, with the most
+  // consequential option (shutdown) at the trigger position on the
+  // right edge of the bar.
   "group/group-power": {
     "orientation": "inherit",
     "drawer": {
@@ -374,9 +374,9 @@
       "transition-left-to-right": false
     },
     "modules": [
-      "custom/lock",
+      "custom/power",
       "custom/reboot",
-      "custom/power"
+      "custom/lock"
     ]
   },
   "custom/power": {
