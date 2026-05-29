@@ -360,13 +360,24 @@
   // Trigger: power (parent, opt-hover-red — neutral rest per Rule 2,
   // red beat on hover because the group contains destructive options).
   // Children: reboot (opt-middle, yellow defer) and lock (opt-yes,
-  // blue forward). Children slide in from the right toward the left
-  // (transition-left-to-right: false — SYSTEM zone rule, CLAUDE.md
-  // L253/L480), so visual L→R reads:
-  //   lock(B) | reboot(Y) | power(R)
+  // blue forward).
+  //
+  // SYSTEM zone direction (CLAUDE.md L253 / L480):
+  //   transition-left-to-right: false  →  children slide in to the LEFT
+  //   of the trigger; trigger sits at the RIGHT edge.
+  //
+  // Waybar drawer-left module placement (verified by observation):
+  //   modules[0]   trigger, sits at the RIGHT
+  //   modules[1]   LEFTMOST child (farthest from trigger)
+  //   modules[2]   between modules[1] and trigger
+  //   modules[N]   closest to trigger
+  //
+  // To get visual L→R = lock(B) | reboot(Y) | power(R) the order must be:
+  //   modules = [power, lock, reboot]
+  //
   // Color family + importance: B/Y/R left-to-right, with the most
-  // consequential option (shutdown) at the trigger position on the
-  // right edge of the bar.
+  // consequential option (shutdown) at the trigger position under the
+  // user's cursor when entering the system zone.
   "group/group-power": {
     "orientation": "inherit",
     "drawer": {
@@ -375,8 +386,8 @@
     },
     "modules": [
       "custom/power",
-      "custom/reboot",
-      "custom/lock"
+      "custom/lock",
+      "custom/reboot"
     ]
   },
   "custom/power": {
