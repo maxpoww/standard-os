@@ -357,22 +357,26 @@
   },
 
   // ── Power group ──
-  // Trigger: power (parent, opt-hover-red — neutral rest, red beat on hover
-  // because the group contains destructive options).
-  // Children: reboot (yellow defer), lock (blue forward).
-  // Drawer expands RIGHT so the visual order is power(R) | reboot(Y) | lock(B)
-  // — left-to-right matches the semantic R/Y/B family (destructive → defer →
-  // forward), the color order users learn elsewhere on the bar.
+  // Trigger: lock (always visible) — the safe default in this group.
+  // Children: reboot (yellow defer) and power (red shutdown), revealed
+  // only on hover. Destructive options requiring explicit hover is a
+  // safety pattern.
+  // SYSTEM zone rule: right-zone groups expand right-to-left
+  // (transition-left-to-right: false). Modules listed in source order
+  // such that visual L→R reads as the R/Y/B family:
+  //   modules [lock, reboot, power]  with drawer expanding left
+  //   →  visual: power(R) | reboot(Y) | lock(B)  — R/Y/B family
+  // See CLAUDE.md "Bar layout and expansion direction".
   "group/group-power": {
     "orientation": "inherit",
     "drawer": {
       "transition-duration": 100,
-      "transition-left-to-right": true
+      "transition-left-to-right": false
     },
     "modules": [
-      "custom/power",
+      "custom/lock",
       "custom/reboot",
-      "custom/lock"
+      "custom/power"
     ]
   },
   "custom/power": {
