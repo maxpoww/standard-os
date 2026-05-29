@@ -52,32 +52,42 @@
 @define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   PALETTE: catppuccin-macchiato-translucent  (named 2026-05-28)
+   PALETTE: options-flat-pastel  (designed 2026-05-28)
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   Canonical Catppuccin Macchiato hex values, alpha-reduced 2× by 25% for a
-   "color is a tint, wallpaper is the ground" feel. This is the named palette
-   reused system-wide (when other apps adopt it, they copy these exact rgba
-   tuples — or eventually we extract them to a Nix module that every app
-   reads from, see the distro roadmap).
+   Custom 6-color palette tuned via the OPTIONS palette-preview tool:
+   each hue's base RGB is mixed with 70% white before the alpha is applied,
+   so the rest-face reads as a quiet tint and the full-saturation peak
+   stays soft against any wallpaper.
 
-   Hex reference:    Blue #8aadf4   Yellow #eed49f   Red #ed8796
-                     Mauve #c6a0f6  Green #a6da95   Peach #f5a97f
-   Alpha discipline: full saturation token = 0.525 (used in animation
-                     keyframes + opt-plus hover beat); state-variant token
-                     = 0.225 (rest face for opt-yes / opt-middle / opt-no).
+   Per-hue base + mixed RGB:
+     Y  hue  40°  base rgb(255,170,0)  → mixed rgb(255,230,179)  #ffe6b3
+     O  hue  10°  base rgb(255, 43,0)  → mixed rgb(255,191,179)  #ffbfb3
+     R  hue   0°  base rgb(255,  0,0)  → mixed rgb(255,179,179)  #ffb3b3
+     V  hue 270°  base rgb(128,  0,255)→ mixed rgb(217,179,255)  #d9b3ff
+     B  hue 230°  base rgb(  0, 42,255)→ mixed rgb(179,191,255)  #b3bfff
+     G  hue 120°  base rgb(  0,255,  0)→ mixed rgb(179,255,179)  #b3ffb3
+
+   Alpha discipline (back to initial standard):
+     full saturation token = 0.70  (animation keyframes + opt-plus beat)
+     state-variant token   = 0.30  (rest face for opt-yes/middle/no)
+
+   Same-name reusability: when other apps (rofi / kitty / hyprland) adopt
+   this palette, copy these exact rgba tuples or, eventually, read from a
+   shared Nix module (see the distro roadmap).
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-@define-color opt-blue              rgba(138, 173, 244, 0.525);
-@define-color opt-blue-state        rgba(138, 173, 244, 0.225);
-@define-color opt-yellow            rgba(238, 212, 159, 0.525);
-@define-color opt-yellow-state      rgba(238, 212, 159, 0.225);
-@define-color opt-red               rgba(237, 135, 150, 0.525);
-@define-color opt-red-state         rgba(237, 135, 150, 0.225);
+@define-color opt-blue              rgba(179, 191, 255, 0.70);
+@define-color opt-blue-state        rgba(179, 191, 255, 0.30);
+@define-color opt-yellow            rgba(255, 230, 179, 0.70);
+@define-color opt-yellow-state      rgba(255, 230, 179, 0.30);
+@define-color opt-red               rgba(255, 179, 179, 0.70);
+@define-color opt-red-state         rgba(255, 179, 179, 0.30);
 
-/* Secondary triplet — Catppuccin Macchiato Mauve / Green / Peach. Matches
-   the primary saturation; same 0.525 alpha as the primaries. */
-@define-color opt-violet            rgba(198, 160, 246, 0.525);
-@define-color opt-green             rgba(166, 218, 149, 0.525);
-@define-color opt-orange            rgba(245, 169, 127, 0.525);
+/* Secondary triplet — V / G / O of the options-flat-pastel palette
+   (V hue 270° pure, G hue 120° pure, O hue 10° red-orange). Same 0.70
+   alpha as the primaries. */
+@define-color opt-violet            rgba(217, 179, 255, 0.70);
+@define-color opt-green             rgba(179, 255, 179, 0.70);
+@define-color opt-orange            rgba(255, 191, 179, 0.70);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
