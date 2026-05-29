@@ -357,14 +357,17 @@
   },
 
   // ── Power group ──
-  // Trigger: power (parent, hovers to opt-no — the destructive accent is
-  // intentional and only on hover; rest face is baseline).
-  // Children: reboot, lock (opt-pill-child baseline).
+  // Trigger: power (parent, opt-hover-red — neutral rest, red beat on hover
+  // because the group contains destructive options).
+  // Children: reboot (yellow defer), lock (blue forward).
+  // Drawer expands RIGHT so the visual order is power(R) | reboot(Y) | lock(B)
+  // — left-to-right matches the semantic R/Y/B family (destructive → defer →
+  // forward), the color order users learn elsewhere on the bar.
   "group/group-power": {
     "orientation": "inherit",
     "drawer": {
       "transition-duration": 100,
-      "transition-left-to-right": false
+      "transition-left-to-right": true
     },
     "modules": [
       "custom/power",
