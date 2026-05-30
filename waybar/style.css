@@ -1,0 +1,520 @@
+/* ==========================================================================
+   OPTIONS — Standard-OS UX layer
+   See README.md (the soul), CLAUDE.md (operating manual),
+   docs/superpowers/specs/2026-05-28-options-foundation-design.md (this refactor).
+
+   Class vocabulary (the contract every pill honors):
+       Structure (required): .opt-pill | .opt-pill-child
+       Theme (required):     .dark | .light                 (glass-text-daemon)
+       State (0/1):          .opt-yes | .opt-middle | .opt-no
+       Animation (0/1):      .opt-pulse | .opt-glow | .opt-breathe   (state-meaning, infinite)
+       Flash (0/1):          .opt-flash                              (input acknowledged —
+                             one-shot 250ms inset shadow that reads as a button being
+                             pressed in. No color, no state meaning. Composes with everything.)
+       Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange
+                             (solid secondary color held after animation resolves;
+                              calm, no motion — the eye stays, the CPU doesn't)
+       Pushed (0/1):         .opt-pushed                    (toggle ON — the ONLY
+                             carrier of a border anywhere in OPTIONS)
+       Dimmed (0/1):         .inactive                      (peer occupied but not
+                             selected; semantic vocabulary name is "dimmed",
+                             implementation class kept as .inactive until the
+                             workspace daemon migrates to Nix)
+       Tone override (rare): .opt-tone-red | .opt-tone-yellow | .opt-tone-blue
+       Swap (0/1):           .opt-swap-<kind>               (rest→hover face)
+       Action (0/1):         .opt-plus                      (canonical "+" — same-option
+                             rule: every "+" in the bar shares this class. Pairs with
+                             .opt-swap on ws-current to hide the + at rest.)
+       Empty (collapse):     .empty
+
+   IMPORTANT — GTK 3 CSS quirk:
+       waybar/GTK 3 silently ignores bare class selectors (.foo { ... }).
+       Every class selector MUST be scoped by an ancestor or widget type.
+       The convention used throughout this file is the `window#waybar `
+       prefix — every pill in the bar is a descendant of window#waybar.
+
+   Rgba literals appear ONLY inside @define-color. Every rule below uses tokens.
+   ========================================================================== */
+
+/* ── OPTIONS color tokens (closed budget) ────────────────────────────────── */
+/* Surfaces — neutral middle gray, no warm/cool tint. Parent is exactly
+   the middle between black and white (128/128/128). Child is a slightly
+   brighter gray (170/170/170) so a child sitting beside a parent reads
+   as subtly distinct — same family, one step lighter, no hue shift. */
+@define-color opt-bar-veil          rgba(128, 128, 128, 0.10);
+@define-color opt-surface-parent    rgba(128, 128, 128, 0.30);
+@define-color opt-surface-child     rgba(170, 170, 170, 0.30);
+/* opt-hover-bright — universal hover "brighten the rest color" overlay.
+   Applied as an inset white box-shadow large enough to fill the pill, layered
+   OVER the existing background-color. Identity preserved (a blue pill brightens
+   to light-blue, a red pill to light-red, neutral to near-white-gray) — hover
+   says "you're targeting this option" without erasing what the option IS.
+   Replaces the earlier uniform opt-hover-veil that flattened every pill to
+   the same gray-white on hover (which muddied state colors). See README →
+   Hover, and the design spec
+   docs/superpowers/specs/2026-05-28-same-option-rule-and-hover-system-design.md. */
+@define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PALETTE: options-flat-pastel  (designed 2026-05-28)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Custom 6-color palette tuned via the OPTIONS palette-preview tool:
+   each hue's base RGB is mixed with 70% white before the alpha is applied,
+   so the rest-face reads as a quiet tint and the full-saturation peak
+   stays soft against any wallpaper.
+
+   Per-hue base + mixed RGB:
+     Y  hue  40°  base rgb(255,170,0)  → mixed rgb(255,230,179)  #ffe6b3
+     O  hue  10°  base rgb(255, 43,0)  → mixed rgb(255,191,179)  #ffbfb3
+     R  hue   0°  base rgb(255,  0,0)  → mixed rgb(255,179,179)  #ffb3b3
+     V  hue 270°  base rgb(128,  0,255)→ mixed rgb(217,179,255)  #d9b3ff
+     B  hue 230°  base rgb(  0, 42,255)→ mixed rgb(179,191,255)  #b3bfff
+     G  hue 120°  base rgb(  0,255,  0)→ mixed rgb(179,255,179)  #b3ffb3
+
+   Alpha discipline (solid rest, translucent peak):
+     state-variant token   = 1.00  (rest face for opt-yes/middle/no — SOLID
+                                    pastel so pills read as identity, not
+                                    as wallpaper tint)
+     full saturation token = 0.70  (animation keyframes + opt-plus beat —
+                                    cycles to translucent at peak, creating
+                                    a soft "breathe" against the wallpaper)
+
+   Same-name reusability: when other apps (rofi / kitty / hyprland) adopt
+   this palette, copy these exact rgba tuples or, eventually, read from a
+   shared Nix module (see the distro roadmap).
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@define-color opt-blue              rgba(179, 191, 255, 0.70);
+@define-color opt-blue-state        rgba(179, 191, 255, 1.00);
+@define-color opt-yellow            rgba(255, 230, 179, 0.70);
+@define-color opt-yellow-state      rgba(255, 230, 179, 1.00);
+@define-color opt-red               rgba(255, 179, 179, 0.70);
+@define-color opt-red-state         rgba(255, 179, 179, 1.00);
+
+/* Secondary triplet — V / G / O of the options-flat-pastel palette
+   (V hue 270° pure, G hue 120° pure, O hue 10° red-orange). Same 0.70
+   alpha as the primaries. */
+@define-color opt-violet            rgba(217, 179, 255, 0.70);
+@define-color opt-green             rgba(179, 255, 179, 0.70);
+@define-color opt-orange            rgba(255, 191, 179, 0.70);
+
+/* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
+   is engaged." Replaces the earlier hard 1px border + dark surface combo
+   (which screamed for attention and made pushed pills look like a dark
+   stamp). Now pushed pills keep their rest face (or state color when
+   combined with opt-yes/middle/no) and just look gently pressed-in.
+   Soft 4px blur from the top inset edge — looks like a button has been
+   pressed, not framed. See README "Pushed (toggle ON)" and CLAUDE.md
+   "The hover system" for composition with hover. */
+@define-color opt-pushed-shadow     rgba(  0,   0,   0, 0.35);
+
+@define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
+@define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
+@define-color opt-text-on-light-hov rgba(  0,   0,   0, 0.95);
+@define-color opt-text-light-shadow rgba(255, 255, 255, 0.25);
+
+/* ── Canonical motions ───────────────────────────────────────────────────── */
+/* Text stays @opt-text-on-light at peak — when a pill becomes colored
+   (state or hover-borrowed), dark text reads on these pastels; white would
+   wash out. Matches the rest-face rule for state-colored children below. */
+@keyframes opt-pulse-orange   { to { background-color: @opt-orange; color: @opt-text-on-light; } }
+@keyframes opt-pulse-red      { to { background-color: @opt-red;    color: @opt-text-on-light; } }
+@keyframes opt-pulse-blue     { to { background-color: @opt-blue;   color: @opt-text-on-light; } }
+@keyframes opt-glow-green     { to { background-color: @opt-green;  color: @opt-text-on-light; } }
+@keyframes opt-glow-yellow    { to { background-color: @opt-yellow; color: @opt-text-on-light; } }
+@keyframes opt-breathe-violet { to { background-color: @opt-violet; color: @opt-text-on-light; } }
+@keyframes opt-breathe-blue   { to { background-color: @opt-blue;   color: @opt-text-on-light; } }
+
+/* opt-pulse-plus — the established WS hover pulse: pulses BOTH background-size
+   (14 → 10) and background-color (blue → brighter blue). This is the
+   canonical "swap-plus" hover animation; other swap kinds may share the
+   icon-swap mechanic but use their own motion. The to-color literal is
+   deliberately outside the closed budget — it's an in-animation tone that
+   only exists during this single motion. */
+@keyframes opt-pulse-plus {
+    from { background-size: 14px 14px; background-color: @opt-blue; }
+    to   { background-size: 10px 10px; background-color: rgba(100, 150, 255, 0.90); }
+}
+
+/* opt-flash — input acknowledged. One-shot 250ms motion that briefly depresses
+   the pill: a small top-edge inset highlight + a whole-pill darkening overlay
+   via large inset spread. Reads as "this button was just pressed." Plays once,
+   then fill-mode default reverts box-shadow to the pill's static rule (so an
+   opt-pushed pill's 1px border returns automatically after the flash settles).
+   Touches ONLY box-shadow — never background-color, never background-image —
+   so it composes cleanly with state colors (opt-yes/middle/no) and with
+   opt-swap-plus's background-image SVG. The whole-pill darkening uses spread
+   30px which safely exceeds any pill height (~22px). See README → Motion
+   vocabulary (Flash) and CLAUDE.md → Hardware-button reflection. */
+@keyframes opt-flash {
+    0%   { box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0); }
+    50%  { box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), inset 0 0 0 30px rgba(0, 0, 0, 0.20); }
+    100% { box-shadow: inset 0 0 0 0 rgba(0, 0, 0, 0); }
+}
+
+/* ── Bar window ──────────────────────────────────────────────────────────── */
+
+* {
+    font-family: font-awesome, meslo-lg, meslo-lgs-nf;
+    font-size: 13px;
+}
+
+window#waybar {
+    background: @opt-bar-veil;
+    border-radius: 30px;
+}
+
+/* ── Pill primitive — parent and child surfaces ──────────────────────────── */
+
+window#waybar .opt-pill,
+window#waybar .opt-pill-child {
+    border-radius: 30px;
+    color: @opt-text-on-dark;
+    font-size: 13px;
+    padding: 3px 8px 3px 7px;
+    margin: 1px 0px;
+}
+
+window#waybar .opt-pill        { background: @opt-surface-parent; }
+window#waybar .opt-pill-child  { background: @opt-surface-child;  }
+
+/* ── Canonical hover — brighten the rest color (every non-swap, non-action pill) ── */
+/* opt-hover-bright: inset white film layered OVER whatever background-color
+   the pill already has. Identity preserved: a blue pill brightens to light-blue,
+   a neutral parent to near-white-gray. Swap pills (opt-swap-*) and action
+   pills (opt-plus) override below with their own hover behavior.
+   Hover never introduces a border — borders only carry opt-pushed (which uses
+   inset box-shadow of its own; the two compose in the pushed:hover rule). */
+
+window#waybar .opt-pill:hover,
+window#waybar .opt-pill-child:hover  { box-shadow: inset 0 0 0 999px @opt-hover-bright; }
+
+/* ── State paint — yes / middle / no (persistent state colors) ───────────── */
+/* Solid pastel rest faces. Identity color is the pill's identity — wallpaper
+   doesn't bleed through. Text needs to be DARK on these pastels for
+   readability (overridden in the label rule below). */
+
+window#waybar .opt-pill.opt-yes,
+window#waybar .opt-pill-child.opt-yes    { background: @opt-blue-state;   color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill.opt-middle,
+window#waybar .opt-pill-child.opt-middle { background: @opt-yellow-state; color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill.opt-no,
+window#waybar .opt-pill-child.opt-no     { background: @opt-red-state;    color: @opt-text-on-light; text-shadow: none; }
+
+/* Dark text on solid pastel state pills — pastel is light, white text
+   would disappear. Animation keyframes also hold text at this color
+   through the cycle (see opt-pulse/glow/breathe at top of file), so the
+   icon stays readable while the background brightens on hover. */
+window#waybar .opt-pill.opt-yes label,
+window#waybar .opt-pill-child.opt-yes label,
+window#waybar .opt-pill.opt-middle label,
+window#waybar .opt-pill-child.opt-middle label,
+window#waybar .opt-pill.opt-no label,
+window#waybar .opt-pill-child.opt-no label {
+    color: @opt-text-on-light;
+    text-shadow: none;
+}
+
+/* State pills inherit the universal opt-hover-bright overlay from the
+   .opt-pill:hover rule above — no per-state hover declaration needed.
+   The overlay LAYERS over each state's background-color, preserving identity
+   while pushing it toward white. */
+
+/* ── Pin — solid secondary held after an animation resolves ──────────────── */
+/* A pin is the calm tail of an animation: the daemon writes opt-pulse (or
+   opt-glow / opt-breathe) to call the eye, then rewrites the cache file
+   with the matching opt-pin-* class to keep the color painted without
+   burning CPU on perpetual motion. Pins clear when the daemon detects the
+   underlying state changed, or when the click handler invokes a clear path.
+   See README → "Pins" and CLAUDE.md → "Pins (post-animation persistence)". */
+
+window#waybar .opt-pill.opt-pin-violet,
+window#waybar .opt-pill-child.opt-pin-violet   { background: @opt-violet; color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill.opt-pin-green,
+window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill.opt-pin-orange,
+window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; color: @opt-text-on-light; text-shadow: none; }
+
+/* Pins inherit the universal opt-hover-bright overlay too — hovering
+   signals acknowledgement, and the daemon's click/hover-clear path will
+   replace the pin class on next snapshot. */
+
+/* ── Pushed (toggle ON) — soft inset shadow, no border ──────────────────── */
+/* Pushed pills keep their rest face (parent surface, child surface, or a
+   state color when combined with opt-yes/middle/no) and gain a soft
+   top-inset shadow. The shadow reads as "this button is pressed in"
+   without painting a hard outline or dark stamp.
+   Composes orthogonally with state and motion: opt-pushed.opt-yes is a
+   pressed-in blue pill; opt-pushed.opt-breathe is a pressed-in pill with
+   ambient violet breathing on top. */
+
+window#waybar .opt-pill.opt-pushed,
+window#waybar .opt-pill-child.opt-pushed {
+    box-shadow: inset 0 2px 5px @opt-pushed-shadow;
+}
+
+/* State-color + pushed: state color paints the background; the pressed
+   shadow inherits automatically from the rule above (state overrides
+   don't touch box-shadow). */
+window#waybar .opt-pill.opt-pushed.opt-yes,
+window#waybar .opt-pill-child.opt-pushed.opt-yes      { background: @opt-blue-state;   }
+window#waybar .opt-pill.opt-pushed.opt-middle,
+window#waybar .opt-pill-child.opt-pushed.opt-middle   { background: @opt-yellow-state; }
+window#waybar .opt-pill.opt-pushed.opt-no,
+window#waybar .opt-pill-child.opt-pushed.opt-no       { background: @opt-red-state;    }
+
+/* Pushed pills compose with hover: the pressed shadow stays AND the
+   brightening overlay layers on top. Two-stop box-shadow — both inset,
+   both fit inside the pill, both visible at once. */
+window#waybar .opt-pill.opt-pushed:hover,
+window#waybar .opt-pill-child.opt-pushed:hover {
+    box-shadow: inset 0 2px 5px @opt-pushed-shadow,
+                inset 0 0 0 999px @opt-hover-bright;
+}
+
+/* ── Hover beats — two flavors (state-colored vs neutral parents) ────────── */
+/* Children carry permanent state colors (opt-no / opt-middle / opt-yes) —
+   their identity. On hover they BEAT in their tone — destructive red,
+   defer yellow, forward blue. Rest face calm, hover invites the eye.
+
+   Parents stay neutral at rest (Rule 2) and gain color ONLY on hover via
+   opt-hover-red / opt-hover-yellow / opt-hover-blue. Same keyframes, same
+   tempo — only the rest face differs. A parent hover-beating red signals
+   "the drawer this opens contains destructive options" without painting
+   the parent surface at rest. Permanent color belongs to children; parents
+   borrow it momentarily.
+
+   Both flavors compose with the universal opt-hover-bright overlay — color
+   cycle layered with white film, both visible at once. */
+
+/* Child action pills (permanent rest color + hover beat) */
+window#waybar .opt-pill.opt-no:hover,
+window#waybar .opt-pill-child.opt-no:hover,
+window#waybar .opt-pill.opt-hover-red:hover,
+window#waybar .opt-pill-child.opt-hover-red:hover {
+    animation: opt-pulse-red 1s ease-in-out infinite alternate;
+}
+window#waybar .opt-pill.opt-middle:hover,
+window#waybar .opt-pill-child.opt-middle:hover,
+window#waybar .opt-pill.opt-hover-yellow:hover,
+window#waybar .opt-pill-child.opt-hover-yellow:hover {
+    animation: opt-glow-yellow 2s ease-in-out infinite alternate;
+}
+window#waybar .opt-pill.opt-yes:hover,
+window#waybar .opt-pill-child.opt-yes:hover,
+window#waybar .opt-pill.opt-hover-blue:hover,
+window#waybar .opt-pill-child.opt-hover-blue:hover {
+    animation: opt-pulse-blue 1s ease-in-out infinite alternate;
+}
+
+/* ── Animation — motion + tone composed via classes ──────────────────────── */
+
+window#waybar .opt-pulse                  { animation: opt-pulse-orange 1s ease-in-out infinite alternate; }
+window#waybar .opt-pulse.opt-tone-red     { animation: opt-pulse-red    1s ease-in-out infinite alternate; }
+window#waybar .opt-pulse.opt-tone-blue    { animation: opt-pulse-blue   1s ease-in-out infinite alternate; }
+
+window#waybar .opt-glow                   { animation: opt-glow-green  2s ease-in-out infinite alternate; }
+window#waybar .opt-glow.opt-tone-yellow   { animation: opt-glow-yellow 2s ease-in-out infinite alternate; }
+
+window#waybar .opt-breathe                { animation: opt-breathe-violet 6s ease-in-out infinite alternate; }
+window#waybar .opt-breathe.opt-tone-blue  { animation: opt-breathe-blue   6s ease-in-out infinite alternate; }
+
+/* opt-flash plays once per class application. Daemons writing rapid same-key
+   repeats must vary the class string between snapshots (e.g. alternate
+   opt-flash and opt-flash-r) to re-trigger the animation — single-class
+   repeats don't replay. The CSS treats both alternates identically. */
+window#waybar .opt-flash,
+window#waybar .opt-flash-r                { animation: opt-flash 250ms ease-out 1; }
+
+/* ── Hover-swap pattern — rest face shows info, hover reveals action ─────── */
+/* Each wired swap kind owns its complete hover block (rest face implicit
+   in .opt-pill / .opt-pill-child, hover face fully specified per kind).
+   See `opt-plus:hover` below for the canonical implementation.
+   Unwired swap kinds — currently `opt-swap-switch`, `opt-swap-cal`,
+   `opt-swap-pct` — inherit the universal opt-hover-bright overlay from
+   .opt-pill:hover (text stays visible, surface brightens). No preemptive
+   shared "color: transparent" rule — hiding labels for swap kinds whose
+   SVG isn't wired makes the text vanish into nothing on hover.
+   When a new swap kind gets its SVG, add its complete :hover block (and
+   light-mode label override if needed) parallel to opt-plus. */
+
+/* ── opt-plus — the canonical "+" action option (Rule 6: same option, same look) ── */
+/* Every "+" pill in the bar — apps launcher, ws-current's hover face, win-move-new,
+   any future "create / add / new" verb — uses opt-plus. The user reads "+" as ONE
+   option; identical class composition guarantees identical look + motion + tone.
+
+   Rest face: + SVG glyph centered on the pill's neutral surface. The pill's text
+   content (label) is hidden via `color: transparent`; the visible glyph is the
+   background-image. Theme adaptation: plus-white.svg for dark surfaces,
+   plus-black.svg for light. min-width gives the pill physical presence when
+   the label is empty (text-+ pills like custom/new get 0-width labels).
+
+   Hover face: blue background + opt-pulse-plus animation (bg-size 14→10 +
+   blue color ladder). Same animation already used in pre-Rule-6 ws-current.
+
+   Variant: opt-plus.opt-swap — REST face hides the + SVG and shows the pill's
+   own label content (used by ws-current showing the workspace number at rest).
+   On hover, the parent opt-plus:hover rule restores the + and runs the
+   animation. The swap variant is the same option's "hover-reveal" mode. */
+window#waybar .opt-plus {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px 14px;
+    background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
+    color: transparent;
+    text-shadow: none;
+}
+window#waybar .opt-plus.light {
+    background-image: url("/home/max/.config/waybar/icons/plus-black.svg");
+}
+
+/* opt-plus.opt-swap — rest face hides the + and shows the pill's label content
+   (ws-current shows the workspace number at rest). Hover restores the + via
+   the opt-plus:hover rule below. */
+window#waybar .opt-plus.opt-swap {
+    background-image: none;
+    color: @opt-text-on-dark;
+}
+window#waybar .opt-plus.opt-swap.light {
+    color: @opt-text-on-light;
+    text-shadow: 0 1px 2px @opt-text-light-shadow;
+}
+
+/* Hover face — identical for opt-plus AND opt-plus.opt-swap. Blue surface,
+   + SVG, opt-pulse-plus animation. This is the visual the "same-option" rule
+   guarantees every + pill shares. The animation literal "100,150,255" beat
+   color lives inside the opt-pulse-plus keyframe (defined far above). */
+window#waybar .opt-plus:hover {
+    background-color: @opt-blue;
+    background-image: url("/home/max/.config/waybar/icons/plus-white.svg");
+    background-size: 14px 14px;
+    color: transparent;
+    text-shadow: none;
+    animation: opt-pulse-plus 1s ease-in-out infinite alternate;
+}
+window#waybar .opt-plus.light:hover {
+    background-image: url("/home/max/.config/waybar/icons/plus-black.svg");
+}
+
+/* Override the canonical light-mode hover-label color rule (specificity 0,3,1)
+   so the swap-variant's label disappears on hover and the + SVG takes over.
+   Without this override, light-mode ws-current shows BOTH the workspace number
+   AND the + SVG during hover, since the canonical rule paints labels dark on
+   hover. 4-class specificity (0,4,1) wins. */
+window#waybar .opt-pill.opt-plus.opt-swap.light:hover label,
+window#waybar .opt-pill-child.opt-plus.opt-swap.light:hover label {
+    color: transparent;
+    text-shadow: none;
+}
+
+/* ── Dimmed (peer occupied but not selected) ─────────────────────────────── */
+/* Semantic vocabulary name is "dimmed" (see README → Dimmed). Implementation
+   class is .inactive — the class the workspace daemon already writes for
+   ws-1..9 when those workspaces have windows but aren't the current one.
+   Rename to .opt-dimmed is deferred until workspace-daemon migrates from
+   ~/.config/waybar/scripts/ to a Nix-managed script (cross-repo coupling
+   would break dimming during the transition window otherwise). */
+
+window#waybar .opt-pill-child.inactive,
+window#waybar .opt-pill.inactive {
+    opacity: 0.45;
+}
+
+/* ── Empty (collapse a pill to zero presence) ────────────────────────────── */
+
+window#waybar .empty,
+window#waybar.empty #active-window,
+window#waybar.empty #active-window *,
+window#waybar.empty #window,
+window#waybar.empty #window label,
+window#waybar.empty #win-move {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
+    font-size: 0;
+}
+
+/* ── Focused-window icon-only pill ───────────────────────────────────────── */
+
+#window {
+    background: transparent;
+    border: none;
+    padding: 1px 2px;
+    margin: 1px 2px;
+}
+
+#window label {
+    font-size: 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+#active-window,
+#win-move {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    background: transparent;
+}
+
+/* ── Adaptive text — glass-text-daemon writes .light or .dark on the pill ── */
+
+window#waybar .opt-pill.light label,
+window#waybar .opt-pill-child.light label {
+    color: @opt-text-on-light;
+    text-shadow: 0 1px 2px @opt-text-light-shadow;
+}
+
+window#waybar .opt-pill.light:hover label,
+window#waybar .opt-pill-child.light:hover label {
+    color: @opt-text-on-light-hov;
+}
+
+/* ── Voice dictation indicator (legacy class names, OPTIONS-aligned paint) ── */
+/* dictate-waybar lives in modules/voice-dictation.nix (separate from this
+   refactor) and emits .recording / .transcribing. Map those to the OPTIONS
+   palette so the dictate pill speaks the same visual language. */
+
+#custom-dictate {
+    background: transparent;
+    border-radius: 30px;
+    padding: 1px 8px 1px 7px;
+    margin: 2px 1px;
+    font-size: 12px;
+    color: @opt-text-on-dark;
+}
+
+#custom-dictate.recording {
+    background: @opt-blue-state;
+    animation: opt-breathe-violet 6s ease-in-out infinite alternate;
+}
+
+#custom-dictate.transcribing {
+    background: @opt-yellow-state;
+    animation: opt-glow-green 2s ease-in-out infinite alternate;
+}
+
+/* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
+/* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
+   the usual `window#waybar .foo` ancestor convention does not apply here.
+   Bare `tooltip` and `tooltip label` are the correct selectors for the
+   floating popup. The hover delay (~700 ms) is GTK's default and is the
+   same delay across every GTK app — we don't try to override it. See
+   README → "Tooltips" and CLAUDE.md → "Tooltips". */
+
+tooltip {
+    background: rgba(50, 50, 70, 0.95);    /* deep parent surface, near opaque */
+    border-radius: 8px;
+    padding: 2px 6px;
+}
+
+tooltip label {
+    color: @opt-text-on-dark;
+    font-size: 12px;
+}
