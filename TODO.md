@@ -80,6 +80,39 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-05-30** — Dark text on colored pills, including through animations,
+  AND the deployment-path fix that made the CSS change actually visible.
+  Two threads:
+  (a) **Text color:** icon glyphs on `win-close` (opt-no red), `win-minimize`
+  (opt-middle yellow), and any pin pill (opt-pin-violet/green/orange) were
+  showing white during their hover beats / pin animations — the pastels are
+  too bright for white text to read. `style.css` now: state-pill rules
+  (`.opt-yes/.opt-middle/.opt-no`) set `color: @opt-text-on-light` +
+  `text-shadow: none` directly on the box (was label-only — the previous
+  rule didn't cascade reliably to custom-module glyphs); keyframes
+  `opt-pulse-orange/red/blue`, `opt-glow-green`, `opt-breathe-violet/blue`
+  hold text at `@opt-text-on-light` at peak (was `#ffffff`; only
+  `opt-glow-yellow` was already right); `opt-pin-violet/green/orange`
+  children switched from `color: #ffffff` to `color: @opt-text-on-light`.
+  Rule: if the pill is colored — state, pin, or hover-borrowed during an
+  animation peak — text reads as dark.
+  (b) **Deploy path:** while debugging (a) I edited style.css and restarted
+  waybar twice with no visible change. Cause: `~/.config/waybar/style.css`
+  was a symlink to a copy in `/nix/store/*-hm_style.css`, not to the source.
+  `xdg.configFile.<>.source = cfg.styleSource` in `modules/waybar.nix` was
+  COPYING the source into the store at activation, so `nixos-rebuild switch`
+  was a hidden prerequisite for any CSS edit. Fixed declaratively: wrapped
+  both `xdg.configFile."waybar/config.jsonc".source` and `…/style.css.source`
+  in `config.lib.file.mkOutOfStoreSymlink`. Now the symlinks resolve
+  DIRECTLY to `/etc/nixos/home/waybar/*` and edit-then-restart is enough.
+  *Hint:* `readlink -f ~/.config/waybar/style.css` should print
+  `/etc/nixos/home/waybar/style.css`. If it ever prints a `/nix/store/*`
+  path again, `mkOutOfStoreSymlink` got removed from waybar.nix — restore
+  it before iterating, or every CSS edit silently no-ops until rebuild.
+  Module header has a long "IMPORTANT — out-of-store symlinks" note;
+  `CLAUDE.md` → "Build / activate / verify" warns about the symlink check.
+  No new tokens; closed budget intact for the visual change.
+
 - **2026-05-28** — opt-pushed redesign: no hard border, soft inset shadow
   on the rest face. The earlier "darker surface + 1 px sharp inset border"
   combo painted a black stamp over each pushed pill's identity (state

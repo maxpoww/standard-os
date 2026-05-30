@@ -385,8 +385,17 @@ Send a signal: `pkill -RTMIN+N waybar` (no quotes around the number). Cost: ~1 m
 
 ```bash
 # Edit config.jsonc / style.css
-# (no rebuild needed for the .css and .jsonc themselves — Home-Manager symlinks
-#  them into ~/.config/waybar, so changes are live after a waybar restart)
+# No rebuild needed for the .css / .jsonc themselves. The waybar.nix module
+# uses `mkOutOfStoreSymlink`, so ~/.config/waybar/{config.jsonc,style.css}
+# symlinks DIRECTLY to /etc/nixos/home/waybar/{config.jsonc,style.css} —
+# the source IS the live file. Verify with:
+#   readlink -f ~/.config/waybar/style.css
+#   # → /etc/nixos/home/waybar/style.css   ← source path, not a /nix/store hash
+# If that ever shows a /nix/store/*-hm_style.css path, someone removed
+# mkOutOfStoreSymlink from waybar.nix and edits are silently swallowed by
+# the store copy until the next `nixos-rebuild switch`. Restore the
+# `config.lib.file.mkOutOfStoreSymlink cfg.styleSource` wrapping in the
+# module — see waybar.nix's "out-of-store symlinks" header note.
 
 systemctl --user restart waybar.service            # picks up edited config.jsonc + style.css
 
