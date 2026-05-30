@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# hypr-dive — atomic dive on/off toggle. Writes state, signals consumer.
+
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hypr-edge-bg"
+STATE_FILE="$STATE_DIR/dive"
+
+usage() {
+    printf 'usage: %s on|off|toggle|status\n' "${0##*/}" >&2
+    exit 2
+}
+
+current() {
+    if [[ -r $STATE_FILE ]]; then
+        tr -d '[:space:]' <"$STATE_FILE"
+    else
+        printf 'off'
+    fi
+}
+
+write_state() {
+    mkdir -p "$STATE_DIR"
+    printf '%s' "$1" >"$STATE_FILE.tmp"
+    mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
+nudge() {
+    # --kill-who=main: send only to the bash process that holds the USR1 trap.
+    # Default is --kill-who=all, which would also signal the socat process in
+    # `< <(socat ...)`; socat doesn't trap USR1, dies, the read loop hits EOF,
+    # and the daemon exits cleanly (status 0 → no Restart=on-failure recovery).
+    systemctl --user kill --kill-who=main -s SIGUSR1 hypr-edge-bg.service 2>/dev/null || true
+}
+
+case "${1:-}" in
+on | off)
+    write_state "$1"
+    nudge
+    printf '%s\n' "$1"
+    ;;
+toggle)
+    cur=$(current)
+    next=on
+    [[ $cur == "on" ]] && next=off
+    write_state "$next"
+    nudge
+    printf '%s\n' "$next"
+    ;;
+status)
+    current
+    printf '\n'
+    ;;
+*)
+    usage
+    ;;
+esac

@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# hypr-activities — Hyprland workspace activity publisher.
+# Reads socket2 events, gsettings color-scheme, waypaper config changes;
+# emits a coalesced JSON snapshot to a file + AF_UNIX socket.
+
+set -uo pipefail
+
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR not set}"
+: "${HYPRLAND_INSTANCE_SIGNATURE:?HYPRLAND_INSTANCE_SIGNATURE not set}"
+
+SNAPSHOT="${HYPR_ACTIVITIES_SNAPSHOT:-$XDG_RUNTIME_DIR/hypr-activities.json}"
+SOCKET="${HYPR_ACTIVITIES_SOCKET:-$XDG_RUNTIME_DIR/hypr-activities.sock}"
+WAYPAPER_CFG="${HYPR_ACTIVITIES_WAYPAPER_CFG:-${XDG_CONFIG_HOME:-$HOME/.config}/waypaper/config.ini}"
+HYPR_SOCK2="$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock"
+
+EVENT_FIFO=$(mktemp -u "$XDG_RUNTIME_DIR/hypr-activities.events.XXXXXX")
+PIPELINE_PIDS=()
+
+log() { printf '[hypr-activities] %s\n' "$*" >&2; }
+
+cleanup() {
+    rm -f "$SOCKET" "$EVENT_FIFO" "$SNAPSHOT.tmp"
+    for pid in "${PIPELINE_PIDS[@]}"; do
+        kill "$pid" 2>/dev/null || true
+    done
+}
+trap cleanup EXIT
+
+mkfifo "$EVENT_FIFO"
+# Open EVENT_FIFO read+write on a numbered FD so the kernel always has at
+# least one writer end held by THIS process. Without this, every iteration
+# of `read -r ev <"$EVENT_FIFO"` reopened the FIFO; producers writing in the
+# tiny gap between iterations got EPIPE and the read loop occasionally died
+# with ENOENT when a cleanup race unlinked the FIFO mid-reopen.
+exec {EFD}<>"$EVENT_FIFO"
+
+# --- producers ----------------------------------------------------------
+# Hyprland socket2 → tag each line with `hypr|`.
+(
+    socat -u "UNIX-CONNECT:$HYPR_SOCK2" - | while IFS= read -r line; do
+        printf 'hypr|%s\n' "$line"
+    done
+) >"$EVENT_FIFO" &
+PIPELINE_PIDS+=($!)
+
+# gsettings dark-theme stream → tag each line with `theme|`.
+(
+    gsettings monitor org.gnome.desktop.interface color-scheme | while IFS= read -r line; do
+        printf 'theme|%s\n' "$line"
+    done
+) >"$EVENT_FIFO" 2>/dev/null &
+PIPELINE_PIDS+=($!)
+
+# waypaper config changes → tag each line with `waypaper|`.
+if [[ -e $WAYPAPER_CFG ]]; then
+    (
+        inotifywait -m -e close_write,modify,moved_to "$WAYPAPER_CFG" 2>/dev/null |
+            while IFS= read -r line; do
+                printf 'waypaper|%s\n' "$line"
+            done
+    ) >"$EVENT_FIFO" &
+    PIPELINE_PIDS+=($!)
+fi
+
+# Synthetic tick lets us emit an initial snapshot before any real event arrives.
+printf 'tick|init\n' >"$EVENT_FIFO" &
+
+# --- AF_UNIX broadcast socket -------------------------------------------
+# Broadcaster: every line written to its stdin is delivered to all connected clients.
+BROADCAST_FIFO=$(mktemp -u "$XDG_RUNTIME_DIR/hypr-activities.bcast.XXXXXX")
+mkfifo "$BROADCAST_FIFO"
+# Same trick: hold the BROADCAST_FIFO open for read+write so the relay loop
+# never sees EOF and emit_snapshot writes never EPIPE.
+exec {BFD}<>"$BROADCAST_FIFO"
+
+(
+    while IFS= read -r -u "$BFD" ln; do
+        printf '%s\n' "$ln"
+    done
+) | socat -u - "UNIX-LISTEN:$SOCKET,fork,reuseaddr,unlink-early" &
+PIPELINE_PIDS+=($!)
+
+# --- state --------------------------------------------------------------
+DARK=0
+WAYPAPER_BG=""
+WAYPAPER_CHANGED=0
+
+read_dark_from_gsettings() {
+    local v
+    v=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || printf "''")
+    if [[ $v == *prefer-dark* ]]; then DARK=1; else DARK=0; fi
+}
+
+read_waypaper_bg() {
+    [[ -e $WAYPAPER_CFG ]] || return
+    # waypaper config.ini line:  wallpaper = /path/to/image.jpg
+    # waypaper writes the entry verbatim, so a leading `~` survives — consumers
+    # use `[[ -e ]]` which doesn't tilde-expand, so we resolve it here.
+    local v
+    v=$(awk -F'=' '/^[[:space:]]*wallpaper[[:space:]]*=/{
+        sub(/^[[:space:]]+/,"",$2); sub(/[[:space:]]+$/,"",$2); print $2; exit
+    }' "$WAYPAPER_CFG" 2>/dev/null || true)
+    # shellcheck disable=SC2088  # We are matching the literal tilde char, not expanding.
+    if [[ $v == "~" || $v == "~/"* ]]; then
+        v="$HOME${v#"~"}"
+    fi
+    WAYPAPER_BG="$v"
+}
+
+read_dark_from_gsettings
+read_waypaper_bg
+
+# Build snapshot from current hyprctl truth.
+build_snapshot() {
+    local active monitors clients ws gaps_in gaps_out
+    active=$(hyprctl activewindow -j 2>/dev/null || printf '{}')
+    monitors=$(hyprctl monitors -j 2>/dev/null || printf '[]')
+    clients=$(hyprctl clients -j 2>/dev/null || printf '[]')
+
+    ws=$(jq -r '.workspace.id // 0' <<<"$active")
+    # Hyprland returns gaps as CssBoxStyle (e.g. {"custom":"3 3 3 3"}), not {"int":3},
+    # so plain `tonumber?` on .custom returns null and gaps were silently treated as 0
+    # → gaps="off" → match branch fired even on multi-window gapson workspaces.
+    parse_gap='
+        if has("int") and (.int|type)=="number" then .int
+        elif has("custom") and (.custom|type)=="string" and .custom != "" then
+            ((.custom | split(" ") | map(tonumber? // 0) | max) // 0)
+        else 0 end
+    '
+    gaps_in=$(hyprctl getoption general:gaps_in -j 2>/dev/null |
+        jq -r "$parse_gap" 2>/dev/null || printf 0)
+    gaps_out=$(hyprctl getoption general:gaps_out -j 2>/dev/null |
+        jq -r "$parse_gap" 2>/dev/null || printf 0)
+
+    # Filter clients to focused workspace.
+    local ws_clients window_count
+    ws_clients=$(jq -c --argjson ws "$ws" '[.[] | select(.workspace.id==$ws)]' <<<"$clients")
+    window_count=$(jq 'length' <<<"$ws_clients")
+
+    local flag=0
+    ((window_count > 0)) && flag=1
+
+    # Focused window properties (default to nulls if no active).
+    local addr class fs floating pseudo grouped at size
+    addr=$(jq -r '.address // ""' <<<"$active")
+    class=$(jq -r '.class // ""' <<<"$active")
+    fs=$(jq -r '.fullscreen // 0' <<<"$active")
+    floating=$(jq -r '.floating // false' <<<"$active")
+    pseudo=$(jq -r '.pseudo // false' <<<"$active")
+    grouped=$(jq -r '(.grouped // []) | length > 0' <<<"$active")
+    at=$(jq -c '.at // [0,0]' <<<"$active")
+    size=$(jq -c '.size // [0,0]' <<<"$active")
+
+    # gaps flag: any non-zero gap value or floating/pseudo presence on workspace.
+    local gaps="off"
+    if ((gaps_in > 0 || gaps_out > 0)); then
+        gaps="on"
+    fi
+    if [[ $floating == "true" || $pseudo == "true" ]]; then
+        gaps="on"
+    fi
+
+    # Focused monitor name.
+    local focused_mon
+    focused_mon=$(jq -r '.[] | select(.focused==true) | .name' <<<"$monitors" | head -n1)
+
+    jq -nc \
+        --argjson dark "$DARK" \
+        --argjson flag "$flag" \
+        --argjson window_count "$window_count" \
+        --argjson fs "$fs" \
+        --argjson floating "$([[ $floating == true ]] && echo true || echo false)" \
+        --argjson pseudo "$([[ $pseudo == true ]] && echo true || echo false)" \
+        --argjson grouped "$([[ $grouped == true ]] && echo true || echo false)" \
+        --arg gaps "$gaps" \
+        --arg class "$class" \
+        --arg address "$addr" \
+        --argjson at "$at" \
+        --argjson size "$size" \
+        --arg focused_monitor "$focused_mon" \
+        --argjson monitors "$monitors" \
+        --argjson clients "$ws_clients" \
+        --argjson ws "$ws" \
+        --arg waypaper_bg "$WAYPAPER_BG" \
+        --argjson waypaper_changed "$WAYPAPER_CHANGED" \
+        '{
+            ts: (now | tostring),
+            dark_theme: ($dark==1),
+            flag: $flag,
+            window_count: $window_count,
+            workspace: $ws,
+            fullscreen: $fs,
+            floating: $floating,
+            pseudo: $pseudo,
+            grouped: $grouped,
+            gaps: $gaps,
+            class: $class,
+            address: $address,
+            at: $at,
+            size: $size,
+            focused_monitor: $focused_monitor,
+            monitors: $monitors,
+            clients: $clients,
+            waypaper_bg: $waypaper_bg,
+            waypaper_changed: ($waypaper_changed==1)
+        }'
+}
+
+emit_snapshot() {
+    local snap
+    snap=$(build_snapshot) || return 0
+    printf '%s' "$snap" >"$SNAPSHOT.tmp"
+    mv -f "$SNAPSHOT.tmp" "$SNAPSHOT"
+    printf '%s\n' "$snap" >"$BROADCAST_FIFO" &
+    WAYPAPER_CHANGED=0
+}
+
+# --- coalescing event loop ----------------------------------------------
+# Inline 16 ms debounce: gather events; whenever the FIFO goes quiet for the
+# debounce window, emit_snapshot. The earlier `( sleep ; emit ) &` design ran
+# emit_snapshot in a subshell — `WAYPAPER_CHANGED=0` and any other state
+# updates were trapped there and the parent's flag never cleared.
+DEBOUNCE_S=0.016
+PENDING=0
+
+while true; do
+    if IFS= read -r -t "$DEBOUNCE_S" -u "$EFD" ev; then
+        src="${ev%%|*}"
+        body="${ev#*|}"
+        case "$src" in
+        hypr)
+            case "${body%%>>*}" in
+            activewindow | activewindowv2 | openwindow | closewindow | \
+                movewindow | windowtitlev2 | fullscreen | workspace | \
+                focusedmon | changefloatingmode | configreloaded | \
+                monitoradded | monitorremoved)
+                PENDING=1
+                ;;
+            esac
+            ;;
+        theme)
+            read_dark_from_gsettings
+            PENDING=1
+            ;;
+        waypaper)
+            read_waypaper_bg
+            WAYPAPER_CHANGED=1
+            PENDING=1
+            ;;
+        tick)
+            PENDING=1
+            ;;
+        esac
+    elif ((PENDING)); then
+        # FIFO went quiet for DEBOUNCE_S → flush.
+        emit_snapshot
+        PENDING=0
+    fi
+done

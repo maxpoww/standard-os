@@ -1,0 +1,21 @@
+# Editor swap / backup files
+*.swp
+*.swo
+.*.sw[a-p]
+*~
+\#*\#
+
+# Home-manager pre-activation backups (created on conflict; transient)
+*.hm-bak
+
+# Nix build artifacts (defensive — shouldn't land in home/, but harmless)
+result
+result-*
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Per-machine Claude permission allowlists (CLAUDE.md / PLAN.md / skills/ ARE tracked)
+.claude/settings.local.json
+**/.claude/settings.local.json

@@ -1,0 +1,321 @@
+#!/usr/bin/env bash
+# hypr-edge-bg — consume hypr-activities and drive hyprpaper per the dive matrix.
+
+set -uo pipefail
+
+: "${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR not set}"
+
+LIB_DIR="${HYPR_EDGE_BG_LIB:-$(dirname "$(readlink -f "$0")")/lib}"
+# shellcheck source=/dev/null
+. "$LIB_DIR/colors.sh"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/hypr-edge-bg"
+STATE_FILE="$STATE_DIR/dive"
+SOCKET="${HYPR_ACTIVITIES_SOCKET:-$XDG_RUNTIME_DIR/hypr-activities.sock}"
+SNAPSHOT="${HYPR_ACTIVITIES_SNAPSHOT:-$XDG_RUNTIME_DIR/hypr-activities.json}"
+
+DEFAULT_HEX="${HYPR_EDGE_BG_DEFAULT:-323246}"
+SAMPLE_H="${HYPR_EDGE_BG_SAMPLE_H:-2}"
+# Narrow center capture: 300 px is enough for accurate dominant-color averaging
+# while being much cheaper for grim+magick than a full-width strip.
+SAMPLE_W_MAX="${HYPR_EDGE_BG_SAMPLE_W_MAX:-300}"
+SHIFT_PCT="${HYPR_EDGE_BG_SHIFT_PCT:-40}"
+CLAMP_LO="${HYPR_EDGE_BG_CLAMP_LO:-30}"
+CLAMP_HI="${HYPR_EDGE_BG_CLAMP_HI:-225}"
+DIST_THRESHOLD="${HYPR_EDGE_BG_DIST_THRESHOLD:-25}"
+CACHE_SIZE="${HYPR_EDGE_BG_CACHE_SIZE:-16}"
+# Polling cadence used while in a color-following mode (match/mismatch/mixed).
+# Default 0.1 s = 10 Hz. apply_color's squared-RGB threshold short-circuits
+# hyprpaper traffic when the sampled color is stable, so idle cost is just
+# grim+magick (~5-10 ms each tick). In default/waypaper/fullscreen states the
+# loop blocks on the activities socket and consumes zero CPU.
+POLL_INTERVAL="${HYPR_EDGE_BG_POLL_INTERVAL:-0.1}"
+
+CACHE_DIR=/tmp/hypr-edge-bg
+mkdir -p "$STATE_DIR" "$CACHE_DIR"
+
+DIVE="off"
+LAST_APPLIED="" # last applied target identity (e.g. "color:aabbcc" or "image:/path")
+LAST_HEX=""     # last applied hex (for distance threshold check)
+WAYPAPER_IMG="" # current waypaper path — never unloaded from hyprpaper
+# shellcheck disable=SC2034  # WIN_COLOR is read via ${WIN_COLOR[$addr]:-} in decide()
+declare -A WIN_COLOR=() # address → hex (per-window match cache)
+LAST_SNAP=""            # most recent snapshot, replayed during poll ticks
+POLL_ACTIVE=0           # 1 while in match/mismatch (drives `read -t` cadence)
+SOCK_FD=""              # numbered FD bound to the activities stream
+MON_NAMES=""            # newline-separated cached monitor names
+LAST_MONITORS=""        # last monitors_json fed to apply_image; cache invalidator
+
+log() { printf '[hypr-edge-bg] %s\n' "$*" >&2; }
+
+cleanup() {
+    [[ -n $SOCK_FD ]] && exec {SOCK_FD}<&- 2>/dev/null || true
+    # Leave CACHE_DIR for next session warm-start; only clear truly stale.
+}
+trap cleanup EXIT
+
+read_dive() {
+    if [[ -r $STATE_FILE ]]; then
+        DIVE=$(tr -d '[:space:]' <"$STATE_FILE")
+        [[ $DIVE == "on" || $DIVE == "off" ]] || DIVE="off"
+    else
+        DIVE="off"
+    fi
+}
+
+write_dive_off() {
+    printf 'off' >"$STATE_FILE.tmp"
+    mv -f "$STATE_FILE.tmp" "$STATE_FILE"
+    DIVE="off"
+}
+
+# --- LRU cache ----------------------------------------------------------
+ensure_solid_png() {
+    local hex=$1
+    # 100x100 is sufficient — hyprpaper stretches solid colors to fill the monitor.
+    # Full-resolution PNGs cost ~400 ms to generate vs ~30 ms for 100x100.
+    local f="$CACHE_DIR/bg_${hex}.png"
+    if [[ ! -s $f ]]; then
+        magick -size 100x100 "xc:#$hex" "$f"
+    fi
+    touch "$f"
+    printf '%s' "$f"
+}
+
+prune_cache() {
+    local count
+    count=$(find "$CACHE_DIR" -maxdepth 1 -type f -name 'bg_*.png' | wc -l)
+    if ((count <= CACHE_SIZE)); then return; fi
+    local extra=$((count - CACHE_SIZE))
+    find "$CACHE_DIR" -maxdepth 1 -type f -name 'bg_*.png' -printf '%T@ %p\n' |
+        sort -n | head -n "$extra" | awk '{ $1=""; sub(/^ /,""); print }' |
+        xargs -r rm -f
+}
+
+# --- hyprpaper drive cycle ---------------------------------------------
+apply_image() {
+    local img=$1 monitors_json=$2 identity=$3
+    if [[ $identity == "$LAST_APPLIED" ]]; then return; fi
+    # Refresh the cached monitor-name list only when the monitors blob changed.
+    if [[ $monitors_json != "$LAST_MONITORS" || -z $MON_NAMES ]]; then
+        MON_NAMES=$(jq -r '.[].name' <<<"$monitors_json")
+        LAST_MONITORS="$monitors_json"
+    fi
+    hyprctl hyprpaper preload "$img" >/dev/null 2>&1 || true
+    local mon
+    while IFS= read -r mon; do
+        [[ -z $mon ]] && continue
+        hyprctl hyprpaper wallpaper "$mon,$img" >/dev/null 2>&1 || true
+    done <<<"$MON_NAMES"
+    # Unload previous image — but NEVER the waypaper image (keep it preloaded
+    # for instant transitions back; unloading it causes a black flash).
+    if [[ -n $LAST_APPLIED && $LAST_APPLIED != "$identity" ]]; then
+        local prev_img=${LAST_APPLIED#image:}
+        prev_img=${prev_img#color-img:}
+        if [[ $prev_img != "$img" && $prev_img != "$WAYPAPER_IMG" ]]; then
+            hyprctl hyprpaper unload "$prev_img" >/dev/null 2>&1 || true
+        fi
+    fi
+    LAST_APPLIED="$identity"
+}
+
+apply_color() {
+    local hex=$1 monitors_json=$2
+    # Fast-exit: same hex as the last apply — no math, no jq, no hyprctl.
+    [[ $hex == "$LAST_HEX" ]] && return 0
+    if [[ -n $LAST_HEX ]]; then
+        local r1 g1 b1 r2 g2 b2 d
+        read -r r1 g1 b1 < <(hex_to_rgb "$hex")
+        read -r r2 g2 b2 < <(hex_to_rgb "$LAST_HEX")
+        d=$(rgb_dist_sq "$r1" "$g1" "$b1" "$r2" "$g2" "$b2")
+        if ((d < DIST_THRESHOLD)); then return; fi
+    fi
+    local img
+    img=$(ensure_solid_png "$hex")
+    apply_image "$img" "$monitors_json" "color-img:$img"
+    LAST_HEX="$hex"
+    prune_cache
+}
+
+apply_waypaper_image() {
+    local path=$1 monitors_json=$2
+    [[ -z $path || ! -e $path ]] && return 0
+    # Track the waypaper path so apply_image never unloads it.
+    if [[ $path != "$WAYPAPER_IMG" ]]; then
+        # Waypaper changed — unload old waypaper, preload happens in apply_image.
+        [[ -n $WAYPAPER_IMG ]] && hyprctl hyprpaper unload "$WAYPAPER_IMG" >/dev/null 2>&1 || true
+        WAYPAPER_IMG="$path"
+    fi
+    apply_image "$path" "$monitors_json" "image:$path"
+    LAST_HEX=""
+}
+
+# --- sampling -----------------------------------------------------------
+sample_top_edge() {
+    local x=$1 y=$2 w=$3 _h=$4
+    local sw=$((w < SAMPLE_W_MAX ? w : SAMPLE_W_MAX))
+    ((sw < 1)) && sw=1
+    local sx=$((x + (w - sw) / 2))
+    local geom="${sx},${y} ${sw}x${SAMPLE_H}"
+    # Matches final-bg-compact.sh: grim → magick resize 1x1 → awk hex extract.
+    grim -g "$geom" - 2>/dev/null |
+        magick - -resize '1x1!' txt:- 2>/dev/null |
+        awk '{
+            for (i = 1; i <= NF; i++) {
+                if ($i ~ /^#[0-9A-Fa-f]+$/) {
+                    sub(/^#/, "", $i)
+                    print substr($i, 1, 6)
+                    exit
+                }
+            }
+        }'
+}
+
+# --- decision logic -----------------------------------------------------
+# One jq invocation per tick: emit a fixed header (scalars + monitors json on
+# their own lines) followed by a clients table (one row per line). Old code
+# spawned ~14 jq processes per tick → decide() ran ~400 ms and capped polling
+# at ~2 Hz. With one jq it drops to ~25 ms.
+decide() {
+    local snap=$1
+    POLL_ACTIVE=0
+
+    local raw header monitors clients_tbl
+    local flag fs waypaper_changed dark_b dark addr waypaper_bg wc floating_b pseudo_b
+    raw=$(jq -r '
+        "\(.flag)\t\(.fullscreen)\t\(.waypaper_changed)\t\(.dark_theme)\t\(.address // "")\t\(.waypaper_bg // "")\t\(.window_count // 0)\t\(.floating // false)\t\(.pseudo // false)",
+        (.monitors | tojson),
+        ((.clients // []) | map([.address, (.at[0]|tostring), (.at[1]|tostring), (.size[0]|tostring), (.size[1]|tostring)] | join("|"))[])
+    ' <<<"$snap" 2>/dev/null) || return 0
+    {
+        IFS= read -r header
+        IFS= read -r monitors
+        clients_tbl=$(cat)
+    } <<<"$raw"
+    IFS=$'\t' read -r flag fs waypaper_changed dark_b addr waypaper_bg wc floating_b pseudo_b <<<"$header"
+    if [[ $dark_b == "true" ]]; then dark=1; else dark=0; fi
+
+    if [[ $waypaper_changed == "true" && $DIVE == "on" ]]; then
+        write_dive_off
+        log "silent dive off (waypaper change)"
+    fi
+
+    # Empty workspace.
+    if [[ $flag == "0" ]]; then
+        log "decide: flag=0 dive=$DIVE (empty)"
+        if [[ $DIVE == "off" ]]; then
+            apply_waypaper_image "$waypaper_bg" "$monitors"
+        else
+            apply_color "$DEFAULT_HEX" "$monitors"
+        fi
+        return
+    fi
+
+    # True fullscreen (level 2) freezes color updates — no visible bg surface.
+    # fs=1 (maximized) still respects gaps, so it falls through to the matrix.
+    if [[ ${fs:-0} -ge 2 ]]; then
+        log "decide: fs=$fs dive=$DIVE (fullscreen)"
+        if [[ $DIVE == "off" ]]; then
+            apply_waypaper_image "$waypaper_bg" "$monitors"
+        else
+            apply_color "$DEFAULT_HEX" "$monitors"
+        fi
+        return
+    fi
+
+    # Gap detection matching final-bg-compact.sh: a single tiled (non-floating,
+    # non-pseudo) window owns the screen → no visible gaps regardless of the
+    # Hyprland gaps_in/gaps_out setting.
+    local has_gaps=0
+    [[ $floating_b == "true" || $pseudo_b == "true" ]] && has_gaps=1
+    [[ ${wc:-0} -gt 1 ]] && has_gaps=1
+
+    log "decide: flag=$flag fs=$fs wc=$wc floating=$floating_b pseudo=$pseudo_b has_gaps=$has_gaps dive=$DIVE"
+
+    # Single tiled window (no visible gaps) → match: exact top-edge color.
+    # Matches final-bg-compact.sh logic: floating, pseudo, or ≥2 windows
+    # have visible gaps; a lone tiled window owns the screen.
+    if (( !has_gaps )); then
+        local hex
+        hex=$(sample_active_from_table "$addr" "$clients_tbl")
+        if [[ -n $hex ]]; then
+            # shellcheck disable=SC2034
+            WIN_COLOR[$addr]="$hex"
+            apply_color "$hex" "$monitors"
+        fi
+        POLL_ACTIVE=1
+        return
+    fi
+
+    # Visible gaps — dive=off → waypaper behind gaps.
+    if [[ $DIVE == "off" ]]; then
+        apply_waypaper_image "$waypaper_bg" "$monitors"
+        return
+    fi
+
+    # Visible gaps — dive=on → mismatch of focused window.
+    local hex mhex
+    hex=$(sample_active_from_table "$addr" "$clients_tbl")
+    if [[ -n $hex ]]; then
+        # shellcheck disable=SC2034
+        WIN_COLOR[$addr]="$hex"
+        mhex=$(mismatch_hex "$hex" "$dark" "$SHIFT_PCT" "$CLAMP_LO" "$CLAMP_HI")
+        apply_color "$mhex" "$monitors"
+    fi
+    POLL_ACTIVE=1
+}
+
+# Helper: pull (addr|x|y|w|h) row matching $1 from the pre-flattened table $2,
+# then sample. Pure bash string ops, no jq.
+sample_active_from_table() {
+    local want=$1 tbl=$2 row caddr cx cy cw ch
+    while IFS=$'\n' read -r row; do
+        [[ -z $row ]] && continue
+        IFS='|' read -r caddr cx cy cw ch <<<"$row"
+        if [[ $caddr == "$want" ]]; then
+            sample_top_edge "$cx" "$cy" "$cw" "$ch"
+            return
+        fi
+    done <<<"$tbl"
+}
+
+# Re-evaluate using the most recent snapshot — entry point for the USR1 trap.
+reeval() {
+    read_dive
+    if [[ -n $LAST_SNAP ]]; then
+        decide "$LAST_SNAP"
+    elif [[ -r $SNAPSHOT ]]; then
+        LAST_SNAP=$(cat "$SNAPSHOT")
+        [[ -n $LAST_SNAP ]] && decide "$LAST_SNAP"
+    fi
+}
+
+trap reeval USR1
+
+# --- main loop ----------------------------------------------------------
+# Open the activities stream on a numbered FD so `read -t` can interleave
+# event-driven snapshots with poll ticks. Process substitution keeps the
+# loop body in the main shell so the USR1 trap can mutate DIVE in place.
+exec {SOCK_FD}< <(socat -u "UNIX-CONNECT:$SOCKET" - 2>/dev/null)
+
+read_dive
+[[ -r $SNAPSHOT ]] && LAST_SNAP=$(cat "$SNAPSHOT")
+[[ -n $LAST_SNAP ]] && decide "$LAST_SNAP"
+
+while true; do
+    snap=""
+    if ((POLL_ACTIVE)); then
+        # In a color-following mode: interrupt the read every POLL_INTERVAL
+        # so we can re-sample even when no Hyprland event has fired.
+        read -t "$POLL_INTERVAL" -u "$SOCK_FD" -r snap || true
+    else
+        # Idle: block on the socket. Zero CPU until the next event.
+        read -u "$SOCK_FD" -r snap || break
+    fi
+    if [[ -n $snap ]]; then
+        LAST_SNAP="$snap"
+        decide "$snap"
+    elif ((POLL_ACTIVE)) && [[ -n $LAST_SNAP ]]; then
+        decide "$LAST_SNAP"
+    fi
+done
