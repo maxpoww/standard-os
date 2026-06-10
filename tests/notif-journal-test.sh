@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# notif-journal-test.sh — unit tests for lib/notif-journal.sh
+# Pure-function tests; uses a temp file for the journal path.
+set -uo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=../scripts/lib/notif-journal.sh
+source "$HERE/../scripts/lib/notif-journal.sh"
+
+JOURNAL=$(mktemp)
+trap 'rm -f "$JOURNAL" "$JOURNAL.tmp" 2>/dev/null' EXIT
+
+pass=0; fail=0
+check() {
+    local label="$1"; shift
+    local negate=0
+    if [[ "${1-}" == "!" ]]; then negate=1; shift; fi
+    local rc=0; "$@" || rc=$?
+    local ok=0; (( negate ? rc != 0 : rc == 0 )) && ok=1
+    if (( ok )); then pass=$((pass+1)); printf '✓ %s\n' "$label"
+    else fail=$((fail+1)); printf '✗ %s\n' "$label"; fi
+}
+
+# append: writes one line
+journal_append "$JOURNAL" "2026-06-10T10:00:00-03:00" 1 "Slack" "Hello" "body text" 1
+check "[1 line after one append]" test "$(wc -l < "$JOURNAL")" -eq 1
+
+# append: each line is one valid JSON object
+line=$(head -1 "$JOURNAL")
+echo "$line" | jq -e . >/dev/null
+check "[line is valid JSON]" test $? -eq 0
+
+# append: round-trip fields
+check "[id round-trips]" test "$(echo "$line" | jq -r '.id')" = "1"
+check "[app round-trips]" test "$(echo "$line" | jq -r '.app')" = "Slack"
+check "[summary round-trips]" test "$(echo "$line" | jq -r '.summary')" = "Hello"
+check "[body round-trips]" test "$(echo "$line" | jq -r '.body')" = "body text"
+check "[urgency round-trips]" test "$(echo "$line" | jq -r '.urgency')" = "1"
+check "[dismissed_at empty at start]" test "$(echo "$line" | jq -r '.dismissed_at')" = ""
+
+# append: special chars don't break JSON
+journal_append "$JOURNAL" "2026-06-10T10:01:00-03:00" 2 "weird" "has \"quote\"" $'multi\nline' 0
+line2=$(sed -n 2p "$JOURNAL")
+echo "$line2" | jq -e . >/dev/null
+check "[quoted/newline body still valid JSON]" test $? -eq 0
+check "[body with quote round-trips]" test "$(echo "$line2" | jq -r '.summary')" = 'has "quote"'
+
+# mark_dismissed: sets dismissed_at on matching id
+journal_mark_dismissed "$JOURNAL" 1 "2026-06-10T10:05:00-03:00"
+updated=$(head -1 "$JOURNAL")
+check "[mark_dismissed sets dismissed_at]" test "$(echo "$updated" | jq -r '.dismissed_at')" = "2026-06-10T10:05:00-03:00"
+
+# mark_dismissed: leaves other entries alone
+other=$(sed -n 2p "$JOURNAL")
+check "[mark_dismissed doesn't touch other ids]" test "$(echo "$other" | jq -r '.dismissed_at')" = ""
+
+# mark_dismissed: idempotent (same id called twice = single update of same entry)
+journal_mark_dismissed "$JOURNAL" 1 "2026-06-10T10:06:00-03:00"
+check "[journal still has 2 lines after dup dismiss]" test "$(wc -l < "$JOURNAL")" -eq 2
+
+# prune: trims to max_lines (tail-n semantics)
+for i in $(seq 3 10); do
+    journal_append "$JOURNAL" "2026-06-10T10:0$i:00-03:00" "$i" "App$i" "Sum$i" "Body$i" 1
+done
+check "[10 lines before prune]" test "$(wc -l < "$JOURNAL")" -eq 10
+journal_prune "$JOURNAL" 5
+check "[5 lines after prune to 5]" test "$(wc -l < "$JOURNAL")" -eq 5
+# Newest survives
+last=$(tail -1 "$JOURNAL")
+check "[newest line survives prune]" test "$(echo "$last" | jq -r '.id')" = "10"
+# Oldest is gone
+check "[oldest pruned]" ! grep -q '"id":1,' "$JOURNAL"
+
+# read: returns last N entries newest-first
+out=$(journal_read "$JOURNAL" 3)
+n=$(echo "$out" | wc -l)
+check "[journal_read N=3 returns 3 lines]" test "$n" -eq 3
+first=$(echo "$out" | head -1 | jq -r '.id')
+check "[journal_read returns newest first]" test "$first" = "10"
+
+# empty journal: read handles missing/empty file
+empty=$(mktemp)
+out=$(journal_read "$empty" 5)
+check "[empty journal read returns empty string]" test -z "$out"
+rm -f "$empty"
+
+echo
+if [[ $fail -gt 0 ]]; then
+    printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"
+    exit 1
+fi
+printf '\n✓ all %d tests passed\n' "$pass"
