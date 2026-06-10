@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# notif-click — waybar on-click dispatcher for the OPTIONS notif pill.
+#
+# Called by custom/notif's on-click / on-click-right handlers in
+# waybar/config.jsonc. The decision logic (notif_click_decide) is a pure
+# function tested by tests/notif-click-test.sh; this script wraps it with
+# the actual makoctl invocation.
+#
+# Spine spec:
+#   waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
+# §"Click handling" defines the rest-vs-transient detection and the interim
+# rest-face = dismiss-all behavior (the drawer follow-up spec replaces this).
+
+set -uo pipefail
+
+CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif}"
+
+# ─── Pure decision function ────────────────────────────────────────────────
+# notif_click_decide ACTION CACHE_CONTENT → one of:
+#   "invoke-latest"  → caller should run makoctl invoke on the latest unread
+#   "dismiss-all"    → caller should run makoctl dismiss-all (clears pin)
+#   "noop"           → do nothing (drawer placeholder OR empty / garbage cache)
+#
+# Transient detection: the daemon's render function builds transient text as
+# `<bell> <app> · <title>` (see render_cache_for_state). The literal " · "
+# separator appears only in transient/acked states; it never appears in the
+# rest face (bell glyph only) or the empty state (text=""). Matching on
+# " · " is the cheapest reliable signal without parsing the class array.
+notif_click_decide() {
+    local action="$1"
+    local cache_content="$2"
+
+    case "$action" in
+        invoke)
+            if [[ -z $cache_content || $cache_content == '{"text":""}' ]]; then
+                printf 'noop'
+                return 0
+            fi
+            # Sanity: must look like a daemon-written JSON object.
+            if [[ $cache_content != '{"text":'* ]]; then
+                printf 'noop'
+                return 0
+            fi
+            if [[ $cache_content == *' · '* ]]; then
+                printf 'invoke-latest'
+            else
+                printf 'dismiss-all'
+            fi
+            ;;
+        drawer)
+            # No-op placeholder until the drawer follow-up spec ships.
+            printf 'noop'
+            ;;
+        *)
+            # Unknown action — defensive noop.
+            printf 'noop'
+            ;;
+    esac
+}
+
+# ─── Library-only short-circuit (for tests) ────────────────────────────────
+if [[ "${NOTIF_CLICK_LIB_ONLY:-0}" == "1" ]]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# ─── Action runner ─────────────────────────────────────────────────────────
+action="${1:-invoke}"
+cache_content=$(cat "$CACHE" 2>/dev/null || true)
+decision=$(notif_click_decide "$action" "$cache_content")
+
+case "$decision" in
+    invoke-latest)
+        # Get the latest unread's id from mako (via D-Bus — `makoctl list`
+        # is plain text in mako 1.10, not JSON) and invoke its default
+        # action, then dismiss.
+        #
+        # mako 1.10 semantic correction (vs the original spec assumption):
+        # `makoctl invoke -n <id>` only fires ActionInvoked when the
+        # notification carries a registered "default" action. Notifications
+        # with no actions (the common case for transactional notify-send
+        # output) are NOT auto-dismissed by invoke. We follow with an
+        # explicit `dismiss -n <id>` so the click always clears the pill —
+        # if the notification HAD a default action, it ran first.
+        latest_id=$(busctl --user --json=short call \
+            org.freedesktop.Notifications /fr/emersion/Mako \
+            fr.emersion.Mako ListNotifications 2>/dev/null \
+            | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+        if [[ -n $latest_id ]]; then
+            makoctl invoke -n "$latest_id" 2>/dev/null || true
+            makoctl dismiss -n "$latest_id" 2>/dev/null || true
+        fi
+        ;;
+    dismiss-all)
+        # Interim rest-face handler — clears all unread + pin colour. When
+        # the drawer ships, swap this for "open drawer" (Hint in TODO.md).
+        # mako 1.10: top-level `dismiss-all` was unified under `dismiss --all`.
+        makoctl dismiss --all 2>/dev/null || true
+        ;;
+    noop)
+        : ;;
+esac

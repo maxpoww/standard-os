@@ -66,12 +66,13 @@ Every piece of system state that more than one module might want lives behind a 
 |---|---|---|---|---|
 | **workspace-daemon** | `waybar-workspace-daemon.service` | `~/.config/waybar/scripts/workspace-daemon.sh` | `/tmp/waybar-cache/{ws-current, ws-1..9, window, win-close, win-minimize, win-swap-right, win-move-trigger, win-move-1..9, win-move-new}` | RTMIN+10 |
 | **glass-text-daemon** | `waybar-glass-text-daemon.service` | `~/.config/waybar/scripts/glass-text-daemon.sh` | `/tmp/glass-mode` (single line, `light` \| `dark`) | none (consumers re-exec at their own cadence) |
+| **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/notif` | RTMIN+12 |
 
 ### Planned daemons (to be added as options arrive)
 
 | Daemon | Concern | Will write | Signal | Trigger source |
 |---|---|---|---|---|
-| **system-daemon** | CPU, GPU, memory, battery, thermal | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp}` | RTMIN+12 | polling `/proc/loadavg`, `nvidia-smi`, `/sys/class/power_supply/BAT0/*`, `/sys/class/hwmon/*/temp1_input` at 2 s |
+| **system-daemon** | CPU, GPU, memory, battery, thermal | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp}` | RTMIN+18 | polling `/proc/loadavg`, `nvidia-smi`, `/sys/class/power_supply/BAT0/*`, `/sys/class/hwmon/*/temp1_input` at 2 s |
 | **network-daemon** | WiFi + ethernet + VPN state | `/tmp/waybar-cache/net-{wifi, eth, vpn, link}` | RTMIN+13 | `nmcli monitor` (event push) + initial state from `nmcli -t device,connection show` |
 | **bluetooth-daemon** | BT state, paired devices, scan results | `/tmp/waybar-cache/bt-{state, devices, scanning}` | RTMIN+13 | `dbus-monitor --system "type='signal',interface='org.bluez.*'"` |
 | **audio-daemon** | Default sink, volume, mute, playing-apps count | `/tmp/waybar-cache/audio-{sink, volume, mute, streams}` | RTMIN+14 | `pw-mon --color=never` filtered to `^changed:` |
@@ -87,13 +88,14 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 |---|---|---|
 | RTMIN+10 | workspace-daemon | Window/workspace state changes |
 | RTMIN+11 | dictation | Recording / transcribing indicator |
-| RTMIN+12 | system-daemon (planned) | CPU/GPU/memory/battery/temp |
+| RTMIN+12 | notif-daemon (live) | OPTIONS notification center spine — mako bridge |
 | RTMIN+13 | network-daemon + bluetooth-daemon (planned) | Connectivity |
 | RTMIN+14 | audio-daemon (planned) | Sink/volume/streams |
 | RTMIN+15 | clipboard-daemon (planned) | Selection/clipboard |
 | RTMIN+16 | media-daemon (reserved) | MPRIS / cava |
 | RTMIN+17 | context-daemon (planned) | Hardware-button reflection, 4-s transient timer |
-| RTMIN+18..+30 | **FREE** | future expansion |
+| RTMIN+18 | system-daemon (planned) | CPU/GPU/memory/battery/temp (was on RTMIN+12 before notif-daemon claimed it 2026-06-06) |
+| RTMIN+19..+30 | **FREE** | future expansion |
 
 When picking a signal: read this table, take the next free one, edit this table in the same commit. The Linux kernel guarantees RTMIN through RTMIN+30 are safe for application use.
 

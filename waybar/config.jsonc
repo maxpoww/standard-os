@@ -37,6 +37,10 @@
   // ── USER zone (left) ────────────────────────────────────────────
   "modules-left": [
     "group/workspaces",
+    // tray sits between workspaces and active-window — conscious user-zone
+    // placement (semantic deviation from CLAUDE.md noted in the notif-center
+    // spine spec § "Bar layout changes"; the user picked this layout
+    // deliberately for visual flow with the focused-window pill).
     "group/active-window"
   ],
 
@@ -48,8 +52,12 @@
   ],
 
   // ── SYSTEM zone (right) ─────────────────────────────────────────
+  // custom/notif is the LEFTMOST entry — first thing the eye lands on
+  // when scanning from center to right edge. Notifications carry urgency
+  // by design; placing them first matches the attention hierarchy.
   "modules-right": [
     "tray",
+    "custom/notif",
     "group/group-2",
     "group/group-power",
     "custom/power-resume",
@@ -507,6 +515,22 @@
     "on-click": "systemctl start standard-os-resume.service"
   },
 
+  // ── Notification center pill — leftmost in SYSTEM zone ────────────────
+  // Daemon-driven by notif-daemon (modules/notif-center.nix). Cache file
+  // is the single source of truth — the daemon walks the state machine
+  // documented in waybar/docs/superpowers/specs/2026-06-06-notification-
+  // center-spine-design.md §"Pill state machine" and writes JSON atomically.
+  // Signal RTMIN+12 is registered to notif-daemon in ARCHITECTURE.md.
+  "custom/notif": {
+    "exec": "cat /tmp/waybar-cache/notif 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click":       "notif-click invoke",
+    "on-click-right": "notif-click drawer"
+  },
   "custom/clock": {
     "exec": ". ~/.config/waybar/scripts/lib/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true

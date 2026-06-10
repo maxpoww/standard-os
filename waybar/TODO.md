@@ -59,7 +59,8 @@ for the maintenance contract.
   Event-driven via `nmcli monitor`.
 - **Bluetooth daemon** (RTMIN+13) — paired devices, scan, connect, device
   battery. Event-driven via `dbus-monitor`.
-- **System daemon** (RTMIN+12) — CPU / GPU / memory / temp. Polled at 2 s.
+- **System daemon** (RTMIN+18) — CPU / GPU / memory / temp. Polled at 2 s.
+  (RTMIN+12 went to notif-daemon 2026-06-06; see ARCHITECTURE.md.)
 - **Clipboard daemon** (RTMIN+15) — selection-aware text-operation options.
   `wl-paste --watch` for events.
 - **Control panel row** — second waybar instance for control-panel-style depth.
@@ -79,6 +80,46 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-10** — **Notification center SPINE — live.**
+  mako (popups OFF via `invisible=1`, history ON, default-timeout 0) is the
+  capture/persistence/DND backbone; OPTIONS owns 100 % of the visible
+  surface via a single `custom/notif` pill in SYSTEM zone (leftmost), bell
+  glyph at rest, `opt-pin-{green,orange}` for unread/critical, `opt-flash`
+  on normal arrival, `opt-no opt-pulse-orange opt-flash` for critical
+  arrival, transitioning to `opt-no opt-pin-orange` (motion stopped) at the
+  4-s calm threshold and to bell rest at 8 s. Architecture: `notif-daemon`
+  (bash, RTMIN+12, `/tmp/waybar-cache/notif`) subscribes to `dbus-monitor`
+  on `org.freedesktop.Notifications` AND `fr.emersion.mako`, queries mako
+  via `busctl --json=short … fr.emersion.Mako ListNotifications` (mako 1.10
+  `makoctl list` is plain text, not JSON). Click handler `notif-click`:
+  transient → `makoctl invoke -n <id>` + `makoctl dismiss -n <id>`; rest →
+  `makoctl dismiss --all` (interim until the drawer spec ships); right-click
+  → noop placeholder. 19/19 state unit tests + 12/12 click unit tests pass;
+  all 8 spec acceptance criteria + 5 hazard audits pass live. Spec:
+  `waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md`.
+  Spine-only — drawer, DND toggle, focus modes, per-app rules, action
+  buttons, 2FA, sound, app-icon rendering are all deferred follow-up specs.
+  **Hint:** mako 1.10 dropped `makoctl dismiss-all` as a top-level command
+  (it's `dismiss --all` now), and `makoctl invoke -n <id>` only fires
+  ActionInvoked when the notification carries a "default" action — it does
+  NOT auto-dismiss notifications without actions. The click handler invokes
+  AND dismisses explicitly to satisfy "click clears the pill" regardless.
+  **Hint:** the daemon tracks `TRANSIENT_ID` (the mako id the current
+  transient represents) and clears the transient face the moment that id
+  disappears from `UNREAD_IDS` (per-event invariant in `on_dbus_event`).
+  Without this, click-dismissing the underlying notification left the
+  transient sticky in the cache. **Hint:** spec deviation — critical
+  transient is time-bounded (4 s pulse → 4 s acked → collapse), not
+  hover-driven; waybar doesn't broadcast pill-hover to the daemon. The
+  user-visible "stays until acknowledged" guarantee is preserved by the
+  underlying `opt-pin-orange` rest face, which persists until the user
+  clicks. Hover-driven critical advancement is queued for a follow-up when
+  a generic pill-hover IPC channel exists. **Hint:** mako's config file is
+  installed via `xdg.configFile."mako/config"`, NOT
+  `services.mako.enable = true` — the latter conflicts with D-Bus
+  auto-activation (mako ships its own `org.freedesktop.Notifications`
+  .service file in `/run/current-system/sw/share/dbus-1/services/`).
 
 - **2026-06-06** — **Font-family resolution fix + icon-pill size restored.**
   The deeper cause of the "right-of-window pills look small" complaint was
