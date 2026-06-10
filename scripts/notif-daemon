@@ -106,6 +106,98 @@ render_cache_for_state() {
     fi
 }
 
+# ─── render_bell_for_state (P1 design) ─────────────────────────────────────
+# The bell parent pill carries ALL state: pin color at rest, transient face
+# during the 5s arrival window, opt-pushed composing with DND. Pure function.
+#
+# Args:
+#   $1 unread      — total unread count
+#   $2 critical    — critical unread count
+#   $3 dnd_on      — 0 or 1
+#   $4 kind        — '' | 'normal' | 'critical'  (transient kind)
+#   $5 app         — origin app (when kind != '')
+#   $6 title       — summary (when kind != '')
+#   $7 body        — body (tooltip text when transient)
+render_bell_for_state() {
+    local unread="${1:-0}" critical="${2:-0}" dnd_on="${3:-0}"
+    local kind="${4:-}" app="${5:-}" title="${6:-}" body="${7:-}"
+
+    # FA solid bell U+F0F3, raw UTF-8 bytes — verify with od -An -c if you edit
+    local bell=$'\xef\x83\xb3'
+
+    # Build the class array as positional args, then format as JSON array literal
+    local -a classes=("opt-pill" "dark")
+
+    if [[ -n $kind ]]; then
+        # Transient face: wide pill, App · Title text. NO opt-flash on normal
+        # (Rule 4 silent context shift). Critical adds opt-no + opt-pulse-orange
+        # (urgency mandate pierces the silent rule, matches the spine).
+        case "$kind" in
+            critical)
+                classes+=("opt-no" "opt-pulse-orange")
+                ;;
+            normal|*)
+                # No additional classes — silent normal arrival.
+                ;;
+        esac
+        (( dnd_on == 1 )) && classes+=("opt-pushed")
+        local classes_json
+        classes_json=$(_classes_json "${classes[@]}")
+        printf '{"text":"%s · %s","class":%s,"tooltip":"%s"}' \
+            "$app" "$title" "$classes_json" "$body"
+        return 0
+    fi
+
+    # Rest face: bell glyph, pin color reflects urgency.
+    if (( unread > 0 )); then
+        if (( critical > 0 )); then
+            classes+=("opt-pin-orange")
+        else
+            classes+=("opt-pin-green")
+        fi
+    fi
+    (( dnd_on == 1 )) && classes+=("opt-pushed")
+
+    local classes_json
+    classes_json=$(_classes_json "${classes[@]}")
+    printf '{"text":"%s","class":%s,"tooltip":"Notifications"}' "$bell" "$classes_json"
+}
+
+# ─── render_dnd_for_state ──────────────────────────────────────────────────
+# The DND child pill. Material Design bell-slash U+F009B (4-byte UTF-8).
+# Pure function — only state input is dnd_on.
+render_dnd_for_state() {
+    local dnd_on="${1:-0}"
+    # U+F009B (Material Design bell-off) = 0xF3 0xB0 0x82 0x9B in UTF-8.
+    # If this byte sequence ever looks empty in your terminal, verify with:
+    #   printf '%s' "$slash" | od -An -tx1   → "f3 b0 82 9b"
+    local slash=$'\xf3\xb0\x82\x9b'
+    if (( dnd_on == 1 )); then
+        printf '{"text":"%s","class":["opt-pill-child","dark","opt-pushed"],"tooltip":"Do Not Disturb (on)"}' "$slash"
+    else
+        printf '{"text":"%s","class":["opt-pill-child","dark"],"tooltip":"Do Not Disturb"}' "$slash"
+    fi
+}
+
+# ─── _classes_json — internal helper, args → JSON array literal ────────────
+# Used by render_bell_for_state. Kept module-local to avoid leaking into tests
+# that may want to verify the JSON-array hazard contract independently.
+_classes_json() {
+    local out="["
+    local first=1
+    local c
+    for c in "$@"; do
+        if (( first )); then
+            out+="\"$c\""
+            first=0
+        else
+            out+=",\"$c\""
+        fi
+    done
+    out+="]"
+    printf '%s' "$out"
+}
+
 # ─── Library-only short-circuit ────────────────────────────────────────────
 # When sourced from tests/notif-state-test.sh with NOTIF_DAEMON_LIB_ONLY=1,
 # only the function definitions above are needed — the main loop must not
