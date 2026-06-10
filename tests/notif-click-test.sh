@@ -23,8 +23,9 @@ assert_eq() {
 
 # Cache strings matching what notif-daemon writes (see notif-state-test.sh).
 EMPTY='{"text":""}'
-REST_GREEN='{"text":"x","class":["opt-pill","dark","opt-pin-green"],"tooltip":"Notifications"}'
-REST_ORANGE='{"text":"x","class":["opt-pill","dark","opt-pin-orange"],"tooltip":"Notifications"}'
+BELL=$'\xef\x83\xb3'
+REST_GREEN='{"text":"'"$BELL"'","class":["opt-pill","dark","opt-pin-green"],"tooltip":"Notifications"}'
+REST_ORANGE='{"text":"'"$BELL"'","class":["opt-pill","dark","opt-pin-orange"],"tooltip":"Notifications"}'
 TRANSIENT_NORMAL='{"text":" Firefox · Download complete","class":["opt-pill","dark","opt-flash"],"tooltip":"file.tar.gz"}'
 TRANSIENT_CRIT='{"text":" Slack · PAGE","class":["opt-pill","dark","opt-no","opt-pulse-orange","opt-flash"],"tooltip":"Wake up"}'
 ACKED_CRIT='{"text":" Slack · PAGE","class":["opt-pill","dark","opt-no","opt-pin-orange"],"tooltip":"Wake up"}'
@@ -69,8 +70,12 @@ assert_eq "$(notif_click_decide nonsense "$TRANSIENT_NORMAL")" "noop" \
 
 # ─── bell subcommand ──────────────────────────────────────────────────────
 # bell on rest-face cache → open-rofi
-assert_eq "$(notif_click_decide bell '{"text":"","class":["opt-pill","dark","opt-pin-green"],"tooltip":"Notifications"}')" "open-rofi" \
-    "bell on rest → open-rofi"
+out=$(notif_click_decide bell "$REST_GREEN")
+assert_eq "$out" "open-rofi" "bell on rest (pin-green) → open-rofi"
+
+# bell on rest with critical pin → also open-rofi
+out=$(notif_click_decide bell "$REST_ORANGE")
+assert_eq "$out" "open-rofi" "bell on rest (pin-orange) → open-rofi"
 
 # bell on transient cache (has · separator) → invoke-and-dismiss
 assert_eq "$(notif_click_decide bell '{"text":" Slack · PR review","class":["opt-pill","dark"],"tooltip":""}')" "invoke-and-dismiss" \

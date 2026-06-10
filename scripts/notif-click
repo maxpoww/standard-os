@@ -16,16 +16,21 @@ set -uo pipefail
 CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif}"
 
 # ─── Pure decision function ────────────────────────────────────────────────
-# notif_click_decide ACTION CACHE_CONTENT → one of:
-#   "invoke-latest"  → caller should run makoctl invoke on the latest unread
-#   "dismiss-all"    → caller should run makoctl dismiss-all (clears pin)
-#   "noop"           → do nothing (drawer placeholder OR empty / garbage cache)
+# notif_click_decide ACTION CACHE_CONTENT → one of (current outputs):
+#   bell  on transient  → "invoke-and-dismiss"  (P1; runtime wired in task 7)
+#   bell  on rest       → "open-rofi"           (P1; runtime wired in task 7)
+#   bell  on empty/bad  → "noop"
+#   dnd                 → "toggle-dnd"          (P1; runtime wired in task 7)
+#   invoke on transient → "invoke-latest"       (legacy spine; removed task 7)
+#   invoke on rest      → "dismiss-all"         (legacy spine; removed task 7)
+#   invoke on empty/bad → "noop"
+#   drawer / unknown    → "noop"
 #
-# Transient detection: the daemon's render function builds transient text as
-# `<bell> <app> · <title>` (see render_cache_for_state). The literal " · "
-# separator appears only in transient/acked states; it never appears in the
-# rest face (bell glyph only) or the empty state (text=""). Matching on
-# " · " is the cheapest reliable signal without parsing the class array.
+# Transient detection: the daemon's render functions build transient text as
+# `<app> · <title>` (P1) or `<bell> <app> · <title>` (spine legacy). The
+# literal " · " separator appears only in transient states; rest faces are
+# the bell glyph alone, empty face is "text":"". Matching on " · " is the
+# cheapest reliable signal without parsing the class array.
 notif_click_decide() {
     local action="$1"
     local cache_content="$2"
