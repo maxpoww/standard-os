@@ -38,20 +38,33 @@ let
     jq
     mako
     procps
+    rofi
   ];
 
   binPath = lib.makeBinPath runtimeDeps;
+
+  # Materialize the lib dir (notif-journal.sh + notif-rofi-format.sh) into one
+  # /nix/store path. The wrapped scripts get NOTIF_LIB_DIR pointing here so
+  # they can `source "$NOTIF_LIB_DIR/notif-journal.sh"` etc. without depending
+  # on the source-tree layout.
+  libDir = pkgs.runCommand "notif-libs" {} ''
+    mkdir -p $out/lib
+    cp ${../scripts/lib/notif-journal.sh} $out/lib/notif-journal.sh
+    cp ${../scripts/lib/notif-rofi-format.sh} $out/lib/notif-rofi-format.sh
+  '';
 
   # Wrap an external bash script as a /nix/store binary. PATH is curated
   # so the script never inherits the user's PATH (NixOS hardening + the
   # FHS-assumption hazard from Standard-OS CLAUDE.md).
   mkScript = name: src: pkgs.writeShellScriptBin name ''
     export PATH=${binPath}:$PATH
+    export NOTIF_LIB_DIR=${libDir}/lib
     exec ${pkgs.bash}/bin/bash ${src} "$@"
   '';
 
   notifDaemonBin = mkScript "notif-daemon" ./../scripts/notif-daemon;
   notifClickBin  = mkScript "notif-click"  ./../scripts/notif-click;
+  notifRofiBin   = mkScript "notif-rofi"   ./../scripts/notif-rofi;
 
 in {
   options.services.notifCenter = {
@@ -67,10 +80,44 @@ in {
         was marked FREE in the registry at spec time.
       '';
     };
+
+    silencedApps = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = ''
+        Apps whose notifications should be dropped entirely — neither
+        transient, nor pin, nor journal entry. App names match the D-Bus
+        `app_name` field exactly (case-sensitive). Discover names via:
+          busctl --user --json=short call \
+            org.freedesktop.Notifications /fr/emersion/Mako \
+            fr.emersion.Mako ListNotifications \
+            | jq '.data[0][]?."app-name".data'
+        Example values: "NetworkManager", "spotify", "cups".
+      '';
+    };
+
+    journalLimit = lib.mkOption {
+      type = lib.types.ints.between 50 5000;
+      default = 200;
+      description = ''
+        Maximum number of journal entries kept in
+        ~/.local/share/standard-os/notif-history.jsonl. Older entries are
+        pruned on every new arrival.
+      '';
+    };
+
+    transientMs = lib.mkOption {
+      type = lib.types.ints.between 1000 30000;
+      default = 5000;
+      description = ''
+        Duration in milliseconds that the bell pill stays expanded as a
+        wide "App · Title" pill after a new notification arrives.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [ notifDaemonBin notifClickBin ];
+    home.packages = [ notifDaemonBin notifClickBin notifRofiBin ];
 
     # ── mako: capture / history / DND backbone — popups OFF ──────────────
     # mako ships a D-Bus auto-activation service (fr.emersion.mako.service)
@@ -86,25 +133,16 @@ in {
     # editing this config: `pkill .mako-wrapped` — D-Bus activation
     # respawns mako with the new config on the next notification.
     xdg.configFile."mako/config".text = ''
-      # Managed by /etc/nixos/home/modules/notif-center.nix — do not edit
-      # directly. OPTIONS owns the visible surface; mako handles capture
-      # + history + DND state only.
-
-      # invisible = 1 → notifications are STORED in history but NEVER
-      # painted as popups. This is the right knob; max-visible=0 silently
-      # drops notifications entirely (mako 1.10 behavior, verified by
-      # busctl ListNotifications returning empty until we switched to this).
+      # Managed by /etc/nixos/home/modules/notif-center.nix — do not edit.
       invisible=1
-
-      # default-timeout = 0 → notifications sit in history until
-      # explicitly dismissed (by the user via notif pill rest-face click,
-      # or per-notification by future drawer actions).
       default-timeout=0
-
-      # Keep history enabled — busctl Mako.ListNotifications is the
-      # daemon's authoritative source for unread/critical counts.
       history=1
-    '';
+    '' + lib.concatMapStrings (app: ''
+
+      [app-name=${app}]
+      invisible=1
+      history=0
+    '') cfg.silencedApps;
 
     # ── notif-daemon: the spine's main loop ──────────────────────────────
     systemd.user.services.notif-daemon = {
@@ -126,6 +164,8 @@ in {
         RestartSec = 1;
         Environment = [
           "NOTIF_SIGNAL=${toString cfg.waybarSignal}"
+          "NOTIF_TRANSIENT_MS=${toString cfg.transientMs}"
+          "NOTIF_JOURNAL_LIMIT=${toString cfg.journalLimit}"
         ];
       };
     };
