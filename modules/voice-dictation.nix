@@ -98,16 +98,22 @@ let
 
       write_state() {
         # $1 = idle|recording|transcribing
+        # `class` MUST be a JSON array — waybar/GTK 3 treats a space-separated
+        # string as a single class name (see waybar/CLAUDE.md "Known hazards").
+        # The opt-pill class is mandatory: it carries the canonical pill
+        # geometry (font-size 13px, padding 3/8, border-radius 30px). Without
+        # it the pill falls back to the universal `* { font-size:13px }` rule
+        # but loses padding/background and looks wrong next to its neighbours.
         case "$1" in
           idle)
             printf '{"text":""}\n' > "$STATE"
             ;;
           recording)
-            printf '{"text":"%s","tooltip":"Recording…","class":"recording","alt":"recording"}\n' \
+            printf '{"text":"%s","tooltip":"Recording…","class":["opt-pill","dark","recording"],"alt":"recording"}\n' \
               "$MIC_GLYPH" > "$STATE"
             ;;
           transcribing)
-            printf '{"text":"%s","tooltip":"Transcribing…","class":"transcribing","alt":"transcribing"}\n' \
+            printf '{"text":"%s","tooltip":"Transcribing…","class":["opt-pill","dark","transcribing"],"alt":"transcribing"}\n' \
               "$MIC_GLYPH" > "$STATE"
             ;;
         esac
@@ -257,21 +263,25 @@ let
       fi
 
       # Dictation transcribing or recording — pass the dictate state JSON
-      # through unchanged so its tooltip/class wins.
+      # through unchanged so its tooltip/class wins. The state file emits
+      # class as a JSON array (see write_state in voice-dictation.nix), so
+      # match the array form, e.g. `"class":["opt-pill","dark","recording"]`.
       case "$dict_state" in
-        *'"class":"transcribing"'*|*'"class":"recording"'*)
+        *'"recording"'*|*'"transcribing"'*)
           printf '%s\n' "$dict_state"
           exit 0
           ;;
       esac
 
-      # Otherwise check if any other app is holding the mic.
+      # Otherwise check if any other app is holding the mic. Emit class as a
+      # JSON array including `opt-pill` so the pill picks up canonical
+      # geometry (13px font, padding, border-radius) instead of GTK defaults.
       apps=""
       if [ -r "$MIC" ]; then
         apps=$(cat "$MIC")
       fi
       if [ -n "$apps" ]; then
-        printf '{"text":"%s","tooltip":"Mic in use: %s","class":"recording","alt":"mic-active"}\n' \
+        printf '{"text":"%s","tooltip":"Mic in use: %s","class":["opt-pill","dark","recording"],"alt":"mic-active"}\n' \
           "$MIC_GLYPH" "$apps"
         exit 0
       fi

@@ -80,6 +80,45 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-06** — **Font-family resolution fix + icon-pill size restored.**
+  The deeper cause of the "right-of-window pills look small" complaint was
+  that `style.css` `*` declared `font-family: font-awesome, meslo-lg,
+  meslo-lgs-nf` — three nixpkgs PACKAGE names, none of which fontconfig
+  recognises as font FAMILY names. `fc-match` returned DejaVu Sans for all
+  three, then fontconfig substituted per-glyph to whatever Nerd Font
+  contained each private-use codepoint; the result was DejaVu Sans-metric
+  text vs Nerd-Font-metric icons, so glyph pills looked smaller than the
+  clock at the same 13px. The regression became loud when `font-awesome`
+  bumped 6→7 in nixpkgs (`"Font Awesome 7 Free"` family name). Fix:
+  rewrote `font-family` to the canonical names
+  `"MesloLGS NF", "Font Awesome 7 Free", "Symbols Nerd Font Mono", monospace`
+  and moved `nerd-fonts.symbols-only` into `/etc/nixos/modules/desktop.nix`
+  `fonts.packages` so the chain is guaranteed on a fresh install without
+  depending on the optional `web-design.nix`. Per-pill exception:
+  `#custom-window label` overrides back to `sans-serif` because the title
+  text reads better proportional. Hazard entry added to CLAUDE.md.
+  **Hint:** when a font package bumps major version, re-run
+  `fc-match "<exact CSS name>" family` on every entry in the chain — if
+  it returns anything OTHER than that family, the chain is silently
+  broken and the bar will look "off" without errors in logs.
+
+- **2026-06-06** — **Pill font-size regression fix (`#custom-dictate`,
+  `#custom-power-resume`).** Both pills carried standalone `#custom-X { ... }`
+  blocks re-implementing `.opt-pill` geometry with `font-size: 12px`, which
+  outranked the canonical 13px via ID specificity. Power-resume shipped
+  2026-06-05 and the user noticed "smaller font to the right of the window
+  module" the next day. Fix: deleted the standalone geometry from `style.css`,
+  kept only the state-paint rules (`.recording`/`.transcribing` backgrounds
+  and animations; `.empty` collapse). Dictate writers in
+  `modules/voice-dictation.nix` (`write_state` and `dictate-waybar` exec)
+  updated to emit `class` as a JSON array including `opt-pill` + `dark` —
+  same form power-resume's writers already used. New hazard entry in
+  CLAUDE.md "Known hazards" plus a `grep -nE '#custom-[a-z-]+ \{' style.css`
+  audit recipe so future modules don't reintroduce the pattern.
+  **Hint:** every text-bearing custom pill MUST carry `opt-pill` in its
+  class array, and `#custom-X` CSS blocks must only carry STATE deltas
+  (`.recording`, `.empty`, …) — never geometry.
+
 - **2026-06-05** — **Sleep + Hibernate system + OPTIONS power-cluster remap.**
   Two NixOS modules: `modules/power-sleep.nix` (runtime, default-on, build-time
   assertions for swap presence + UUID derivability) and `modules/disko-layout.nix`

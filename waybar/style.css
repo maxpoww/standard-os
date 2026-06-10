@@ -153,8 +153,24 @@
 
 /* ── Bar window ──────────────────────────────────────────────────────────── */
 
+/* font-family names must match the canonical names embedded in each font
+   file (queryable via `fc-match "<name>"`), NOT the nixpkgs package names.
+   Previous value used the package-style names `font-awesome, meslo-lg,
+   meslo-lgs-nf` — NONE of those resolved (fc-match returned DejaVu Sans
+   fallback for all three), and fontconfig then did per-glyph substitution
+   to whatever Nerd Font happened to contain each codepoint. Nerd Font
+   glyphs at 13px render at a smaller visual cap-height than DejaVu Sans
+   alphanumerics, so icon-only pills (tools, power, battery, warm-cycle,
+   …) looked smaller than text-bearing pills (clock). The regression
+   surfaced when `font-awesome` bumped to v7 in nixpkgs — earlier aliases
+   silently matched, v7's `"Font Awesome 7 Free"` does not.
+
+   MesloLGS NF is the primary because it bundles BOTH alphanumerics AND a
+   full Nerd Font glyph set (Font Awesome, Material, Codicons, Octicons,
+   Powerline, …) — one font for everything keeps metrics consistent. The
+   trailing entries are belt-and-braces fallback for niche codepoints. */
 * {
-    font-family: font-awesome, meslo-lg, meslo-lgs-nf;
+    font-family: "MesloLGS NF", "Font Awesome 7 Free", "Symbols Nerd Font Mono", monospace;
     font-size: 13px;
 }
 
@@ -453,6 +469,20 @@ window#waybar.empty #win-move {
     margin: 0;
 }
 
+/* ── Center task pill: focused-window title ──────────────────────────────
+   `custom/window` shows the focused window's title text. Override the
+   universal monospace MesloLGS NF (which suits icon-heavy pills) back to
+   the system sans-serif default — long titles read more naturally in a
+   proportional font, and that's how this pill has rendered historically
+   (DejaVu Sans, via fontconfig fallback when the previous font-family
+   declaration didn't resolve). The override is scoped to the label so
+   the pill geometry from .opt-pill is still inherited. */
+
+window#waybar #custom-window,
+window#waybar #custom-window label {
+    font-family: sans-serif;
+}
+
 #active-window,
 #win-move {
     padding: 0;
@@ -476,19 +506,14 @@ window#waybar .opt-pill-child.light:hover label {
     color: @opt-text-on-light-hov;
 }
 
-/* ── Voice dictation indicator (legacy class names, OPTIONS-aligned paint) ── */
-/* dictate-waybar lives in modules/voice-dictation.nix (separate from this
-   refactor) and emits .recording / .transcribing. Map those to the OPTIONS
-   palette so the dictate pill speaks the same visual language. */
-
-#custom-dictate {
-    background: transparent;
-    border-radius: 30px;
-    padding: 1px 8px 1px 7px;
-    margin: 2px 1px;
-    font-size: 12px;
-    color: @opt-text-on-dark;
-}
+/* ── Voice dictation indicator (legacy state names, OPTIONS-aligned paint) ── */
+/* dictate-waybar (modules/voice-dictation.nix) emits opt-pill + dark + state
+   class in a JSON array. Geometry comes from .opt-pill — DO NOT re-implement
+   it here (no standalone `#custom-dictate { padding/font-size/... }` block).
+   ID specificity (#id > .class) would silently shadow .opt-pill's 13px font
+   and 3px vertical padding, making the pill smaller than the rest of the bar
+   — same regression that bit power-resume and dictate together on 2026-06-06.
+   These rules only paint STATE on top of the canonical pill. */
 
 #custom-dictate.recording {
     background: @opt-blue-state;
@@ -498,6 +523,22 @@ window#waybar .opt-pill-child.light:hover label {
 #custom-dictate.transcribing {
     background: @opt-yellow-state;
     animation: opt-glow-green 2s ease-in-out infinite alternate;
+}
+
+/* ── Post-resume failure pill — empty-collapse only ──────────────────────
+   Written by standard-os-resume.service / standard-os-resume-user.service
+   when the two-pass health-check finds a subsystem still broken at pass 2.
+   Writers emit ["opt-pill","opt-flash","opt-no","dark"] — geometry, colour
+   and motion come from those canonical classes. The only rule needed here
+   is the empty-collapse override (waybar leaves a GTK button slot for
+   text="" unless padding/margin/font-size are explicitly zeroed). */
+
+#custom-power-resume.empty {
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+    opacity: 0;
+    font-size: 0;
 }
 
 /* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
