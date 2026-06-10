@@ -13,7 +13,7 @@
 
 set -uo pipefail
 
-CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif}"
+CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif-bell}"
 
 # ─── Pure decision function ────────────────────────────────────────────────
 # notif_click_decide ACTION CACHE_CONTENT → one of (current outputs):
@@ -98,18 +98,34 @@ cache_content=$(cat "$CACHE" 2>/dev/null || true)
 decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
+    invoke-and-dismiss)
+        # Bell transient click — invoke the notification's default action AND
+        # explicitly dismiss (mako 1.10 makoctl invoke does NOT auto-dismiss
+        # notifications without a registered "default" action — the common
+        # case for notify-send-shaped notifications).
+        latest_id=$(busctl --user --json=short call \
+            org.freedesktop.Notifications /fr/emersion/Mako \
+            fr.emersion.Mako ListNotifications 2>/dev/null \
+            | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+        if [[ -n $latest_id ]]; then
+            makoctl invoke -n "$latest_id" 2>/dev/null || true
+            makoctl dismiss -n "$latest_id" 2>/dev/null || true
+        fi
+        ;;
+    open-rofi)
+        # Bell at rest — launch the notification list browser. notif-rofi is
+        # packaged into PATH by the Nix module (task 8).
+        exec notif-rofi
+        ;;
+    toggle-dnd)
+        makoctl mode -t dnd 2>/dev/null || true
+        ;;
+    noop)
+        : ;;
+    # Legacy decisions — kept for the duration of the transition; the live
+    # config.jsonc will be updated to call only `bell` and `dnd` subcommands
+    # in task 9. After that, these branches are unreachable but harmless.
     invoke-latest)
-        # Get the latest unread's id from mako (via D-Bus — `makoctl list`
-        # is plain text in mako 1.10, not JSON) and invoke its default
-        # action, then dismiss.
-        #
-        # mako 1.10 semantic correction (vs the original spec assumption):
-        # `makoctl invoke -n <id>` only fires ActionInvoked when the
-        # notification carries a registered "default" action. Notifications
-        # with no actions (the common case for transactional notify-send
-        # output) are NOT auto-dismissed by invoke. We follow with an
-        # explicit `dismiss -n <id>` so the click always clears the pill —
-        # if the notification HAD a default action, it ran first.
         latest_id=$(busctl --user --json=short call \
             org.freedesktop.Notifications /fr/emersion/Mako \
             fr.emersion.Mako ListNotifications 2>/dev/null \
@@ -120,11 +136,6 @@ case "$decision" in
         fi
         ;;
     dismiss-all)
-        # Interim rest-face handler — clears all unread + pin colour. When
-        # the drawer ships, swap this for "open drawer" (Hint in TODO.md).
-        # mako 1.10: top-level `dismiss-all` was unified under `dismiss --all`.
         makoctl dismiss --all 2>/dev/null || true
         ;;
-    noop)
-        : ;;
 esac
