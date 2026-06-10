@@ -3,13 +3,16 @@
 #
 # Subscribes to org.freedesktop.Notifications + fr.emersion.mako via
 # dbus-monitor, queries mako via makoctl for authoritative state, and writes
-# /tmp/waybar-cache/notif (atomic) that the custom/notif waybar pill renders.
+# two atomic cache files that the custom/notif waybar pills render:
+#   /tmp/waybar-cache/notif-bell  — bell parent pill (state + transient face)
+#   /tmp/waybar-cache/notif-dnd   — DND child pill (hover-revealed)
 #
 # Spine spec:
 #   waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
-# §"Pill state machine" is the authoritative behavior table. render_cache_for_state
-# below is the encoding of that table — pure function, no side effects, safe to
-# source from tests via NOTIF_DAEMON_LIB_ONLY=1.
+# §"Pill state machine" is the authoritative behavior table.
+# render_bell_for_state + render_dnd_for_state (below) encode that table —
+# pure functions, no side effects, safe to source from tests via
+# NOTIF_DAEMON_LIB_ONLY=1.
 #
 # Hazard checklist (from waybar/CLAUDE.md):
 #   - class field is a JSON ARRAY (never space-separated string)
@@ -36,74 +39,6 @@ json_escape() {
     s="${s//$'\n'/\\n}"
     s="${s//$'\t'/\\t}"
     printf '%s' "$s"
-}
-
-# ─── Pure render function ──────────────────────────────────────────────────
-# Encoding of the §"Pill state machine" table from the spine spec.
-#
-# Args (positional):
-#   $1 unread     — total unread count (mako history list length)
-#   $2 critical   — critical unread count (urgency=2 entries)
-#   $3 dnd        — 0 or 1. NOT consulted here; the daemon's main loop is
-#                   responsible for upstream suppression of normal/low
-#                   transients when DND is on. Render is pure: given the
-#                   final state, produce the canonical JSON.
-#   $4 kind       — '' | 'normal' | 'critical' | 'critical_acked'
-#   $5 app        — origin app name (when kind != '')
-#   $6 title      — notification summary (when kind != '')
-#   $7 body       — notification body for the tooltip (when kind != '')
-#
-# Stdout: JSON object matching the row in §"Pill state machine" for the
-# inputs. Empty state emits `{"text":""}` so waybar hides the module.
-render_cache_for_state() {
-    local unread="${1:-0}"
-    local critical="${2:-0}"
-    local _dnd="${3:-0}"   # reserved; not used in render — see Args note above
-    local kind="${4:-}"
-    local app="${5:-}"
-    local title="${6:-}"
-    local body="${7:-}"
-
-    # Font Awesome solid bell U+F0F3. Built from raw UTF-8 bytes so this
-    # source file never has to hold a PUA codepoint (some editors strip
-    # PUA silently). Verify with: printf '%s' "$bell" | od -An -c
-    local bell=$'\xef\x83\xb3'
-
-    # Transient or acked-critical state — wide pill with App · Title.
-    if [[ -n $kind ]]; then
-        local classes
-        case "$kind" in
-            normal)
-                classes='["opt-pill","dark","opt-flash"]'
-                ;;
-            critical)
-                classes='["opt-pill","dark","opt-no","opt-pulse-orange","opt-flash"]'
-                ;;
-            critical_acked)
-                classes='["opt-pill","dark","opt-no","opt-pin-orange"]'
-                ;;
-            *)
-                # Unknown kind: defensive — use the safest visible state.
-                # (Should never happen if the daemon's state machine is sound.)
-                classes='["opt-pill","dark","opt-flash"]'
-                ;;
-        esac
-        printf '{"text":"%s %s · %s","class":%s,"tooltip":"%s"}' \
-            "$bell" "$app" "$title" "$classes" "$body"
-        return 0
-    fi
-
-    # Rest faces — bell glyph, pin colour by criticality.
-    if (( unread <= 0 )); then
-        printf '{"text":""}'
-        return 0
-    fi
-
-    if (( critical > 0 )); then
-        printf '{"text":"%s","class":["opt-pill","dark","opt-pin-orange"],"tooltip":"Notifications"}' "$bell"
-    else
-        printf '{"text":"%s","class":["opt-pill","dark","opt-pin-green"],"tooltip":"Notifications"}' "$bell"
-    fi
 }
 
 # ─── render_bell_for_state (P1 design) ─────────────────────────────────────
@@ -216,58 +151,68 @@ _classes_json() {
 }
 
 # ─── Library-only short-circuit ────────────────────────────────────────────
-# When sourced from tests/notif-state-test.sh with NOTIF_DAEMON_LIB_ONLY=1,
-# only the function definitions above are needed — the main loop must not
-# run. Exit/return safely whether we were sourced or executed.
 if [[ "${NOTIF_DAEMON_LIB_ONLY:-0}" == "1" ]]; then
     return 0 2>/dev/null || exit 0
 fi
 
 # ─── Configuration ─────────────────────────────────────────────────────────
-CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif}"
+CACHE_BELL="${NOTIF_CACHE_BELL:-/tmp/waybar-cache/notif-bell}"
+CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
-# Auto-calm timers (whole seconds — read -t accepts fractional but our
-# timers are in 4-second ranges so integer precision is fine).
-TRANSIENT_NORMAL_SEC=4    # collapse normal/low transients after this many sec
-TRANSIENT_CRITICAL_CALM_SEC=4    # critical: animate, then calm to pin-orange
-TRANSIENT_CRITICAL_END_SEC=8     # critical: collapse to home after total
+TRANSIENT_MS="${NOTIF_TRANSIENT_MS:-5000}"
+JOURNAL_PATH="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
+JOURNAL_LIMIT="${NOTIF_JOURNAL_LIMIT:-200}"
 
-mkdir -p "$(dirname "$CACHE")"
+# Source the journal lib. The Nix module installs it in the lib/ subdir next to
+# the daemon binary; dev runs from the source tree have multiple fallback paths.
+LIB_DIR=""
+for candidate in "${NOTIF_LIB_DIR:-}" \
+                 "$(cd "$(dirname "$(readlink -f "$0")")" && pwd)/lib" \
+                 "$(cd "$(dirname "$(readlink -f "$0")")/../scripts/lib" 2>/dev/null && pwd)" \
+                 "/etc/nixos/home/scripts/lib"; do
+    [[ -z $candidate ]] && continue
+    if [[ -f "$candidate/notif-journal.sh" ]]; then
+        LIB_DIR="$candidate"
+        break
+    fi
+done
+if [[ -z $LIB_DIR ]]; then
+    printf 'notif-daemon: lib dir not found (tried NOTIF_LIB_DIR, $HERE/lib, …)\n' >&2
+    exit 1
+fi
+# shellcheck source=lib/notif-journal.sh
+source "$LIB_DIR/notif-journal.sh"
 
-# ─── State variables (single source of truth for the pill) ─────────────────
+mkdir -p "$(dirname "$CACHE_BELL")" "$(dirname "$CACHE_DND")" "$(dirname "$JOURNAL_PATH")"
+
+# ─── State variables ───────────────────────────────────────────────────────
 UNREAD_COUNT=0
 CRITICAL_COUNT=0
+UNREAD_IDS=""
 LAST_KNOWN_TOP_ID=0
+LAST_UNREAD_IDS=""
+DND_ON=0
 TRANSIENT_KIND=""
-TRANSIENT_ID=0              # mako id of the notification this transient represents
+TRANSIENT_ID=0
 TRANSIENT_APP=""
 TRANSIENT_TITLE=""
 TRANSIENT_BODY=""
-TRANSIENT_START=0           # epoch seconds when current transient began
-LAST_RENDERED=""            # dedup — only signal waybar on real change
-# Set by query_mako_state alongside UNREAD/CRITICAL.
-UNREAD_IDS=""               # space-separated ids currently in mako's history
+TRANSIENT_START=0
+LAST_BELL_RENDERED=""
+LAST_DND_RENDERED=""
 
 # ─── mako D-Bus interrogation ──────────────────────────────────────────────
-# mako 1.10's `makoctl list` returns a HUMAN-READABLE plain-text format,
-# not JSON — there is no `-j`/`--json` flag. The authoritative source for
-# structured data is mako's own D-Bus interface, queried via
-# `busctl --json=short`. The reply schema matches what the spec design doc
-# anticipated:  `.data[0][].{id,urgency,summary,body,"app-name"}.data`.
-#
-# Sets the seven NEWEST_* / *_COUNT globals.
 query_mako_state() {
     local json
     json=$(busctl --user --json=short call \
         org.freedesktop.Notifications /fr/emersion/Mako \
         fr.emersion.Mako ListNotifications 2>/dev/null) || json=""
     if [[ -z $json || $json == "null" ]]; then
-        UNREAD_COUNT=0; CRITICAL_COUNT=0
+        UNREAD_COUNT=0; CRITICAL_COUNT=0; UNREAD_IDS=""
         NEWEST_ID=0; NEWEST_URG=1
         NEWEST_APP=""; NEWEST_SUMMARY=""; NEWEST_BODY=""
         return
     fi
-    # Newest = highest id (mako returns notifications in arbitrary order).
     UNREAD_COUNT=$(printf '%s' "$json" | jq -r '.data[0] | length // 0' 2>/dev/null) || UNREAD_COUNT=0
     CRITICAL_COUNT=$(printf '%s' "$json" | jq -r '[.data[0][]? | select(.urgency.data == 2)] | length' 2>/dev/null) || CRITICAL_COUNT=0
     UNREAD_IDS=$(printf '%s' "$json" | jq -r '[.data[0][]?.id.data] | join(" ")' 2>/dev/null) || UNREAD_IDS=""
@@ -278,10 +223,13 @@ query_mako_state() {
     NEWEST_BODY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].body.data // \"\"" 2>/dev/null) || NEWEST_BODY=""
 }
 
-dnd_on() {
-    # Return 0 (success/true) when DND mode is engaged.
-    # `makoctl mode` returns plain text — one mode name per line.
-    makoctl mode 2>/dev/null | grep -qx 'dnd'
+# Refresh DND_ON from mako's current mode.
+query_dnd() {
+    if makoctl mode 2>/dev/null | grep -qx 'dnd'; then
+        DND_ON=1
+    else
+        DND_ON=0
+    fi
 }
 
 # ─── Transient lifecycle ───────────────────────────────────────────────────
@@ -294,9 +242,6 @@ clear_transient() {
     TRANSIENT_START=0
 }
 
-# Has the notification this transient represents disappeared from mako?
-# Called after every query_mako_state in on_dbus_event so a click-dismiss
-# (or any external dismissal) drops the transient face immediately.
 transient_id_still_unread() {
     [[ -z $TRANSIENT_KIND ]] && return 0
     (( TRANSIENT_ID == 0 )) && return 0
@@ -307,25 +252,15 @@ transient_id_still_unread() {
     return 1
 }
 
-# Called when query_mako_state finds a NEWEST_ID we haven't seen before.
-# Sets up the appropriate transient kind based on urgency + DND.
-#
-# Surfacing rules per spec § Verification (1):
-#   urgency=0 (low)     → NO transient ever; goes to history + rest pin only.
-#                         KDE convention — reduces noise from print-jobs,
-#                         BT/WiFi connect events, package-mgr chatter.
-#   urgency=1 (normal)  → transient unless DND is on.
-#   urgency=2 (critical)→ transient ALWAYS (DND pierces per spec mandate).
+# Per-spec: low urgency never transients. Normal silent under DND. Critical
+# pierces DND. Same 5s window for normal + critical (collapse to bell carrying
+# the appropriate pin color).
 on_arrival() {
     local urg="$NEWEST_URG"
+    if (( urg == 0 )); then return 0; fi
     if (( urg == 2 )); then
         TRANSIENT_KIND="critical"
-    elif (( urg == 0 )); then
-        # Low → silent. The arrival still bumps UNREAD_COUNT in the next
-        # query, so rest face gets pin-green automatically.
-        return 0
-    elif dnd_on; then
-        # Normal + DND on → no transient.
+    elif (( DND_ON == 1 )); then
         return 0
     else
         TRANSIENT_KIND="normal"
@@ -334,92 +269,83 @@ on_arrival() {
     TRANSIENT_APP="$NEWEST_APP"
     TRANSIENT_TITLE="$NEWEST_SUMMARY"
     TRANSIENT_BODY="$NEWEST_BODY"
-    TRANSIENT_START=$(date +%s)
+    TRANSIENT_START=$(date +%s%3N)   # epoch milliseconds
 }
 
-# Walk the transient state machine forward by elapsed time.
 # Returns 0 if state changed (caller should re-render), 1 otherwise.
-check_transient_timers() {
+check_transient_timer() {
     [[ -z $TRANSIENT_KIND ]] && return 1
     local now elapsed
-    now=$(date +%s)
+    now=$(date +%s%3N)
     elapsed=$(( now - TRANSIENT_START ))
-    case "$TRANSIENT_KIND" in
-        normal)
-            if (( elapsed >= TRANSIENT_NORMAL_SEC )); then
-                clear_transient
-                return 0
-            fi
-            ;;
-        critical)
-            if (( elapsed >= TRANSIENT_CRITICAL_CALM_SEC )); then
-                TRANSIENT_KIND="critical_acked"
-                return 0
-            fi
-            ;;
-        critical_acked)
-            if (( elapsed >= TRANSIENT_CRITICAL_END_SEC )); then
-                clear_transient
-                return 0
-            fi
-            ;;
-    esac
+    if (( elapsed >= TRANSIENT_MS )); then
+        clear_transient
+        return 0
+    fi
     return 1
 }
 
-# Seconds until the next timer fires, used as `read -t` budget. Returns a
-# generous block-forever sentinel (3600s) when no transient is active.
+# Seconds (fractional) until the next 5s timer fires; sentinel 3600 when none.
 next_tick_seconds() {
     [[ -z $TRANSIENT_KIND ]] && { printf '3600'; return; }
-    local now elapsed target
-    now=$(date +%s)
+    local now elapsed remaining_ms
+    now=$(date +%s%3N)
     elapsed=$(( now - TRANSIENT_START ))
-    case "$TRANSIENT_KIND" in
-        normal)         target="$TRANSIENT_NORMAL_SEC" ;;
-        critical)       target="$TRANSIENT_CRITICAL_CALM_SEC" ;;
-        critical_acked) target="$TRANSIENT_CRITICAL_END_SEC" ;;
-        *)              target=4 ;;
-    esac
-    local remaining=$(( target - elapsed ))
-    (( remaining < 1 )) && remaining=1
-    printf '%d' "$remaining"
+    remaining_ms=$(( TRANSIENT_MS - elapsed ))
+    (( remaining_ms < 100 )) && remaining_ms=100
+    awk -v ms="$remaining_ms" 'BEGIN{ printf "%.3f", ms/1000 }'
 }
 
-# ─── Cache write with dedup + waybar signal ────────────────────────────────
+# ─── Cache writes with dedup + waybar signal ───────────────────────────────
+write_if_changed() {
+    local path="$1" content="$2" last_var="$3"
+    local last="${!last_var}"
+    [[ "$content" == "$last" ]] && return 1
+    printf -v "$last_var" '%s' "$content"
+    local tmp="${path}.tmp.$$"
+    printf '%s' "$content" > "$tmp" && mv -f "$tmp" "$path"
+    return 0
+}
+
 emit() {
-    query_mako_state    # refresh UNREAD/CRITICAL from authoritative source
-    local app_esc title_esc body_esc rendered
-    app_esc=$(json_escape "$TRANSIENT_APP")
-    title_esc=$(json_escape "$TRANSIENT_TITLE")
-    body_esc=$(json_escape "$TRANSIENT_BODY")
-    rendered=$(render_cache_for_state \
-        "$UNREAD_COUNT" "$CRITICAL_COUNT" 0 \
-        "$TRANSIENT_KIND" "$app_esc" "$title_esc" "$body_esc")
-    [[ "$rendered" == "$LAST_RENDERED" ]] && return 0
-    LAST_RENDERED="$rendered"
-    local tmp="${CACHE}.tmp.$$"
-    printf '%s' "$rendered" > "$tmp" && mv -f "$tmp" "$CACHE"
-    pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
+    query_mako_state
+    local bell_json dnd_json
+    bell_json=$(render_bell_for_state \
+        "$UNREAD_COUNT" "$CRITICAL_COUNT" "$DND_ON" \
+        "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY")
+    dnd_json=$(render_dnd_for_state "$DND_ON")
+
+    local changed=0
+    write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
+    write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
+    if (( changed )); then
+        pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
+    fi
 }
 
 # ─── D-Bus event handler ───────────────────────────────────────────────────
-# A single helper that recomputes state and decides whether the change
-# represents an arrival worth transient-pilling. Called after a dbus-monitor
-# event has been drained (we ignore the line content — we just use mako's
-# authoritative state).
 on_dbus_event() {
-    # Brief delay so mako can ingest the Notify before we query its list.
-    # If mako had a post-processing D-Bus signal we could subscribe to that
-    # instead — until verified, the tick is the robust fallback.
+    # Small settle delay so mako has ingested the Notify before we query.
     sleep 0.05
     local prev_top_id="$LAST_KNOWN_TOP_ID"
     query_mako_state
+    query_dnd
     if (( NEWEST_ID > prev_top_id )); then
         on_arrival
+        # Journal append for every arrival (even when no transient was rendered:
+        # low-urgency and DND-suppressed-normal still want history).
+        journal_append "$JOURNAL_PATH" "$(date -Iseconds)" \
+            "$NEWEST_ID" "$NEWEST_APP" "$NEWEST_SUMMARY" "$NEWEST_BODY" "$NEWEST_URG"
+        journal_prune "$JOURNAL_PATH" "$JOURNAL_LIMIT"
     fi
-    # If the notification that drives our current transient was dismissed
-    # (by click, by another invoker, by mako expiry), drop the transient
-    # face immediately so the pill returns to its rest or empty state.
+    # Journal: mark anything dismissed since last query.
+    local id
+    for id in $LAST_UNREAD_IDS; do
+        if ! grep -qE "(^| )$id( |$)" <<< "$UNREAD_IDS"; then
+            journal_mark_dismissed "$JOURNAL_PATH" "$id" "$(date -Iseconds)"
+        fi
+    done
+    LAST_UNREAD_IDS="$UNREAD_IDS"
     if ! transient_id_still_unread; then
         clear_transient
     fi
@@ -427,11 +353,6 @@ on_dbus_event() {
     emit
 }
 
-# ─── Drain bursty multi-line D-Bus output ──────────────────────────────────
-# dbus-monitor emits multiple lines per logical event (method-call header,
-# args, …). After the first line wakes us, consume any further lines that
-# arrive within a 50 ms quiet window so we don't recompute N times for
-# one notification.
 drain_dbus_burst() {
     local _line
     while read -t 0.05 -u "$DBUS_FD" -r _line; do :; done
@@ -439,51 +360,39 @@ drain_dbus_burst() {
 
 # ─── Cleanup ───────────────────────────────────────────────────────────────
 cleanup() {
-    # Clear the cache so a fresh daemon starts from empty state, not stale.
-    printf '%s' '{"text":""}' > "${CACHE}.tmp.$$" 2>/dev/null && mv -f "${CACHE}.tmp.$$" "$CACHE" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_DND}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DND}.tmp.$$" "$CACHE_DND" 2>/dev/null
     pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
-    # Close DBus FD if open.
     exec {DBUS_FD}<&- 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
 # ─── Main loop ─────────────────────────────────────────────────────────────
-# Subscribe to BOTH the standard Notifications interface (to see Notify
-# calls) AND mako's own fr.emersion.mako interface (Dismissed,
-# ModeChanged). We never parse the dbus-monitor output — events are pure
-# triggers, mako's `list` / `mode` queries are the source of truth.
 exec {DBUS_FD}< <(dbus-monitor --session \
     "interface='org.freedesktop.Notifications'" \
     "interface='fr.emersion.mako'" 2>/dev/null)
 
-# Initial state — pick up notifications that arrived while the daemon was
-# down, set baseline LAST_KNOWN_TOP_ID so we don't fire a transient for
-# every unread that already existed.
+query_dnd
 query_mako_state
 LAST_KNOWN_TOP_ID="$NEWEST_ID"
+LAST_UNREAD_IDS="$UNREAD_IDS"
 emit
 
 while true; do
     if [[ -z $TRANSIENT_KIND ]]; then
-        # No transient — block indefinitely waiting for the next D-Bus
-        # event. read -u with no -t blocks until input or EOF.
         if read -u "$DBUS_FD" -r _line; then
             drain_dbus_burst
             on_dbus_event
         else
-            # dbus-monitor closed — bail; systemd will restart us.
             break
         fi
     else
-        # Transient active — block until either the next timer fires
-        # or a D-Bus event arrives, whichever is first.
         tick=$(next_tick_seconds)
         if read -t "$tick" -u "$DBUS_FD" -r _line; then
             drain_dbus_burst
             on_dbus_event
         else
-            # Timer expired — walk the state machine + re-emit.
-            check_transient_timers && emit
+            check_transient_timer && emit
         fi
     fi
 done
