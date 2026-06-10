@@ -81,6 +81,38 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-10** — **Notification center P1: drawer + DND + per-app rules.**
+  Extends the spine (same-day spine commit) with a hover-revealed DND
+  toggle, a persistent journal of all arrivals, and a rofi-based history
+  browser. Layout: `custom/notif` (single pill) becomes `group/notif` with
+  two children — `custom/notif-bell` (always visible, carries pin / pushed
+  state + transient wide-pill face for 5 s) and `custom/notif-dnd`
+  (hover-revealed bell-slash glyph, opt-pushed when DND on, click toggles
+  via `makoctl mode -t dnd`). Click bell at rest → opens
+  `notif-rofi` listing live unread + journal history; click bell during
+  the 5 s wide-pill → invokes the notification's default action AND
+  dismisses (same dual-action pattern as the spine's transient click).
+  Persistent journal at `~/.local/share/standard-os/notif-history.jsonl`,
+  ring-bounded to `services.notifCenter.journalLimit` (default 200) entries,
+  pruned per-arrival. Per-app silencing via the new
+  `services.notifCenter.silencedApps` Nix option emits mako
+  `[app-name=...]` blocks with `history=0` — empty default.
+  **Hint:** the bell pill carries ALL state at rest (pin color, opt-pushed,
+  composes orthogonally). Normal-urgency arrivals are silent context
+  shifts (NO opt-flash, Rule 4 deviation from the spine); only critical
+  retains opt-pulse-orange. The bell click handler distinguishes rest from
+  transient by the literal ` · ` separator in the cache `text` field.
+  **Hint:** journal entries include a `dismissed_at` field that the
+  rofi script reads to distinguish unread from historical entries.
+  Daemon also marks entries as dismissed when it sees the
+  `fr.emersion.mako.Dismissed` D-Bus signal, so the journal stays in
+  sync with mako's live state even across daemon restarts.
+  **Hint:** the lib dir (`scripts/lib/notif-journal.sh`,
+  `scripts/lib/notif-rofi-format.sh`) is wired via `NOTIF_LIB_DIR` env
+  var (set by the Nix wrapper) so both `notif-daemon` and `notif-rofi`
+  can source from the same canonical location regardless of whether
+  they're invoked from the Nix store or the source tree (dev).
+
 - **2026-06-10** — **Notification center SPINE — live.**
   mako (popups OFF via `invisible=1`, history ON, default-timeout 0) is the
   capture/persistence/DND backbone; OPTIONS owns 100 % of the visible

@@ -66,7 +66,15 @@ Every piece of system state that more than one module might want lives behind a 
 |---|---|---|---|---|
 | **workspace-daemon** | `waybar-workspace-daemon.service` | `~/.config/waybar/scripts/workspace-daemon.sh` | `/tmp/waybar-cache/{ws-current, ws-1..9, window, win-close, win-minimize, win-swap-right, win-move-trigger, win-move-1..9, win-move-new}` | RTMIN+10 |
 | **glass-text-daemon** | `waybar-glass-text-daemon.service` | `~/.config/waybar/scripts/glass-text-daemon.sh` | `/tmp/glass-mode` (single line, `light` \| `dark`) | none (consumers re-exec at their own cadence) |
-| **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/notif` | RTMIN+12 |
+| **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/{notif-bell, notif-dnd}` | RTMIN+12 |
+
+notif-daemon also maintains the persistent journal at
+`~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable
+via `services.notifCenter.journalLimit`). The rofi-based browser
+`notif-rofi` (launched from the bell-at-rest on-click via `notif-click bell`
+→ `open-rofi` → `exec notif-rofi`) reads both the journal and mako's live
+unread set, then dispatches `makoctl dismiss`/`invoke` based on the user's
+pick.
 
 ### Planned daemons (to be added as options arrive)
 
