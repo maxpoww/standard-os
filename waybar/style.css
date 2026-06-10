@@ -83,12 +83,12 @@
    this palette, copy these exact rgba tuples or, eventually, read from a
    shared Nix module (see the distro roadmap).
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-@define-color opt-blue              rgba(179, 191, 255, 0.70);
-@define-color opt-blue-state        rgba(179, 191, 255, 1.00);
-@define-color opt-yellow            rgba(255, 230, 179, 0.70);
-@define-color opt-yellow-state      rgba(255, 230, 179, 1.00);
-@define-color opt-red               rgba(255, 179, 179, 0.70);
-@define-color opt-red-state         rgba(255, 179, 179, 1.00);
+@define-color opt-blue              rgba(179, 191, 255, 0.05);
+@define-color opt-blue-state        rgba(179, 191, 255, 0.35);
+@define-color opt-yellow            rgba(255, 230, 179, 0.05);
+@define-color opt-yellow-state      rgba(255, 230, 179, 0.35);
+@define-color opt-red               rgba(255, 179, 179, 0.05);
+@define-color opt-red-state         rgba(255, 179, 179, 0.35);
 
 /* Secondary triplet — V / G / O of the options-flat-pastel palette
    (V hue 270° pure, G hue 120° pure, O hue 10° red-orange). Same 0.70
@@ -113,16 +113,19 @@
 @define-color opt-text-light-shadow rgba(255, 255, 255, 0.25);
 
 /* ── Canonical motions ───────────────────────────────────────────────────── */
-/* Text stays @opt-text-on-light at peak — when a pill becomes colored
-   (state or hover-borrowed), dark text reads on these pastels; white would
-   wash out. Matches the rest-face rule for state-colored children below. */
-@keyframes opt-pulse-orange   { to { background-color: @opt-orange; color: @opt-text-on-light; } }
-@keyframes opt-pulse-red      { to { background-color: @opt-red;    color: @opt-text-on-light; } }
-@keyframes opt-pulse-blue     { to { background-color: @opt-blue;   color: @opt-text-on-light; } }
-@keyframes opt-glow-green     { to { background-color: @opt-green;  color: @opt-text-on-light; } }
-@keyframes opt-glow-yellow    { to { background-color: @opt-yellow; color: @opt-text-on-light; } }
-@keyframes opt-breathe-violet { to { background-color: @opt-violet; color: @opt-text-on-light; } }
-@keyframes opt-breathe-blue   { to { background-color: @opt-blue;   color: @opt-text-on-light; } }
+/* Keyframes animate background-color ONLY. Text color is NOT touched — it
+   stays at whatever the adaptive .light/.dark rule produces, so every pill
+   on the bar reads in the same tone whether it's colored, animating, or
+   neither. The state-color alphas (0.55 / 0.25) let the wallpaper bleed
+   through enough that the universal white-on-dark text remains legible
+   without a per-state override. */
+@keyframes opt-pulse-orange   { to { background-color: @opt-orange; } }
+@keyframes opt-pulse-red      { to { background-color: @opt-red;    } }
+@keyframes opt-pulse-blue     { to { background-color: @opt-blue;   } }
+@keyframes opt-glow-green     { to { background-color: @opt-green;  } }
+@keyframes opt-glow-yellow    { to { background-color: @opt-yellow; } }
+@keyframes opt-breathe-violet { to { background-color: @opt-violet; } }
+@keyframes opt-breathe-blue   { to { background-color: @opt-blue;   } }
 
 /* opt-pulse-plus — the established WS hover pulse: pulses BOTH background-size
    (14 → 10) and background-color (blue → brighter blue). This is the
@@ -205,30 +208,17 @@ window#waybar .opt-pill:hover,
 window#waybar .opt-pill-child:hover  { box-shadow: inset 0 0 0 999px @opt-hover-bright; }
 
 /* ── State paint — yes / middle / no (persistent state colors) ───────────── */
-/* Solid pastel rest faces. Identity color is the pill's identity — wallpaper
-   doesn't bleed through. Text needs to be DARK on these pastels for
-   readability (overridden in the label rule below). */
+/* Pastel rest faces at 0.55 alpha so the wallpaper bleeds through and the
+   universal white-on-dark text remains legible without a per-state color
+   override. Background only — text falls through to the adaptive .light/.dark
+   rule that every other pill uses. */
 
 window#waybar .opt-pill.opt-yes,
-window#waybar .opt-pill-child.opt-yes    { background: @opt-blue-state;   color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill-child.opt-yes    { background: @opt-blue-state;   }
 window#waybar .opt-pill.opt-middle,
-window#waybar .opt-pill-child.opt-middle { background: @opt-yellow-state; color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill-child.opt-middle { background: @opt-yellow-state; }
 window#waybar .opt-pill.opt-no,
-window#waybar .opt-pill-child.opt-no     { background: @opt-red-state;    color: @opt-text-on-light; text-shadow: none; }
-
-/* Dark text on solid pastel state pills — pastel is light, white text
-   would disappear. Animation keyframes also hold text at this color
-   through the cycle (see opt-pulse/glow/breathe at top of file), so the
-   icon stays readable while the background brightens on hover. */
-window#waybar .opt-pill.opt-yes label,
-window#waybar .opt-pill-child.opt-yes label,
-window#waybar .opt-pill.opt-middle label,
-window#waybar .opt-pill-child.opt-middle label,
-window#waybar .opt-pill.opt-no label,
-window#waybar .opt-pill-child.opt-no label {
-    color: @opt-text-on-light;
-    text-shadow: none;
-}
+window#waybar .opt-pill-child.opt-no     { background: @opt-red-state;    }
 
 /* State pills inherit the universal opt-hover-bright overlay from the
    .opt-pill:hover rule above — no per-state hover declaration needed.
@@ -244,11 +234,11 @@ window#waybar .opt-pill-child.opt-no label {
    See README → "Pins" and CLAUDE.md → "Pins (post-animation persistence)". */
 
 window#waybar .opt-pill.opt-pin-violet,
-window#waybar .opt-pill-child.opt-pin-violet   { background: @opt-violet; color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill-child.opt-pin-violet   { background: @opt-violet; }
 window#waybar .opt-pill.opt-pin-green,
-window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  }
 window#waybar .opt-pill.opt-pin-orange,
-window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; color: @opt-text-on-light; text-shadow: none; }
+window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; }
 
 /* Pins inherit the universal opt-hover-bright overlay too — hovering
    signals acknowledgement, and the daemon's click/hover-clear path will
