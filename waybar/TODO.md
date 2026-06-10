@@ -80,6 +80,51 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-05** — **Sleep + Hibernate system + OPTIONS power-cluster remap.**
+  Two NixOS modules: `modules/power-sleep.nix` (runtime, default-on, build-time
+  assertions for swap presence + UUID derivability) and `modules/disko-layout.nix`
+  (install-time partition scheme via disko pinned to v1.12.0, default-off, gated
+  by `iAmInstallingAFreshSystem`). Post-resume health-check is split: system
+  service `standard-os-resume.service` covers NetworkManager / NVIDIA / time /
+  Bluetooth; user service `standard-os-resume-user.service` (in
+  `home/modules/standard-os-resume-user.nix`) covers pipewire / hyprland /
+  OPTIONS daemons. Two-pass probe at +1s and +3s with per-subsystem remediate
+  between passes; pass 2 is source of truth. Pre-sleep service `sync`s + writes
+  ISO timestamp to `/run/standard-os/last-sleep` + snapshots currently-connected
+  Bluetooth MACs to `/run/standard-os/bt-connected-presleep`. Failure surfaces
+  via `/tmp/waybar-cache/power-resume` consumed by new `custom/power-resume`
+  pill in SYSTEM zone (between `group-power` and `custom/clock`); empty cache
+  → invisible pill (`.empty` collapse). Click pill → re-runs system service.
+  OPTIONS group-power remapped: `custom/lock` is Sleep (suspend), `custom/power`
+  is Hibernate, `custom/reboot` unchanged. All 5 remaining `swaylock` callsites
+  stripped from `config.jsonc` — screen-lock eliminated as a concept. SUPER+ESC
+  remains bound to Hibernate. `services.logind.settings.Login`: lid=ignore,
+  power-key=poweroff. UPower: critical@5% → Hibernate (safety net only). NVIDIA
+  pm services enabled via `hardware.nvidia.powerManagement`. `boot.nix`
+  `nvidia.NVreg_DynamicPowerManagement` lowered from 0x02 to 0x01 (D3 hot vs
+  cold) to reduce screen-flash count on resume; costs ~0.5–1W idle. Kernel
+  change requires reboot to take effect.
+  **Hint:** the bluetooth probe is comparison-based, not threshold-based — it
+  reads `/run/standard-os/bt-connected-presleep` and only fails if a device
+  that WAS connected pre-sleep is NOT connected now. Trusted-but-not-active
+  devices (headphones in a drawer) never trigger the failure pill. The v1
+  threshold-based probe (any trusted-must-be-connected) false-positived on
+  this host immediately. **Hint:** the system service's bash script lives
+  inside a Nix `''...''` string — `${VAR}` bash expansions must be escaped
+  as `''${VAR}` or Nix interpolates them at eval time. Same for the user
+  service via `pkgs.writeShellScript`. **Hint:** `run_pass` must guard the
+  `printf '%s\n' "''${failures[@]}"` with `[ "''${#failures[@]}" -gt 0 ]`;
+  without the guard, an empty array still emits one empty line and `mapfile`
+  records `("")` length 1, producing a spurious "Resume: " pill on every
+  healthy resume. **Hint:** disko module imports the disko tarball
+  UNCONDITIONALLY at file-top-level; gating `imports` on `cfg.enable` causes
+  infinite recursion (Nix needs imports to compute config, needs config to
+  compute imports). The destructive logic is gated by `mkIf cfg.enable` in
+  the `config` block. **Follow-up noted:** 5 click-inert placeholder pills
+  from the swaylock cleanup should collapse to `.empty` per Rule 7 (separate
+  spec). Spec: `docs/superpowers/specs/2026-06-05-suspend-hibernate-design.md`.
+  Plan: `docs/superpowers/plans/2026-06-05-suspend-hibernate.md`.
+
 - **2026-05-30** — Dark text on colored pills, including through animations,
   AND the deployment-path fix that made the CSS change actually visible.
   Two threads:
