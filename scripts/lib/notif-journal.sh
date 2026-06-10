@@ -21,15 +21,27 @@ if ! declare -F json_escape >/dev/null; then
     }
 fi
 
+# json_escape_into VAR STRING — same as json_escape but writes the result
+# to VAR via printf -v, avoiding the command-substitution fork that the
+# hot-path journal_append previously paid 3-4× per arrival.
+json_escape_into() {
+    local __var="$1" s="$2"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\t'/\\t}"
+    printf -v "$__var" '%s' "$s"
+}
+
 # journal_append PATH TS ID APP SUMMARY BODY URGENCY
 # Atomically appends one JSON line. Creates the file if missing.
 journal_append() {
-    local path="$1" ts="$2" id="$3"
-    local app summary body urgency
-    app=$(json_escape "$4")
-    summary=$(json_escape "$5")
-    body=$(json_escape "$6")
-    urgency="$7"
+    local path="$1" id="$3" urgency="$7"
+    local ts app summary body
+    json_escape_into ts "$2"
+    json_escape_into app "$4"
+    json_escape_into summary "$5"
+    json_escape_into body "$6"
     local line
     line=$(printf '{"ts":"%s","id":%s,"app":"%s","summary":"%s","body":"%s","urgency":%s,"dismissed_at":""}\n' \
         "$ts" "$id" "$app" "$summary" "$body" "$urgency")
@@ -44,14 +56,14 @@ journal_append() {
 # setting dismissed_at to the given timestamp. No-op if no match.
 journal_mark_dismissed() {
     local path="$1" id="$2" ts="$3"
-    [[ -f $path ]] || return 0
+    [[ -f $path && -s $path ]] || return 0
     local tmp="${path}.tmp.$$"
     # Walk lines bottom-up; first matching unset becomes the dismissed one;
     # all other lines pass through. Implemented with jq -nR for streaming.
     # We can't use a single jq pass top-down because we want LATEST-matching.
     # Strategy: read all lines into a jq array, walk indexes in reverse,
     # mark the first match, emit lines in original order.
-    jq -c -nR --argjson id "$id" --arg ts "$ts" '
+    if jq -c -nR --argjson id "$id" --arg ts "$ts" '
         [inputs | fromjson? // empty] as $arr
         | ([range(($arr | length) - 1; -1; -1) | . as $i
              | if $arr[$i].id == $id and $arr[$i].dismissed_at == ""
@@ -62,14 +74,18 @@ journal_mark_dismissed() {
         | to_entries
         | map(if .key == $mark then .value + {dismissed_at: $ts} else .value end)
         | .[]
-    ' < "$path" > "$tmp"
-    mv -f "$tmp" "$path"
+    ' < "$path" > "$tmp" 2>/dev/null && [[ -s $tmp ]]; then
+        mv -f "$tmp" "$path"
+    else
+        rm -f "$tmp" 2>/dev/null
+    fi
 }
 
 # journal_prune PATH MAX_LINES
 # Trims the journal to keep only the last MAX_LINES lines (newest).
 journal_prune() {
     local path="$1" max="$2"
+    (( max < 1 )) && return 0
     [[ -f $path ]] || return 0
     local lines
     lines=$(wc -l < "$path")

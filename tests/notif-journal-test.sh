@@ -7,7 +7,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/../scripts/lib/notif-journal.sh"
 
 JOURNAL=$(mktemp)
-trap 'rm -f "$JOURNAL" "$JOURNAL.tmp" 2>/dev/null' EXIT
+trap 'rm -f "$JOURNAL" "$JOURNAL".tmp.* /tmp/notif-journal-does-not-exist.jsonl.* 2>/dev/null' EXIT
 
 pass=0; fail=0
 check() {
@@ -56,6 +56,9 @@ check "[mark_dismissed doesn't touch other ids]" test "$(echo "$other" | jq -r '
 # mark_dismissed: idempotent (same id called twice = single update of same entry)
 journal_mark_dismissed "$JOURNAL" 1 "2026-06-10T10:06:00-03:00"
 check "[journal still has 2 lines after dup dismiss]" test "$(wc -l < "$JOURNAL")" -eq 2
+preserved=$(head -1 "$JOURNAL" | jq -r '.dismissed_at')
+check "[mark_dismissed idempotent: first ts preserved]" \
+  test "$preserved" = "2026-06-10T10:05:00-03:00"
 
 # prune: trims to max_lines (tail-n semantics)
 for i in $(seq 3 10); do
@@ -76,6 +79,19 @@ n=$(echo "$out" | wc -l)
 check "[journal_read N=3 returns 3 lines]" test "$n" -eq 3
 first=$(echo "$out" | head -1 | jq -r '.id')
 check "[journal_read returns newest first]" test "$first" = "10"
+
+# C1 regression: mark_dismissed on an empty file must NOT wipe it
+empty_journal=$(mktemp)
+: > "$empty_journal"      # truncate to 0 bytes (exists but empty)
+journal_mark_dismissed "$empty_journal" 1 "TS"
+check "[C1: mark_dismissed on empty file leaves it 0-bytes (no wipe-then-empty file race)]" test "$(stat -c %s "$empty_journal" 2>/dev/null)" -eq 0
+# And confirm no stale tmp files left
+check "[C1: no stale tmp files after empty-file mark_dismissed]" test -z "$(echo "$empty_journal".tmp.* 2>/dev/null | grep -v '\*')"
+rm -f "$empty_journal"
+
+# mark_dismissed on a non-existent file is a clean no-op
+journal_mark_dismissed "/tmp/notif-journal-does-not-exist.jsonl.$$" 99 "TS"
+check "[mark_dismissed no-op on missing file]" test $? -eq 0
 
 # empty journal: read handles missing/empty file
 empty=$(mktemp)
