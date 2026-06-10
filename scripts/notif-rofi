@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# notif-rofi — rofi launcher for the OPTIONS notification list.
+#
+# Composes:
+#   - lib/notif-journal.sh  → persistent history reader
+#   - lib/notif-rofi-format.sh → pure row formatters
+#   - busctl Mako.ListNotifications → live unread set
+#   - makoctl invoke / dismiss → row-action effects
+#
+# Click flow (from waybar):
+#   custom/notif-bell → on-click → notif-click bell → "open-rofi" → this script.
+
+set -uo pipefail
+
+# ─── Resolve lib paths ─────────────────────────────────────────────────────
+# When packaged via writeShellScriptBin, libs are reachable from NOTIF_LIB_DIR
+# (set in the Nix wrapper). When invoked from the source tree (dev), fall back
+# to a relative or absolute lookup.
+HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+LIB_DIR=""
+for candidate in "${NOTIF_LIB_DIR:-}" "$HERE/lib" "$HERE/../scripts/lib" "/etc/nixos/home/scripts/lib"; do
+    [[ -z $candidate ]] && continue
+    if [[ -f "$candidate/notif-journal.sh" ]]; then
+        LIB_DIR="$candidate"
+        break
+    fi
+done
+if [[ -z $LIB_DIR ]]; then
+    printf 'notif-rofi: lib dir not found (tried NOTIF_LIB_DIR, $HERE/lib, …)\n' >&2
+    exit 1
+fi
+# shellcheck source=lib/notif-journal.sh
+source "$LIB_DIR/notif-journal.sh"
+# shellcheck source=lib/notif-rofi-format.sh
+source "$LIB_DIR/notif-rofi-format.sh"
+
+JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
+
+# ─── Live unread set ───────────────────────────────────────────────────────
+# Returns the set of ids currently in mako's history as "<id>\t<urgency>" lines
+# so we can mark journal entries as unread / critical without extra D-Bus traffic.
+live_unread_map() {
+    busctl --user --json=short call \
+        org.freedesktop.Notifications /fr/emersion/Mako \
+        fr.emersion.Mako ListNotifications 2>/dev/null \
+        | jq -r '.data[0][]? | "\(.id.data)\t\(.urgency.data)"' 2>/dev/null
+}
+
+# ─── Compose the rofi-input list ───────────────────────────────────────────
+build_rows() {
+    # Header + actions
+    printf '%s\n' "$(format_rofi_header "Actions")"
+    printf '%s\n' "Dismiss all unread"
+
+    local live_map
+    live_map=$(live_unread_map)
+    local unread_count=0
+    if [[ -n $live_map ]]; then
+        unread_count=$(printf '%s\n' "$live_map" | grep -c '^')
+    fi
+
+    if (( unread_count > 0 )); then
+        printf '%s\n' "$(format_rofi_header "Unread ($unread_count)")"
+        # Live entries first, newest highest-id first
+        while IFS=$'\t' read -r id urgency; do
+            [[ -z $id ]] && continue
+            local entry app summary ts
+            entry=$(tac "$JOURNAL" 2>/dev/null | jq -c --argjson id "$id" '
+                fromjson? // empty | select(.id == $id)' 2>/dev/null | head -1)
+            if [[ -n $entry ]]; then
+                ts=$(echo "$entry" | jq -r '.ts')
+                app=$(echo "$entry" | jq -r '.app')
+                summary=$(echo "$entry" | jq -r '.summary')
+            else
+                # Journal miss (daemon was down at arrival) — fetch from live.
+                local live_entry
+                live_entry=$(busctl --user --json=short call \
+                    org.freedesktop.Notifications /fr/emersion/Mako \
+                    fr.emersion.Mako ListNotifications 2>/dev/null \
+                    | jq -c --argjson id "$id" '.data[0][]? | select(.id.data == $id)')
+                ts=$(date -Iseconds)
+                app=$(echo "$live_entry" | jq -r '."app-name".data // "?"')
+                summary=$(echo "$live_entry" | jq -r '.summary.data // ""')
+            fi
+            local crit=0
+            (( urgency == 2 )) && crit=1
+            printf '%s\n' "$(format_rofi_entry "$ts" "$app" "$summary" "$urgency" 1 "$crit")"
+        done <<< "$live_map"
+    fi
+
+    # History — journal entries NOT in live map
+    if [[ -s $JOURNAL ]]; then
+        local hist_count=0
+        local rows=""
+        while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            local id urgency
+            id=$(echo "$line" | jq -r '.id')
+            # Skip if in live map (already rendered above)
+            if grep -qE "^${id}"$'\t' <<< "$live_map"; then continue; fi
+            urgency=$(echo "$line" | jq -r '.urgency')
+            local ts app summary
+            ts=$(echo "$line" | jq -r '.ts')
+            app=$(echo "$line" | jq -r '.app')
+            summary=$(echo "$line" | jq -r '.summary')
+            rows+="$(format_rofi_entry "$ts" "$app" "$summary" "$urgency" 0 0)"$'\n'
+            hist_count=$((hist_count+1))
+        done < <(tac "$JOURNAL")
+        if (( hist_count > 0 )); then
+            printf '%s\n' "$(format_rofi_header "History ($hist_count)")"
+            printf '%s' "$rows"
+        fi
+    fi
+}
+
+# ─── Dispatch the user's pick ──────────────────────────────────────────────
+handle_pick() {
+    local pick="$1"
+    # Headers: lines starting with '── '
+    if [[ $pick == '── '* ]]; then
+        return 0
+    fi
+    if [[ $pick == "Dismiss all unread" ]]; then
+        makoctl dismiss --all 2>/dev/null || true
+        return 0
+    fi
+    # An entry: extract HH:MM and app · summary to find the id in live map.
+    # Entry format: "HH:MM  app · summary[ · unread[ · critical]]"
+    local body="${pick#*  }"      # strip "HH:MM  "
+    body="${body% · unread*}"     # strip trailing tags
+    body="${body% · critical*}"
+    local app="${body%% · *}"
+    local summary="${body#* · }"
+    # Find a live id by app+summary match (cheapest), or first matching journal id.
+    local live_map
+    live_map=$(live_unread_map)
+    local id=""
+    while IFS=$'\t' read -r live_id _; do
+        [[ -z $live_id ]] && continue
+        local entry
+        entry=$(tac "$JOURNAL" 2>/dev/null | jq -c --argjson id "$live_id" '
+            fromjson? // empty | select(.id == $id)' 2>/dev/null | head -1)
+        local e_app e_sum
+        e_app=$(echo "$entry" | jq -r '.app')
+        e_sum=$(echo "$entry" | jq -r '.summary')
+        if [[ "$e_app" == "$app" && "$e_sum" == "$summary" ]]; then
+            id="$live_id"
+            break
+        fi
+    done <<< "$live_map"
+    if [[ -n $id ]]; then
+        makoctl invoke -n "$id" 2>/dev/null || true
+        makoctl dismiss -n "$id" 2>/dev/null || true
+    fi
+    # Historical pick (no live id match): no-op (rofi closes).
+}
+
+# ─── Run ───────────────────────────────────────────────────────────────────
+rows=$(build_rows)
+pick=$(printf '%s' "$rows" | rofi -dmenu -i -p "notifications" -no-custom -theme-str 'window { width: 50%; }' 2>/dev/null) || exit 0
+handle_pick "$pick"
