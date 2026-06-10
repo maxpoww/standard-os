@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
-# Deterministic unit tests for scripts/notif-daemon's render_cache_for_state.
+# notif-state-test.sh — unit tests for the pure render functions in
+# scripts/notif-daemon:
+#   - render_cache_for_state (legacy spine renderer; removed in task 6)
+#   - render_bell_for_state (P1 — bell parent pill)
+#   - render_dnd_for_state (P1 — DND child pill)
+# Sourced with NOTIF_DAEMON_LIB_ONLY=1 to skip the runtime main loop.
 # Run from project root:  bash tests/notif-state-test.sh
-#
-# The render function is the only PURE piece of the daemon — given inputs
-# (unread counts, dnd flag, transient kind + payload) it returns the exact
-# JSON the daemon writes to /tmp/waybar-cache/notif. Testing it in isolation
-# pins the entire pill state machine documented in
-# waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
-# §"Pill state machine".
 
 set -uo pipefail
 
@@ -266,6 +264,22 @@ if command -v jq >/dev/null 2>&1; then
         "true" \
         "dnd: class is opt-pill-child"
 
+fi
+
+# ─── C1 regression — JSON injection via quote/backslash in notification fields
+# render_bell_for_state must JSON-escape app/title/body internally.
+# A raw " or \ in any field previously produced broken JSON and waybar rendered
+# an empty pill. Verify with jq — if the output parses, the escaping is correct.
+if command -v jq >/dev/null 2>&1; then
+    out=$(render_bell_for_state 1 0 0 "normal" 'Quote"App' 'Title with "quotes"' 'body with "more quotes" and \backslash')
+    assert_eq \
+        "$(printf '%s' "$out" | jq -e . >/dev/null 2>&1 && echo VALID || echo BROKEN)" \
+        "VALID" \
+        "C1 regression: transient with quotes in fields → emits valid JSON"
+    assert_eq \
+        "$(printf '%s' "$out" | jq -r '.text' | cut -d' ' -f1)" \
+        'Quote"App' \
+        "C1 regression: transient with quotes — app round-trips through JSON"
 fi
 
 # ─── Result ────────────────────────────────────────────────────────────────

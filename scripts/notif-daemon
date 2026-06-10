@@ -136,15 +136,28 @@ render_bell_for_state() {
             critical)
                 classes+=("opt-no" "opt-pulse-orange")
                 ;;
-            normal|*)
-                # No additional classes — silent normal arrival.
+            normal)
+                # No additional classes — silent normal arrival (Rule 4).
+                ;;
+            *)
+                # Defensive: unknown kind treated as silent normal. The runtime
+                # state machine only ever produces 'normal' or 'critical'; this
+                # branch is dead in practice but keeps render pure.
                 ;;
         esac
         (( dnd_on == 1 )) && classes+=("opt-pushed")
         local classes_json
-        classes_json=$(_classes_json "${classes[@]}")
+        _classes_json classes_json "${classes[@]}"
+        # Self-contained: escape app/title/body for JSON. The legacy renderer
+        # required callers to pre-escape; the new renderer owns its quoting so
+        # waybar never sees broken JSON when a notification has " or \ in any
+        # field (D-Bus does NOT escape these for us).
+        local app_esc title_esc body_esc
+        app_esc=$(json_escape "$app")
+        title_esc=$(json_escape "$title")
+        body_esc=$(json_escape "$body")
         printf '{"text":"%s · %s","class":%s,"tooltip":"%s"}' \
-            "$app" "$title" "$classes_json" "$body"
+            "$app_esc" "$title_esc" "$classes_json" "$body_esc"
         return 0
     fi
 
@@ -159,7 +172,7 @@ render_bell_for_state() {
     (( dnd_on == 1 )) && classes+=("opt-pushed")
 
     local classes_json
-    classes_json=$(_classes_json "${classes[@]}")
+    _classes_json classes_json "${classes[@]}"
     printf '{"text":"%s","class":%s,"tooltip":"Notifications"}' "$bell" "$classes_json"
 }
 
@@ -179,23 +192,27 @@ render_dnd_for_state() {
     fi
 }
 
-# ─── _classes_json — internal helper, args → JSON array literal ────────────
-# Used by render_bell_for_state. Kept module-local to avoid leaking into tests
-# that may want to verify the JSON-array hazard contract independently.
+# ─── _classes_json VAR <class>... ──────────────────────────────────────────
+# Builds a JSON array literal from positional class args, writes result to VAR
+# via printf -v (no subshell fork). Defensively escapes " and \ in each class
+# name so future external inputs (per-app classes from silencedApps, etc.)
+# cannot produce malformed JSON. Internal classes (opt-pill, opt-pushed, ...)
+# never need this, but the cost is zero and the safety net is permanent.
 _classes_json() {
-    local out="["
-    local first=1
-    local c
+    local __var="$1"; shift
+    local out="[" first=1 c esc
     for c in "$@"; do
+        esc="${c//\\/\\\\}"
+        esc="${esc//\"/\\\"}"
         if (( first )); then
-            out+="\"$c\""
+            out+="\"$esc\""
             first=0
         else
-            out+=",\"$c\""
+            out+=",\"$esc\""
         fi
     done
     out+="]"
-    printf '%s' "$out"
+    printf -v "$__var" '%s' "$out"
 }
 
 # ─── Library-only short-circuit ────────────────────────────────────────────
