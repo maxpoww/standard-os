@@ -31,25 +31,49 @@ notif_click_decide() {
     local cache_content="$2"
 
     case "$action" in
-        invoke)
+        bell)
+            # The bell pill: distinguish rest from transient by the ' · '
+            # separator the daemon writes ONLY in transient text.
             if [[ -z $cache_content || $cache_content == '{"text":""}' ]]; then
                 printf 'noop'
                 return 0
             fi
-            # Sanity: must look like a daemon-written JSON object.
             if [[ $cache_content != '{"text":'* ]]; then
                 printf 'noop'
                 return 0
             fi
             if [[ $cache_content == *' · '* ]]; then
-                printf 'invoke-latest'
+                printf 'invoke-and-dismiss'
             else
-                printf 'dismiss-all'
+                printf 'open-rofi'
             fi
             ;;
-        drawer)
-            # No-op placeholder until the drawer follow-up spec ships.
-            printf 'noop'
+        dnd)
+            # DND toggle is unconditional — mako handles toggle semantics.
+            printf 'toggle-dnd'
+            ;;
+        invoke|drawer)
+            # Legacy subcommands (spine spec). Kept until task 7 cleans up
+            # the live wiring; preserves existing test coverage in the
+            # meantime. Same decision table as before.
+            case "$action" in
+                invoke)
+                    if [[ -z $cache_content || $cache_content == '{"text":""}' ]]; then
+                        printf 'noop'; return 0
+                    fi
+                    if [[ $cache_content != '{"text":'* ]]; then
+                        printf 'noop'; return 0
+                    fi
+                    if [[ $cache_content == *' · '* ]]; then
+                        printf 'invoke-latest'
+                    else
+                        printf 'dismiss-all'
+                    fi
+                    ;;
+                drawer)
+                    printf 'noop'
+                    ;;
+            esac
             ;;
         *)
             # Unknown action — defensive noop.

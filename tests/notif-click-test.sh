@@ -67,6 +67,35 @@ assert_eq "$(notif_click_decide drawer "$EMPTY")" "noop" \
 assert_eq "$(notif_click_decide nonsense "$TRANSIENT_NORMAL")" "noop" \
     "unknown action → noop (defensive)"
 
+# ─── bell subcommand ──────────────────────────────────────────────────────
+# bell on rest-face cache → open-rofi
+assert_eq "$(notif_click_decide bell '{"text":"","class":["opt-pill","dark","opt-pin-green"],"tooltip":"Notifications"}')" "open-rofi" \
+    "bell on rest → open-rofi"
+
+# bell on transient cache (has · separator) → invoke-and-dismiss
+assert_eq "$(notif_click_decide bell '{"text":" Slack · PR review","class":["opt-pill","dark"],"tooltip":""}')" "invoke-and-dismiss" \
+    "bell on transient → invoke-and-dismiss"
+
+# bell on empty cache → noop
+assert_eq "$(notif_click_decide bell '{"text":""}')" "noop" \
+    "bell on empty cache → noop"
+
+# bell on garbage → noop
+assert_eq "$(notif_click_decide bell 'not json')" "noop" \
+    "bell on garbage → noop"
+
+# ─── dnd subcommand ───────────────────────────────────────────────────────
+# dnd always → toggle-dnd (mako handles direction)
+assert_eq "$(notif_click_decide dnd '{"text":"X","class":["opt-pill-child","dark"]}')" "toggle-dnd" \
+    "dnd → toggle-dnd"
+
+assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
+    "dnd with empty cache still toggle-dnd"
+
+# ─── unknown subcommand → noop ────────────────────────────────────────────
+assert_eq "$(notif_click_decide unknown '')" "noop" \
+    "unknown subcommand → noop"
+
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'; exit 0
 else
