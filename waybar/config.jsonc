@@ -52,12 +52,12 @@
   ],
 
   // ── SYSTEM zone (right) ─────────────────────────────────────────
-  // custom/notif is the LEFTMOST entry — first thing the eye lands on
+  // group/notif is the LEFTMOST entry — first thing the eye lands on
   // when scanning from center to right edge. Notifications carry urgency
   // by design; placing them first matches the attention hierarchy.
   "modules-right": [
     "tray",
-    "custom/notif",
+    "group/notif",
     "group/group-2",
     "group/group-power",
     "custom/power-resume",
@@ -515,21 +515,39 @@
     "on-click": "systemctl start standard-os-resume.service"
   },
 
-  // ── Notification center pill — leftmost in SYSTEM zone ────────────────
-  // Daemon-driven by notif-daemon (modules/notif-center.nix). Cache file
-  // is the single source of truth — the daemon walks the state machine
-  // documented in waybar/docs/superpowers/specs/2026-06-06-notification-
-  // center-spine-design.md §"Pill state machine" and writes JSON atomically.
-  // Signal RTMIN+12 is registered to notif-daemon in ARCHITECTURE.md.
-  "custom/notif": {
-    "exec": "cat /tmp/waybar-cache/notif 2>/dev/null || echo '{\"text\":\"\"}'",
+  // ── Notification center — drawer (P1 design) ────────────────────────────
+  // Bell parent always visible; DND child appears LEFT on hover. Two cache
+  // files (notif-bell / notif-dnd) written by notif-daemon. Signal RTMIN+12
+  // wakes both children simultaneously.
+  // Spec: waybar/docs/superpowers/specs/2026-06-10-notification-drawer-dnd-design.md
+  "group/notif": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/notif-dnd",
+      "custom/notif-bell"
+    ]
+  },
+  "custom/notif-bell": {
+    "exec": "cat /tmp/waybar-cache/notif-bell 2>/dev/null || echo '{\"text\":\"\"}'",
     "return-type": "json",
     "format": "{}",
     "interval": "once",
     "signal": 12,
     "tooltip": true,
-    "on-click":       "notif-click invoke",
-    "on-click-right": "notif-click drawer"
+    "on-click": "notif-click bell"
+  },
+  "custom/notif-dnd": {
+    "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click dnd"
   },
   "custom/clock": {
     "exec": ". ~/.config/waybar/scripts/lib/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
