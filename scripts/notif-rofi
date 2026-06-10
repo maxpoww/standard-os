@@ -64,13 +64,12 @@ build_rows() {
         # Live entries first, newest highest-id first
         while IFS=$'\t' read -r id urgency; do
             [[ -z $id ]] && continue
-            local entry app summary ts
-            entry=$(tac "$JOURNAL" 2>/dev/null | jq -c --argjson id "$id" '
-                fromjson? // empty | select(.id == $id)' 2>/dev/null | head -1)
-            if [[ -n $entry ]]; then
-                ts=$(echo "$entry" | jq -r '.ts')
-                app=$(echo "$entry" | jq -r '.app')
-                summary=$(echo "$entry" | jq -r '.summary')
+            local fields app summary ts
+            fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
+                fromjson? // empty | select(.id == $id) | [.ts, .app, .summary] | @tsv
+            ' 2>/dev/null | head -1)
+            if [[ -n $fields ]]; then
+                IFS=$'\t' read -r ts app summary <<< "$fields"
             else
                 # Journal miss (daemon was down at arrival) — fetch from live.
                 local live_entry
@@ -94,15 +93,17 @@ build_rows() {
         local rows=""
         while IFS= read -r line; do
             [[ -z $line ]] && continue
-            local id urgency
-            id=$(echo "$line" | jq -r '.id')
-            # Skip if in live map (already rendered above)
+            # Extract all fields in ONE jq invocation; tab-separated; defensive against
+            # malformed lines (fromjson? // empty would output nothing → continue).
+            local fields id urgency ts app summary
+            fields=$(printf '%s' "$line" | jq -r '
+                fromjson? // empty
+                | [.id, .urgency, .ts, .app, .summary] | @tsv
+            ' 2>/dev/null) || continue
+            [[ -z $fields ]] && continue
+            IFS=$'\t' read -r id urgency ts app summary <<< "$fields"
+            # Skip if this id is already rendered in the Unread section above.
             if grep -qE "^${id}"$'\t' <<< "$live_map"; then continue; fi
-            urgency=$(echo "$line" | jq -r '.urgency')
-            local ts app summary
-            ts=$(echo "$line" | jq -r '.ts')
-            app=$(echo "$line" | jq -r '.app')
-            summary=$(echo "$line" | jq -r '.summary')
             rows+="$(format_rofi_entry "$ts" "$app" "$summary" "$urgency" 0 0)"$'\n'
             hist_count=$((hist_count+1))
         done < <(tac "$JOURNAL")
@@ -120,6 +121,8 @@ handle_pick() {
     if [[ $pick == '── '* ]]; then
         return 0
     fi
+    # NOTE: an app literally named "Dismiss all unread" would route here too.
+    # Acceptable edge case — the literal pseudo-action wins (intentional).
     if [[ $pick == "Dismiss all unread" ]]; then
         makoctl dismiss --all 2>/dev/null || true
         return 0
@@ -127,6 +130,10 @@ handle_pick() {
     # An entry: extract HH:MM and app · summary to find the id in live map.
     # Entry format: "HH:MM  app · summary[ · unread[ · critical]]"
     local body="${pick#*  }"      # strip "HH:MM  "
+    # NOTE: if app or summary contains the literal " · unread" or " · critical"
+    # substring, this strip can misidentify the boundary. The format-row tags
+    # use the same separator as the app · summary split, so any payload
+    # containing the tag tokens is ambiguous. Acceptable edge case for P1.
     body="${body% · unread*}"     # strip trailing tags
     body="${body% · critical*}"
     local app="${body%% · *}"
