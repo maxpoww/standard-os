@@ -112,6 +112,16 @@ for the maintenance contract.
   var (set by the Nix wrapper) so both `notif-daemon` and `notif-rofi`
   can source from the same canonical location regardless of whether
   they're invoked from the Nix store or the source tree (dev).
+  **Hint:** mako 1.10 does NOT emit a ModeChanged D-Bus signal — the
+  P1 design assumed one and learned otherwise during acceptance. The
+  workaround is two-layered: (1) `notif-click toggle-dnd` sends
+  SIGUSR1 to notif-daemon.service via `systemctl --user kill
+  --kill-who=main`; the daemon's USR1 trap sets a flag the main loop
+  drains (with a 50 ms settle to let `makoctl mode -t dnd` commit before
+  query_dnd reads it); (2) the main loop's idle `read -t 1` polls
+  `query_dnd` every second as a fallback for any USR1 delivery race —
+  `emit`'s dedup means the fallback is a no-op when DND state is stable.
+  Worst-case toggle latency is ~1 s; SIGUSR1 hits faster most of the time.
 
 - **2026-06-10** — **Notification center SPINE — live.**
   mako (popups OFF via `invisible=1`, history ON, default-timeout 0) is the

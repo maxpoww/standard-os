@@ -119,6 +119,11 @@ case "$decision" in
         ;;
     toggle-dnd)
         makoctl mode -t dnd 2>/dev/null || true
+        # mako 1.10 does not emit a ModeChanged D-Bus signal we can subscribe
+        # to, so wake notif-daemon directly to re-query the mode + re-render
+        # both caches. --kill-who=main targets only the main bash process
+        # (NOT the dbus-monitor child of the process substitution).
+        systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
         ;;
     noop)
         : ;;

@@ -358,6 +358,18 @@ drain_dbus_burst() {
     while read -t 0.05 -u "$DBUS_FD" -r _line; do :; done
 }
 
+# ─── SIGUSR1: external DND-state-change notification ──────────────────────
+# mako 1.10 does NOT emit a ModeChanged D-Bus signal we can subscribe to.
+# `notif-click dnd` toggles via `makoctl mode -t dnd` and then signals us
+# via systemctl --user kill --kill-who=main -s SIGUSR1 so we re-query
+# the mode and re-render. Without this, DND state in the bar would lag
+# until the next Notify event fired and triggered on_dbus_event organically.
+on_user_signal() {
+    USR1_PENDING=1
+}
+trap on_user_signal USR1
+USR1_PENDING=0
+
 # ─── Cleanup ───────────────────────────────────────────────────────────────
 cleanup() {
     printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
@@ -379,20 +391,48 @@ LAST_UNREAD_IDS="$UNREAD_IDS"
 emit
 
 while true; do
+    # Drain any USR1 that may have been queued (notif-click toggle-dnd path)
+    # while we were NOT blocked on read (e.g. inside drain_dbus_burst).
+    if (( USR1_PENDING )); then
+        USR1_PENDING=0
+        query_dnd
+        emit
+    fi
     if [[ -z $TRANSIENT_KIND ]]; then
-        if read -u "$DBUS_FD" -r _line; then
-            drain_dbus_burst
-            on_dbus_event
-        else
-            break
-        fi
+        tick=1
     else
         tick=$(next_tick_seconds)
-        if read -t "$tick" -u "$DBUS_FD" -r _line; then
-            drain_dbus_burst
-            on_dbus_event
-        else
-            check_transient_timer && emit
-        fi
     fi
+    # `read -t` exit codes:
+    #   0     → got a line
+    #   >128  → timeout (no input within $tick)
+    #   1     → EOF (dbus-monitor died — systemd will restart us)
+    read -t "$tick" -u "$DBUS_FD" -r _line
+    rc=$?
+    if (( rc == 0 )); then
+        drain_dbus_burst
+        on_dbus_event
+    elif (( USR1_PENDING )); then
+        # 50ms settle: notif-click sends SIGUSR1 immediately after
+        # `makoctl mode -t dnd`, but mako may not have committed the mode
+        # change to its internal state by the time query_dnd reads it.
+        # Same pattern on_dbus_event uses for arrivals.
+        USR1_PENDING=0
+        sleep 0.05
+        query_dnd
+        emit
+    elif (( rc == 1 )); then
+        # Genuine EOF on the dbus-monitor pipe — exit so systemd respawns us.
+        break
+    elif [[ -z $TRANSIENT_KIND ]]; then
+        # Idle 1-second tick: poll DND mode as a fallback for SIGUSR1
+        # misses (mako 1.10 doesn't emit ModeChanged, and bash signal
+        # delivery during process-substitution reads is occasionally
+        # racy). emit's dedup means this is a no-op when state is stable.
+        query_dnd
+        emit
+    elif [[ -n $TRANSIENT_KIND ]]; then
+        check_transient_timer && emit
+    fi
+    # else: 1-second idle tick with nothing pending — loop and re-read.
 done
