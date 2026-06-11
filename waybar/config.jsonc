@@ -530,7 +530,7 @@
       "custom/notif-action-3",
       "custom/notif-action-2",
       "custom/notif-action-1",
-      "custom/notif-dnd",
+      "custom/notif-profile",
       "custom/notif-bell"
     ]
   },
@@ -543,14 +543,14 @@
     "tooltip": true,
     "on-click": "notif-click bell"
   },
-  "custom/notif-dnd": {
-    "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",
+  "custom/notif-profile": {
+    "exec": "cat /tmp/waybar-cache/notif-profile 2>/dev/null || echo '{\"text\":\"\"}'",
     "return-type": "json",
     "format": "{}",
     "interval": "once",
     "signal": 12,
     "tooltip": true,
-    "on-click": "notif-click dnd"
+    "on-click": "notif-click profile"
   },
   // ── P2 action child pills — hover-revealed under group/notif ────────────
   // Populated by notif-daemon from each notification's `actions` array (up
