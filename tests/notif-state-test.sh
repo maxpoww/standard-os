@@ -213,6 +213,59 @@ assert_eq \
     "$(pango_escape "<&>")" "&lt;&amp;&gt;" \
     "[pango_escape order: & before < (avoid double-escape)]"
 
+# ─── detect_otp ───────────────────────────────────────────────────────────
+# Args: summary body — returns the first matching 4-8 digit code, or empty.
+
+# Positive cases — keyword + code present
+assert_eq \
+    "$(detect_otp "Verification" "Your code is 1234")" "1234" \
+    "[OTP: 'code 1234']"
+assert_eq \
+    "$(detect_otp "Login" "Your verification code: 348291")" "348291" \
+    "[OTP: 6-digit common]"
+assert_eq \
+    "$(detect_otp "PIN" "Use PIN 5678 to confirm")" "5678" \
+    "[OTP: PIN keyword]"
+assert_eq \
+    "$(detect_otp "" "Your OTP is 90210")" "90210" \
+    "[OTP: OTP keyword caps]"
+assert_eq \
+    "$(detect_otp "" "Auth token: 1357924")" "1357924" \
+    "[OTP: token keyword]"
+assert_eq \
+    "$(detect_otp "MFA code" "12345678 expires soon")" "12345678" \
+    "[OTP: MFA keyword]"
+assert_eq \
+    "$(detect_otp "" "Your 2FA: 4567")" "4567" \
+    "[OTP: 2FA keyword]"
+assert_eq \
+    "$(detect_otp "Use code 2222 today" "")" "2222" \
+    "[OTP: code in summary]"
+
+# Negative cases — no keyword OR no digits
+assert_eq \
+    "$(detect_otp "Price drop" "Now \$1234 cheaper")" "" \
+    "[OTP: no keyword → empty]"
+assert_eq \
+    "$(detect_otp "Verification" "Sent to your phone")" "" \
+    "[OTP: no digits → empty]"
+assert_eq \
+    "$(detect_otp "Order" "code processed; ............................................. 1234")" "" \
+    "[OTP: keyword but digits too far away (>40 chars) → empty]"
+
+# First match wins
+assert_eq \
+    "$(detect_otp "" "Your code 1111, backup code 2222")" "1111" \
+    "[OTP: first match wins]"
+
+# 4-digit minimum, 8-digit maximum
+assert_eq \
+    "$(detect_otp "" "code 123")" "" \
+    "[OTP: 3-digit ignored]"
+assert_eq \
+    "$(detect_otp "" "code 123456789")" "" \
+    "[OTP: 9-digit ignored]"
+
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'

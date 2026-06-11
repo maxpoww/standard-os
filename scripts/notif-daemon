@@ -53,6 +53,31 @@ pango_escape() {
     printf '%s' "$s"
 }
 
+# ─── detect_otp — extract a 4-8 digit code from notification text ──────────
+# Args: summary body
+# Returns: first matching code, or empty string.
+#
+# Rule: a 4-8 digit standalone code preceded within 40 characters by one of
+# ~15 OTP keywords. Anchored to avoid false positives (prices, phone numbers,
+# timestamps, package tracking). Case-insensitive keyword match via PCRE.
+#
+# Requires GNU grep with -P. If -P is not available, returns empty (silently
+# disables OTP detection rather than producing false output).
+detect_otp() {
+    local summary="$1" body="$2"
+    local combined="$summary $body"
+    # Sanity-check PCRE availability — `grep -P ''` on GNU grep succeeds with
+    # no input and exit 1 (no match). On busybox grep it fails with exit 2.
+    grep -P '' /dev/null 2>/dev/null
+    (( $? > 1 )) && return 0
+    local keywords='code|codigo|código|codice|OTP|PIN|verification|auth|login|log-in|token|cód|MFA|2FA|one-time|one time'
+    local match
+    match=$(printf '%s' "$combined" \
+        | grep -oP "(?i)(${keywords})[^[:digit:]]{0,40}\b\K\d{4,8}\b" 2>/dev/null \
+        | head -1)
+    printf '%s' "$match"
+}
+
 # ─── render_bell_for_state (P1 design) ─────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
 # during the 5s arrival window, opt-pushed composing with DND. Pure function.
