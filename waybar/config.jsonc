@@ -526,12 +526,18 @@
       "transition-duration": 200,
       "transition-left-to-right": false
     },
+    // group/drawer convention: modules[0] is the always-visible trigger; the
+    // rest are drawer children that animate in on hover. With
+    // transition-left-to-right: false (right-zone group), the trigger sits
+    // on the right and children expand to its LEFT in declaration order.
+    // → bell (rightmost, always visible) → profile → action-{1,2,3} (leftmost
+    //   visually when fully expanded).
     "modules": [
-      "custom/notif-action-3",
-      "custom/notif-action-2",
-      "custom/notif-action-1",
+      "custom/notif-bell",
       "custom/notif-profile",
-      "custom/notif-bell"
+      "custom/notif-action-1",
+      "custom/notif-action-2",
+      "custom/notif-action-3"
     ]
   },
   "custom/notif-bell": {
