@@ -35,10 +35,12 @@ let
     bash
     coreutils
     dbus
+    gnugrep        # PCRE (grep -P) for detect_otp
     jq
     mako
     procps
     rofi
+    wl-clipboard   # wl-copy for the OTP click flow
   ];
 
   binPath = lib.makeBinPath runtimeDeps;
