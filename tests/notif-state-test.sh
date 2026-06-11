@@ -407,6 +407,62 @@ assert_eq \
   "$(echo "$out" | jq -r '.text')" 'Do "Not" Disturb' \
   "[profile: JSON-escapes quote in display name]"
 
+# ─── sound_for_state — P3 ──────────────────────────────────────────────────
+# Args: urgency silence_mode crit_sound app allowed_csv
+# Returns the canberra event id, or empty for silent.
+
+# Off / silenceMode=none
+assert_eq \
+  "$(sound_for_state 0 none 1 anyapp '')" "" \
+  "[sound: low → silent]"
+assert_eq \
+  "$(sound_for_state 1 none 1 anyapp '')" "message-new-instant" \
+  "[sound: normal + none → message-new-instant]"
+assert_eq \
+  "$(sound_for_state 2 none 1 anyapp '')" "dialog-warning" \
+  "[sound: critical + none + crit_sound=1 → dialog-warning]"
+assert_eq \
+  "$(sound_for_state 2 none 0 anyapp '')" "" \
+  "[sound: critical + none + crit_sound=0 → silent]"
+
+# silenceMode=transient (DND-style)
+assert_eq \
+  "$(sound_for_state 1 transient 1 anyapp '')" "" \
+  "[sound: normal + transient → silent]"
+assert_eq \
+  "$(sound_for_state 2 transient 1 anyapp '')" "dialog-warning" \
+  "[sound: critical + transient + crit_sound=1 → dialog-warning]"
+
+# silenceMode=all-but-critical-silent (Sleep/Media)
+assert_eq \
+  "$(sound_for_state 1 all-but-critical-silent 0 anyapp '')" "" \
+  "[sound: normal + all-but-critical-silent → silent]"
+assert_eq \
+  "$(sound_for_state 2 all-but-critical-silent 0 anyapp '')" "" \
+  "[sound: critical + all-but-critical-silent → silent]"
+
+# silenceMode=all (Gaming)
+assert_eq \
+  "$(sound_for_state 1 all 1 anyapp '')" "" \
+  "[sound: normal + all → silent]"
+assert_eq \
+  "$(sound_for_state 2 all 1 anyapp '')" "dialog-warning" \
+  "[sound: critical + all + crit_sound=1 → dialog-warning]"
+
+# silenceMode=non-allowed (Work)
+assert_eq \
+  "$(sound_for_state 1 non-allowed 1 Slack 'Slack,Outlook')" "message-new-instant" \
+  "[sound: normal Work + Slack allowed → message-new-instant]"
+assert_eq \
+  "$(sound_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "" \
+  "[sound: normal Work + not-allowed app → silent]"
+assert_eq \
+  "$(sound_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "" \
+  "[sound: critical Work + not-allowed app → silent]"
+assert_eq \
+  "$(sound_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "dialog-warning" \
+  "[sound: critical Work + allowed app + crit_sound=1 → dialog-warning]"
+
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'

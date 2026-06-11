@@ -78,6 +78,66 @@ detect_otp() {
     printf '%s' "$match"
 }
 
+# ─── sound_for_state — pick canberra event ID per arrival ──────────────────
+# Pure function. Returns the event id string, or empty for silent.
+#
+# Args:
+#   $1 urgency      — 0 (low), 1 (normal), 2 (critical)
+#   $2 silence_mode — none | transient | all-but-critical-silent | non-allowed | all
+#   $3 crit_sound   — 0 or 1; profile's criticalSound flag
+#   $4 app          — D-Bus app_name of the arrival
+#   $5 allowed_csv  — comma-separated list of allowedApps (Work profile)
+sound_for_state() {
+    local urgency="$1" mode="$2" crit_sound="$3" app="$4" allowed_csv="$5"
+
+    # Low urgency is always silent.
+    (( urgency == 0 )) && { printf ''; return; }
+
+    # non-allowed: gate by allowedApps membership.
+    if [[ $mode == "non-allowed" ]]; then
+        local IFS=','
+        local a matched=0
+        for a in $allowed_csv; do
+            [[ "$a" == "$app" ]] && { matched=1; break; }
+        done
+        if (( !matched )); then
+            printf ''; return
+        fi
+        # App is allowed → behave like silenceMode=none below.
+        mode="none"
+    fi
+
+    case "$mode" in
+        none)
+            if (( urgency == 2 )); then
+                (( crit_sound )) && printf 'dialog-warning' || printf ''
+            else
+                printf 'message-new-instant'
+            fi
+            ;;
+        transient)
+            if (( urgency == 2 )) && (( crit_sound )); then
+                printf 'dialog-warning'
+            else
+                printf ''
+            fi
+            ;;
+        all-but-critical-silent)
+            printf ''
+            ;;
+        all)
+            if (( urgency == 2 )) && (( crit_sound )); then
+                printf 'dialog-warning'
+            else
+                printf ''
+            fi
+            ;;
+        *)
+            printf ''
+            ;;
+    esac
+}
+
 # ─── render_bell_for_state ──────────────────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
 # during the 5s arrival window, glyph swap encoding the active silence profile.
