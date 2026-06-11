@@ -4,13 +4,13 @@
 # Subscribes to org.freedesktop.Notifications + fr.emersion.mako via
 # dbus-monitor, queries mako via makoctl for authoritative state, and writes
 # two atomic cache files that the custom/notif waybar pills render:
-#   /tmp/waybar-cache/notif-bell  — bell parent pill (state + transient face)
-#   /tmp/waybar-cache/notif-dnd   — DND child pill (hover-revealed)
+#   /tmp/waybar-cache/notif-bell     — bell parent pill (state + transient face)
+#   /tmp/waybar-cache/notif-profile  — profile child pill (hover-revealed)
 #
 # Spine spec:
 #   waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
 # §"Pill state machine" is the authoritative behavior table.
-# render_bell_for_state + render_dnd_for_state (below) encode that table —
+# render_bell_for_state + render_profile_for_state (below) encode that table —
 # pure functions, no side effects, safe to source from tests via
 # NOTIF_DAEMON_LIB_ONLY=1.
 #
@@ -348,7 +348,10 @@ fi
 
 # ─── Configuration ─────────────────────────────────────────────────────────
 CACHE_BELL="${NOTIF_CACHE_BELL:-/tmp/waybar-cache/notif-bell}"
-CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
+PROFILES_JSON="${NOTIF_PROFILES_JSON:-$HOME/.local/share/standard-os/notif-profiles.json}"
+ACTIVE_PROFILE_FILE="${NOTIF_ACTIVE_PROFILE_FILE:-$HOME/.local/share/standard-os/notif-active-profile}"
+DEFAULT_PROFILE="${NOTIF_DEFAULT_PROFILE:-off}"
+CACHE_PROFILE="${NOTIF_CACHE_PROFILE:-/tmp/waybar-cache/notif-profile}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
 TRANSIENT_MS="${NOTIF_TRANSIENT_MS:-5000}"
 JOURNAL_PATH="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
@@ -374,7 +377,58 @@ fi
 # shellcheck source=lib/notif-journal.sh
 source "$LIB_DIR/notif-journal.sh"
 
-mkdir -p "$(dirname "$CACHE_BELL")" "$(dirname "$CACHE_DND")" "$(dirname "$JOURNAL_PATH")"
+# Source the schedule lib (no per-tick reload; tasks call it directly).
+# shellcheck source=lib/notif-schedule.sh
+source "$LIB_DIR/notif-schedule.sh"
+
+mkdir -p "$(dirname "$CACHE_BELL")" "$(dirname "$CACHE_PROFILE")" "$(dirname "$JOURNAL_PATH")"
+
+# Load profile properties from PROFILES_JSON into ACTIVE_* vars.
+load_profile_into_active() {
+    local name="$1"
+    ACTIVE_PROFILE="$name"
+    ACTIVE_SILENCE_MODE=$(jq -r --arg p "$name" '.[$p].silenceMode // "none"' "$PROFILES_JSON" 2>/dev/null)
+    [[ -z $ACTIVE_SILENCE_MODE || $ACTIVE_SILENCE_MODE == "null" ]] && ACTIVE_SILENCE_MODE="none"
+    ACTIVE_CRIT_PULSE=$(jq -r --arg p "$name" '.[$p].criticalPulse // true | if . then 1 else 0 end' "$PROFILES_JSON" 2>/dev/null)
+    [[ -z $ACTIVE_CRIT_PULSE ]] && ACTIVE_CRIT_PULSE=1
+    ACTIVE_CRIT_SOUND=$(jq -r --arg p "$name" '.[$p].criticalSound // true | if . then 1 else 0 end' "$PROFILES_JSON" 2>/dev/null)
+    [[ -z $ACTIVE_CRIT_SOUND ]] && ACTIVE_CRIT_SOUND=1
+    ACTIVE_ALLOWED_CSV=$(jq -r --arg p "$name" '.[$p].allowedApps // [] | join(",")' "$PROFILES_JSON" 2>/dev/null)
+    [[ -z $ACTIVE_ALLOWED_CSV || $ACTIVE_ALLOWED_CSV == "null" ]] && ACTIVE_ALLOWED_CSV=""
+}
+
+# Resolve the active profile from override file + schedules, populate ACTIVE_*.
+resolve_and_load_profile() {
+    [[ ! -f $PROFILES_JSON ]] && { load_profile_into_active "$DEFAULT_PROFILE"; ACTIVE_VALID_UNTIL=""; return; }
+    local out prof until_iso
+    NOTIF_DEFAULT_PROFILE="$DEFAULT_PROFILE" \
+        out=$(resolve_active_profile "$ACTIVE_PROFILE_FILE" "$PROFILES_JSON" "$(date +%s)")
+    IFS=$'\t' read -r prof until_iso <<< "$out"
+    [[ -z $prof ]] && prof="$DEFAULT_PROFILE"
+    load_profile_into_active "$prof"
+    ACTIVE_VALID_UNTIL="$until_iso"
+    LAST_PROFILE_RESOLVED_AT=$(date +%s)
+}
+
+# Convert internal profile name to display text.
+profile_display_name() {
+    local name="$1"
+    local custom
+    custom=$(jq -r --arg p "$name" '.[$p].display // empty' "$PROFILES_JSON" 2>/dev/null)
+    if [[ -n $custom ]]; then
+        printf '%s' "$custom"
+        return
+    fi
+    case "$name" in
+        off) printf 'Off' ;;
+        dnd) printf 'DND' ;;
+        sleep) printf 'Sleep' ;;
+        work) printf 'Work' ;;
+        gaming) printf 'Gaming' ;;
+        media) printf 'Media' ;;
+        *) printf '%s' "$name" ;;
+    esac
+}
 
 # ─── State variables ───────────────────────────────────────────────────────
 UNREAD_COUNT=0
@@ -382,7 +436,16 @@ CRITICAL_COUNT=0
 UNREAD_IDS=""
 LAST_KNOWN_TOP_ID=0
 LAST_UNREAD_IDS=""
-DND_ON=0
+# P3 profile state
+ACTIVE_PROFILE="off"
+ACTIVE_SILENCE_MODE="none"
+ACTIVE_CRIT_PULSE=1
+ACTIVE_CRIT_SOUND=1
+ACTIVE_ALLOWED_CSV=""
+ACTIVE_VALID_UNTIL=""
+LAST_PROFILE_RESOLVED_AT=0
+LAST_PROFILE_RENDERED=""
+LAST_SOUND_AT=0
 TRANSIENT_KIND=""
 TRANSIENT_ID=0
 TRANSIENT_APP=""
@@ -390,7 +453,6 @@ TRANSIENT_TITLE=""
 TRANSIENT_BODY=""
 TRANSIENT_START=0
 LAST_BELL_RENDERED=""
-LAST_DND_RENDERED=""
 # P2 state
 TRANSIENT_OTP_CODE=""              # extracted OTP code (empty when no match)
 TRANSIENT_OTP_COPIED=0             # 1 during the 500ms post-click hold
@@ -434,15 +496,6 @@ query_mako_state() {
     [[ -z $NEWEST_ACTIONS_JSON || $NEWEST_ACTIONS_JSON == "null" ]] && NEWEST_ACTIONS_JSON='[]'
 }
 
-# Refresh DND_ON from mako's current mode.
-query_dnd() {
-    if makoctl mode 2>/dev/null | grep -qx 'dnd'; then
-        DND_ON=1
-    else
-        DND_ON=0
-    fi
-}
-
 # ─── Transient lifecycle ───────────────────────────────────────────────────
 clear_transient() {
     TRANSIENT_KIND=""
@@ -466,45 +519,59 @@ transient_id_still_unread() {
     return 1
 }
 
-# Per-spec: low urgency never transients. Normal silent under DND. Critical
-# pierces DND. Same 5s window for normal + critical (collapse to bell carrying
-# the appropriate pin color).
 on_arrival() {
     local urg="$NEWEST_URG"
-    if (( urg == 0 )); then return 0; fi
-    if (( urg == 2 )); then
-        TRANSIENT_KIND="critical"
-    elif (( DND_ON == 1 )); then
-        return 0
-    else
-        TRANSIENT_KIND="normal"
+
+    # Schedule may need re-resolution if we crossed a boundary.
+    local now_epoch
+    now_epoch=$(date +%s)
+    if (( now_epoch - LAST_PROFILE_RESOLVED_AT >= 60 )); then
+        resolve_and_load_profile
     fi
-    TRANSIENT_ID="$NEWEST_ID"
-    TRANSIENT_APP="$NEWEST_APP"
-    TRANSIENT_TITLE="$NEWEST_SUMMARY"
-    TRANSIENT_BODY="$NEWEST_BODY"
-    TRANSIENT_START=$(date +%s%3N)   # epoch milliseconds
 
-    # P2: scan summary + body for an OTP code
-    TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
-    TRANSIENT_OTP_COPIED=0
+    # Decide transient kind via the pure helper.
+    local kind
+    kind=$(transient_kind_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_PULSE" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+    TRANSIENT_KIND="$kind"
 
-    # P2: parse the actions JSON array into "key:label" pairs (up to 3)
-    TRANSIENT_ACTIONS=()
-    if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
-        local pair_count=0
-        local arr_len
-        arr_len=$(jq -r 'length' <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || arr_len=0
-        # mako pairs entries as [key0, label0, key1, label1, ...]
-        local i=0
-        while (( i + 1 < arr_len && pair_count < 3 )); do
-            local key_i label_i
-            key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
-            label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
-            TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
-            pair_count=$((pair_count + 1))
-            i=$((i + 2))
-        done
+    # OTP + actions only matter when there's a transient.
+    if [[ -n $TRANSIENT_KIND ]]; then
+        TRANSIENT_ID="$NEWEST_ID"
+        TRANSIENT_APP="$NEWEST_APP"
+        TRANSIENT_TITLE="$NEWEST_SUMMARY"
+        TRANSIENT_BODY="$NEWEST_BODY"
+        TRANSIENT_START=$(date +%s%3N)
+        TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
+        TRANSIENT_OTP_COPIED=0
+
+        # Parse actions (same as P2).
+        TRANSIENT_ACTIONS=()
+        if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
+            local pair_count=0
+            local arr_len
+            arr_len=$(jq -r 'length' <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || arr_len=0
+            local i=0
+            while (( i + 1 < arr_len && pair_count < 3 )); do
+                local key_i label_i
+                key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
+                label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
+                TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
+                pair_count=$((pair_count + 1))
+                i=$((i + 2))
+            done
+        fi
+    fi
+
+    # Sound playback, rate-limited at 500ms.
+    local sound_id
+    sound_id=$(sound_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_SOUND" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+    if [[ -n $sound_id ]]; then
+        local now_ms
+        now_ms=$(date +%s%3N)
+        if (( now_ms - LAST_SOUND_AT >= 500 )); then
+            canberra-gtk-play -i "$sound_id" 2>/dev/null & disown
+            LAST_SOUND_AT="$now_ms"
+        fi
     fi
 }
 
@@ -580,16 +647,16 @@ emit_action_caches() {
 
 emit() {
     query_mako_state
-    local bell_json dnd_json
+    local bell_json profile_json
     bell_json=$(render_bell_for_state \
-        "$UNREAD_COUNT" "$CRITICAL_COUNT" "$DND_ON" \
+        "$UNREAD_COUNT" "$CRITICAL_COUNT" "$ACTIVE_SILENCE_MODE" \
         "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY" \
         "$TRANSIENT_OTP_CODE" "$TRANSIENT_OTP_COPIED")
-    dnd_json=$(render_dnd_for_state "$DND_ON")
+    profile_json=$(render_profile_for_state "$ACTIVE_PROFILE" "$(profile_display_name "$ACTIVE_PROFILE")")
 
     local changed=0
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
-    write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
+    write_if_changed "$CACHE_PROFILE" "$profile_json" LAST_PROFILE_RENDERED && changed=1
     emit_action_caches
     (( $? == 1 )) && changed=1
     if (( changed )); then
@@ -603,7 +670,6 @@ on_dbus_event() {
     sleep 0.05
     local prev_top_id="$LAST_KNOWN_TOP_ID"
     query_mako_state
-    query_dnd
     if (( NEWEST_ID > prev_top_id )); then
         on_arrival
         # Journal append for every arrival (even when no transient was rendered:
@@ -632,12 +698,11 @@ drain_dbus_burst() {
     while read -t 0.05 -u "$DBUS_FD" -r _line; do :; done
 }
 
-# ─── SIGUSR1: external DND-state-change notification ──────────────────────
-# mako 1.10 does NOT emit a ModeChanged D-Bus signal we can subscribe to.
-# `notif-click dnd` toggles via `makoctl mode -t dnd` and then signals us
-# via systemctl --user kill --kill-who=main -s SIGUSR1 so we re-query
-# the mode and re-render. Without this, DND state in the bar would lag
-# until the next Notify event fired and triggered on_dbus_event organically.
+# ─── SIGUSR1: external profile-change notification ────────────────────────
+# notif-rofi-profiles writes the override file then signals us via
+# systemctl --user kill --kill-who=main -s SIGUSR1 so we re-resolve
+# the active profile and re-render. Without this, profile state in the
+# bar would lag until the next Notify event triggered on_dbus_event.
 on_user_signal() {
     USR1_PENDING=1
 }
@@ -651,7 +716,7 @@ USR1_PENDING=0
 # ─── Cleanup ───────────────────────────────────────────────────────────────
 cleanup() {
     printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
-    printf '%s' '{"text":""}' > "${CACHE_DND}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DND}.tmp.$$" "$CACHE_DND" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_PROFILE}.tmp.$$" 2>/dev/null && mv -f "${CACHE_PROFILE}.tmp.$$" "$CACHE_PROFILE" 2>/dev/null
     pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
     exec {DBUS_FD}<&- 2>/dev/null || true
 }
@@ -662,18 +727,21 @@ exec {DBUS_FD}< <(dbus-monitor --session \
     "interface='org.freedesktop.Notifications'" \
     "interface='fr.emersion.mako'" 2>/dev/null)
 
-query_dnd
+resolve_and_load_profile
 query_mako_state
 LAST_KNOWN_TOP_ID="$NEWEST_ID"
 LAST_UNREAD_IDS="$UNREAD_IDS"
 emit
 
 while true; do
-    # Drain any USR1 that may have been queued (notif-click toggle-dnd path)
+    # Drain any USR1 that may have been queued (notif-rofi-profiles path)
     # while we were NOT blocked on read (e.g. inside drain_dbus_burst).
     if (( USR1_PENDING )); then
         USR1_PENDING=0
-        query_dnd
+        # Settle: notif-rofi-profiles writes the override file then signals,
+        # but file-system sync isn't guaranteed before signal delivery.
+        sleep 0.05
+        resolve_and_load_profile
         emit
     fi
     # Drain the OTP-clicked rendezvous. SIGUSR2 from notif-click sets
@@ -727,23 +795,19 @@ while true; do
         drain_dbus_burst
         on_dbus_event
     elif (( USR1_PENDING )); then
-        # 50ms settle: notif-click sends SIGUSR1 immediately after
-        # `makoctl mode -t dnd`, but mako may not have committed the mode
-        # change to its internal state by the time query_dnd reads it.
-        # Same pattern on_dbus_event uses for arrivals.
         USR1_PENDING=0
+        # Settle: notif-rofi-profiles writes the override file then signals,
+        # but file-system sync isn't guaranteed before signal delivery.
         sleep 0.05
-        query_dnd
+        resolve_and_load_profile
         emit
     elif (( rc == 1 )); then
         # Genuine EOF on the dbus-monitor pipe — exit so systemd respawns us.
         break
     elif [[ -z $TRANSIENT_KIND ]]; then
-        # Idle 1-second tick: poll DND mode as a fallback for SIGUSR1
-        # misses (mako 1.10 doesn't emit ModeChanged, and bash signal
-        # delivery during process-substitution reads is occasionally
-        # racy). emit's dedup means this is a no-op when state is stable.
-        query_dnd
+        # Idle 1-second tick: re-resolve profile as a fallback for SIGUSR1
+        # misses and schedule boundary crossings.
+        resolve_and_load_profile
         emit
     elif [[ -n $TRANSIENT_KIND ]]; then
         check_transient_timer && emit
