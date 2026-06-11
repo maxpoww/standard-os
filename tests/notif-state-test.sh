@@ -141,42 +141,6 @@ if command -v jq >/dev/null 2>&1; then
 
 fi
 
-# ─── render_dnd_for_state ─────────────────────────────────────────────────
-# Args: dnd_on
-if command -v jq >/dev/null 2>&1; then
-
-    out=$(render_dnd_for_state 0)
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.class | index("opt-pushed") == null')" \
-        "true" \
-        "dnd off: no opt-pushed"
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.tooltip')" \
-        "Do Not Disturb" \
-        "dnd off: tooltip is base text"
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.text' | od -An -tx1 | tr -d ' \n' | head -c 8)" \
-        "f3b0829b" \
-        "dnd off: glyph is bell-slash bytes"
-
-    out=$(render_dnd_for_state 1)
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.class | index("opt-pushed") != null')" \
-        "true" \
-        "dnd on: opt-pushed"
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.tooltip')" \
-        "Do Not Disturb (on)" \
-        "dnd on: tooltip indicates state"
-
-    # Child surface, not parent
-    assert_eq \
-        "$(printf '%s' "$out" | jq -r '.class | index("opt-pill-child") != null')" \
-        "true" \
-        "dnd: class is opt-pill-child"
-
-fi
-
 # ─── C1 regression — JSON injection via quote/backslash in notification fields
 # render_bell_for_state must JSON-escape app/title/body internally.
 # A raw " or \ in any field previously produced broken JSON and waybar rendered
@@ -407,6 +371,41 @@ out=$(render_bell_for_state 1 0 "none" "normal" "Slack" "PR review" "body" "" 0)
 assert_eq \
   "$(echo "$out" | jq -r '.class | index("opt-pushed") == null')" "true" \
   "[P3 transient: no opt-pushed regardless of silence mode]"
+
+# ─── render_profile_for_state ────────────────────────────────────────────
+# Args: profile_name display_name
+
+# Off → neutral child surface, no opt-yes
+out=$(render_profile_for_state "off" "Off")
+assert_eq \
+  "$(echo "$out" | jq -r '.text')" "Off" \
+  "[profile Off: text]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-yes") == null')" "true" \
+  "[profile Off: no opt-yes]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pill-child") != null')" "true" \
+  "[profile Off: opt-pill-child surface]"
+
+# Non-off → opt-yes accent
+for p in dnd sleep work gaming media; do
+    out=$(render_profile_for_state "$p" "$p")
+    assert_eq \
+      "$(echo "$out" | jq -r '.class | index("opt-yes") != null')" "true" \
+      "[profile $p: opt-yes present]"
+done
+
+# Tooltip
+out=$(render_profile_for_state "work" "Work")
+assert_eq \
+  "$(echo "$out" | jq -r '.tooltip')" "Focus profile" \
+  "[profile work: tooltip is Focus profile]"
+
+# JSON-escape display_name with quote
+out=$(render_profile_for_state "dnd" 'Do "Not" Disturb')
+assert_eq \
+  "$(echo "$out" | jq -r '.text')" 'Do "Not" Disturb' \
+  "[profile: JSON-escapes quote in display name]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then

@@ -162,20 +162,24 @@ render_bell_for_state() {
         "$bell" "$classes_json"
 }
 
-# ─── render_dnd_for_state ──────────────────────────────────────────────────
-# The DND child pill. Material Design bell-slash U+F009B (4-byte UTF-8).
-# Pure function — only state input is dnd_on.
-render_dnd_for_state() {
-    local dnd_on="${1:-0}"
-    # U+F009B (Material Design bell-off) = 0xF3 0xB0 0x82 0x9B in UTF-8.
-    # If this byte sequence ever looks empty in your terminal, verify with:
-    #   printf '%s' "$slash" | od -An -tx1   → "f3 b0 82 9b"
-    local slash=$'\xf3\xb0\x82\x9b'
-    if (( dnd_on == 1 )); then
-        printf '{"text":"%s","class":["opt-pill-child","dark","opt-pushed"],"tooltip":"Do Not Disturb (on)"}' "$slash"
+# ─── render_profile_for_state (P3) ─────────────────────────────────────────
+# The profile child pill that replaces the legacy DND child.
+#
+# Args:
+#   $1 profile_name — internal name (off|dnd|sleep|work|gaming|media|...)
+#   $2 display_name — text shown on the pill
+render_profile_for_state() {
+    local profile="$1" display="$2"
+    local display_esc
+    display_esc=$(json_escape "$display")
+    local classes
+    if [[ $profile == "off" ]]; then
+        classes='["opt-pill-child","dark"]'
     else
-        printf '{"text":"%s","class":["opt-pill-child","dark"],"tooltip":"Do Not Disturb"}' "$slash"
+        classes='["opt-pill-child","dark","opt-yes"]'
     fi
+    printf '{"text":"%s","class":%s,"tooltip":"Focus profile"}' \
+        "$display_esc" "$classes"
 }
 
 # ─── render_action_for_state (P2) ──────────────────────────────────────────
