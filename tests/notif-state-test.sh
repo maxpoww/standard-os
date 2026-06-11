@@ -463,6 +463,42 @@ assert_eq \
   "$(sound_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "dialog-warning" \
   "[sound: critical Work + allowed app + crit_sound=1 → dialog-warning]"
 
+# ─── transient_kind_for_state — pure ────────────────────────────────────
+# Args: urgency silence_mode crit_pulse app allowed_csv → echo "normal" | "critical" | ""
+
+# none → unchanged from P2 (low silent, normal normal, critical critical)
+assert_eq "$(transient_kind_for_state 0 none 1 a '')" "" "[tk: low + none → empty]"
+assert_eq "$(transient_kind_for_state 1 none 1 a '')" "normal" "[tk: normal + none → normal]"
+assert_eq "$(transient_kind_for_state 2 none 1 a '')" "critical" "[tk: critical + none + pulse=1 → critical]"
+assert_eq "$(transient_kind_for_state 2 none 0 a '')" "" "[tk: critical + none + pulse=0 → empty]"
+
+# transient → normal silent; critical pierces if pulse=1
+assert_eq "$(transient_kind_for_state 1 transient 1 a '')" "" "[tk: normal + transient → empty]"
+assert_eq "$(transient_kind_for_state 2 transient 1 a '')" "critical" "[tk: critical + transient + pulse=1 → critical]"
+assert_eq "$(transient_kind_for_state 2 transient 0 a '')" "" "[tk: critical + transient + pulse=0 → empty]"
+
+# all-but-critical-silent → everything silent (no transient, NO pulse)
+assert_eq "$(transient_kind_for_state 1 all-but-critical-silent 0 a '')" "" "[tk: normal + all-but-crit-silent → empty]"
+assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 0 a '')" "" "[tk: critical + all-but-crit-silent → empty]"
+
+# all → normal silent; critical may pulse if pulse=1
+assert_eq "$(transient_kind_for_state 1 all 1 a '')" "" "[tk: normal + all → empty]"
+assert_eq "$(transient_kind_for_state 2 all 1 a '')" "critical" "[tk: critical + all + pulse=1 → critical]"
+
+# non-allowed → check allowedApps
+assert_eq \
+  "$(transient_kind_for_state 1 non-allowed 1 Slack 'Slack,Outlook')" "normal" \
+  "[tk: normal + non-allowed + Slack allowed → normal]"
+assert_eq \
+  "$(transient_kind_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "" \
+  "[tk: normal + non-allowed + Facebook not allowed → empty]"
+assert_eq \
+  "$(transient_kind_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "critical" \
+  "[tk: critical + non-allowed + Slack allowed → critical]"
+assert_eq \
+  "$(transient_kind_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "" \
+  "[tk: critical + non-allowed + Facebook not allowed → empty]"
+
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'

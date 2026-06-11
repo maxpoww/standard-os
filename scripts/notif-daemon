@@ -138,6 +138,64 @@ sound_for_state() {
     esac
 }
 
+# ─── transient_kind_for_state — pure ───────────────────────────────────────
+# Decide whether on_arrival should set TRANSIENT_KIND to "normal", "critical",
+# or empty (no transient at all).
+#
+# Args:
+#   $1 urgency      — 0|1|2
+#   $2 silence_mode — none|transient|all-but-critical-silent|non-allowed|all
+#   $3 crit_pulse   — 0|1; profile's criticalPulse flag
+#   $4 app          — arrival's D-Bus app_name
+#   $5 allowed_csv  — comma-separated allowedApps (Work)
+transient_kind_for_state() {
+    local urgency="$1" mode="$2" crit_pulse="$3" app="$4" allowed_csv="$5"
+
+    (( urgency == 0 )) && { printf ''; return; }
+
+    if [[ $mode == "non-allowed" ]]; then
+        local IFS=','
+        local a; local matched=0
+        for a in $allowed_csv; do
+            [[ "$a" == "$app" ]] && { matched=1; break; }
+        done
+        if (( !matched )); then
+            printf ''; return
+        fi
+        mode="none"
+    fi
+
+    case "$mode" in
+        none)
+            if (( urgency == 2 )); then
+                (( crit_pulse )) && printf 'critical' || printf ''
+            else
+                printf 'normal'
+            fi
+            ;;
+        transient)
+            if (( urgency == 2 )) && (( crit_pulse )); then
+                printf 'critical'
+            else
+                printf ''
+            fi
+            ;;
+        all-but-critical-silent)
+            printf ''
+            ;;
+        all)
+            if (( urgency == 2 )) && (( crit_pulse )); then
+                printf 'critical'
+            else
+                printf ''
+            fi
+            ;;
+        *)
+            printf ''
+            ;;
+    esac
+}
+
 # ─── render_bell_for_state ──────────────────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
 # during the 5s arrival window, glyph swap encoding the active silence profile.
