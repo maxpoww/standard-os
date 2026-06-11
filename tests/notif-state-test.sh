@@ -339,6 +339,38 @@ assert_eq \
     "" \
     "[bell rest: otp_code field empty string]"
 
+# ─── render_action_for_state ──────────────────────────────────────────────
+# Args: key label
+
+# Basic shape
+out=$(render_action_for_state "reply" "Reply")
+assert_eq "$(echo "$out" | jq -r '.text')" "Reply" \
+  "[action: text is the label]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | length')" "3" \
+  "[action: class has 3 elements]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pill-child") != null')" "true" \
+  "[action: opt-pill-child present]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-yes") != null')" "true" \
+  "[action: opt-yes present]"
+assert_eq \
+  "$(echo "$out" | jq -r '.key')" "reply" \
+  "[action: key field is the action key]"
+assert_eq \
+  "$(echo "$out" | jq -r '.tooltip')" "Reply" \
+  "[action: tooltip is the label]"
+
+# JSON-injection: quotes in label and key
+out=$(render_action_for_state 'key"with' 'Label "with"')
+assert_eq \
+  "$(echo "$out" | jq -r '.text')" 'Label "with"' \
+  "[action: JSON-escapes quote in label]"
+assert_eq \
+  "$(echo "$out" | jq -r '.key')" 'key"with' \
+  "[action: JSON-escapes quote in key]"
+
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'

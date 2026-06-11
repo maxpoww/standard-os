@@ -171,6 +171,24 @@ render_dnd_for_state() {
     fi
 }
 
+# ─── render_action_for_state (P2) ──────────────────────────────────────────
+# One action child pill. Pure function.
+#
+# Args:
+#   $1 key   — mako action key (passed to `makoctl invoke -n <id> <key>`)
+#   $2 label — display text (mako's action label)
+#
+# The `key` field is a project-internal extension; waybar ignores it but
+# notif-click reads it to know which action to invoke.
+render_action_for_state() {
+    local key="$1" label="$2"
+    local label_esc key_esc
+    label_esc=$(json_escape "$label")
+    key_esc=$(json_escape "$key")
+    printf '{"text":"%s","class":["opt-pill-child","dark","opt-yes"],"tooltip":"%s","key":"%s"}' \
+        "$label_esc" "$label_esc" "$key_esc"
+}
+
 # ─── _classes_json VAR <class>... ──────────────────────────────────────────
 # Builds a JSON array literal from positional class args, writes result to VAR
 # via printf -v (no subshell fork). Defensively escapes " and \ in each class
