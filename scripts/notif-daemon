@@ -41,6 +41,18 @@ json_escape() {
     printf '%s' "$s"
 }
 
+# ─── pango_escape — escape strings for Pango markup ────────────────────────
+# Used when a string will be wrapped in <b>...</b> or similar Pango tags in
+# waybar's custom-module text. Order matters: & MUST be escaped BEFORE < and
+# >, or the inserted &amp; gets re-escaped to &amp;amp; etc.
+pango_escape() {
+    local s="$1"
+    s="${s//&/\&amp;}"
+    s="${s//</\&lt;}"
+    s="${s//>/\&gt;}"
+    printf '%s' "$s"
+}
+
 # ─── render_bell_for_state (P1 design) ─────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
 # during the 5s arrival window, opt-pushed composing with DND. Pure function.

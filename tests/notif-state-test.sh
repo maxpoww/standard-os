@@ -193,6 +193,26 @@ if command -v jq >/dev/null 2>&1; then
         "C1 regression: transient with quotes — app round-trips through JSON"
 fi
 
+# ─── pango_escape ─────────────────────────────────────────────────────────
+assert_eq \
+    "$(pango_escape "Hello world")" "Hello world" \
+    "[pango_escape passthrough plain]"
+assert_eq \
+    "$(pango_escape "<script>")" "&lt;script&gt;" \
+    "[pango_escape <]"
+assert_eq \
+    "$(pango_escape "a>b")" "a&gt;b" \
+    "[pango_escape >]"
+assert_eq \
+    "$(pango_escape "Tom & Jerry")" "Tom &amp; Jerry" \
+    "[pango_escape &]"
+assert_eq \
+    "$(pango_escape "<a href=\"x\">&go</a>")" "&lt;a href=\"x\"&gt;&amp;go&lt;/a&gt;" \
+    "[pango_escape combined]"
+assert_eq \
+    "$(pango_escape "<&>")" "&lt;&amp;&gt;" \
+    "[pango_escape order: & before < (avoid double-escape)]"
+
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'
