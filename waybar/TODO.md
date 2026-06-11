@@ -81,6 +81,42 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-10** — **Notification center P2: actions + app icons + 2FA extraction.**
+  Composes onto the live P1 architecture: three child action pills
+  (`custom/notif-action-{1,2,3}`) join `group/notif` and surface
+  mako's `actions` array on hover-revealed wide pills. Wide-pill text
+  gains Pango bold for the app name (`<b>App</b> · Title`) with
+  `pango_escape` applied to app/title BEFORE the markup wrap so raw
+  D-Bus strings can't inject styling. Rofi rows gain icons via the
+  native `\0icon\x1f<app_name>` row metadata + `-show-icons` flag —
+  no new icon-resolution code. 2FA / OTP extraction runs a keyword-
+  anchored regex (`code|OTP|PIN|verification|auth|login|token|MFA|
+  2FA|one-time|cód|código|codice` + 40-char window + 4-8 digit code)
+  over summary+body on every arrival; matches embed an `otp_code`
+  field in the bell cache and add `opt-glow-green` to the class array.
+  Click the OTP wide pill → `wl-copy` the code, rendezvous via
+  `/tmp/notif-otp-clicked` + SIGUSR2 to notif-daemon, daemon transitions
+  to `otp_copied` kind for 500ms (wide-pill text becomes
+  `<b>App</b> · Title · copied`), then dismisses cleanly.
+  **Hint:** `render_bell_for_state` gained 2 args (OTP_CODE, OTP_COPIED).
+  Bell output always emits `otp_code` (empty string when no code) so the
+  JSON schema stays stable; waybar ignores the field, notif-click reads it.
+  **Hint:** action children embed the mako action key in a non-standard
+  `key` field on the action-N cache. The field name is the project-internal
+  contract between notif-daemon (writer) and notif-click (reader); if it
+  ever changes both files need synchronised updates.
+  **Hint:** P2 added SIGUSR2 alongside the P1 SIGUSR1. USR1 = DND mode
+  changed, USR2 = OTP-copied transition. Both traps set a *_PENDING
+  flag that the main loop drains; both use the 1-second polling
+  fallback for delivery races.
+  **Hint:** rofi icon hints (`\0icon\x1f<app_name>`) contain literal NUL
+  bytes that bash `$()` command substitution silently strips. notif-rofi
+  bypasses `$()` capture: format_rofi_entry is called directly (output
+  goes to build_rows' stdout), and build_rows is piped directly into
+  rofi (`build_rows | rofi -dmenu …`). The history section uses a
+  two-pass approach: first collect tab-separated field strings (no NULs)
+  into a bash array, then emit rows with direct printf calls.
+
 - **2026-06-10** — **Notification center P1: drawer + DND + per-app rules.**
   Extends the spine (same-day spine commit) with a hover-revealed DND
   toggle, a persistent journal of all arrivals, and a rofi-based history
