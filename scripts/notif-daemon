@@ -262,6 +262,14 @@ TRANSIENT_BODY=""
 TRANSIENT_START=0
 LAST_BELL_RENDERED=""
 LAST_DND_RENDERED=""
+# P2 state
+TRANSIENT_OTP_CODE=""              # extracted OTP code (empty when no match)
+TRANSIENT_OTP_COPIED=0             # 1 during the 500ms post-click hold
+declare -a TRANSIENT_ACTIONS=()    # array of "key:label" pairs (max 3 used)
+LAST_ACTION_1_RENDERED=""
+LAST_ACTION_2_RENDERED=""
+LAST_ACTION_3_RENDERED=""
+USR2_PENDING=0
 
 # ─── mako D-Bus interrogation ──────────────────────────────────────────────
 query_mako_state() {
@@ -273,6 +281,7 @@ query_mako_state() {
         UNREAD_COUNT=0; CRITICAL_COUNT=0; UNREAD_IDS=""
         NEWEST_ID=0; NEWEST_URG=1
         NEWEST_APP=""; NEWEST_SUMMARY=""; NEWEST_BODY=""
+        NEWEST_ACTIONS_JSON='[]'
         return
     fi
     UNREAD_COUNT=$(printf '%s' "$json" | jq -r '.data[0] | length // 0' 2>/dev/null) || UNREAD_COUNT=0
@@ -283,6 +292,11 @@ query_mako_state() {
     NEWEST_APP=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].\"app-name\".data // \"\"" 2>/dev/null) || NEWEST_APP=""
     NEWEST_SUMMARY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].summary.data // \"\"" 2>/dev/null) || NEWEST_SUMMARY=""
     NEWEST_BODY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].body.data // \"\"" 2>/dev/null) || NEWEST_BODY=""
+    # P2: capture the actions array for the NEWEST_ID notification. mako
+    # emits actions as alternating [key, label, key, label, ...] strings.
+    NEWEST_ACTIONS_JSON=$(printf '%s' "$json" | jq -c \
+        "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].actions.data // []" \
+        2>/dev/null) || NEWEST_ACTIONS_JSON='[]'
 }
 
 # Refresh DND_ON from mako's current mode.
@@ -302,6 +316,9 @@ clear_transient() {
     TRANSIENT_TITLE=""
     TRANSIENT_BODY=""
     TRANSIENT_START=0
+    TRANSIENT_OTP_CODE=""
+    TRANSIENT_OTP_COPIED=0
+    TRANSIENT_ACTIONS=()
 }
 
 transient_id_still_unread() {
@@ -332,15 +349,49 @@ on_arrival() {
     TRANSIENT_TITLE="$NEWEST_SUMMARY"
     TRANSIENT_BODY="$NEWEST_BODY"
     TRANSIENT_START=$(date +%s%3N)   # epoch milliseconds
+
+    # P2: scan summary + body for an OTP code
+    TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
+    TRANSIENT_OTP_COPIED=0
+
+    # P2: parse the actions JSON array into "key:label" pairs (up to 3)
+    TRANSIENT_ACTIONS=()
+    if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
+        local pair_count=0
+        local arr_len
+        arr_len=$(jq -r 'length' <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || arr_len=0
+        # mako pairs entries as [key0, label0, key1, label1, ...]
+        local i=0
+        while (( i + 1 < arr_len && pair_count < 3 )); do
+            local key_i label_i
+            key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
+            label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
+            TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
+            pair_count=$((pair_count + 1))
+            i=$((i + 2))
+        done
+    fi
 }
 
 # Returns 0 if state changed (caller should re-render), 1 otherwise.
 check_transient_timer() {
     [[ -z $TRANSIENT_KIND ]] && return 1
-    local now elapsed
+    local now elapsed limit
     now=$(date +%s%3N)
     elapsed=$(( now - TRANSIENT_START ))
-    if (( elapsed >= TRANSIENT_MS )); then
+    if (( TRANSIENT_OTP_COPIED == 1 )); then
+        limit=500   # 500ms post-click hold for the "copied" suffix
+    else
+        limit="$TRANSIENT_MS"
+    fi
+    if (( elapsed >= limit )); then
+        # If we were in the OTP-copied hold, dismiss the notification AS the
+        # transient collapses (mako's Dismissed signal then triggers a fresh
+        # on_dbus_event → query_mako_state → emit; the bell returns to rest
+        # carrying whatever pin color the remaining unread state implies).
+        if (( TRANSIENT_OTP_COPIED == 1 )) && (( TRANSIENT_ID > 0 )); then
+            makoctl dismiss -n "$TRANSIENT_ID" 2>/dev/null || true
+        fi
         clear_transient
         return 0
     fi
@@ -369,17 +420,43 @@ write_if_changed() {
     return 0
 }
 
+# Write notif-action-{1,2,3} caches based on the current TRANSIENT_ACTIONS
+# array. Slot N is the (N-1)th action; missing slots emit {"text":""} so the
+# child pills collapse to .empty in waybar.
+emit_action_caches() {
+    local i changed_any=0
+    for i in 1 2 3; do
+        local cache="/tmp/waybar-cache/notif-action-$i"
+        local last_var="LAST_ACTION_${i}_RENDERED"
+        local idx=$((i - 1))
+        local content
+        if [[ -n $TRANSIENT_KIND ]] && (( idx < ${#TRANSIENT_ACTIONS[@]} )); then
+            local pair="${TRANSIENT_ACTIONS[$idx]}"
+            local key="${pair%%:*}"
+            local label="${pair#*:}"
+            content=$(render_action_for_state "$key" "$label")
+        else
+            content='{"text":""}'
+        fi
+        write_if_changed "$cache" "$content" "$last_var" && changed_any=1
+    done
+    return $changed_any
+}
+
 emit() {
     query_mako_state
     local bell_json dnd_json
     bell_json=$(render_bell_for_state \
         "$UNREAD_COUNT" "$CRITICAL_COUNT" "$DND_ON" \
-        "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY")
+        "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY" \
+        "$TRANSIENT_OTP_CODE" "$TRANSIENT_OTP_COPIED")
     dnd_json=$(render_dnd_for_state "$DND_ON")
 
     local changed=0
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
     write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
+    emit_action_caches
+    (( $? == 1 )) && changed=1
     if (( changed )); then
         pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
     fi
@@ -430,6 +507,10 @@ on_user_signal() {
     USR1_PENDING=1
 }
 trap on_user_signal USR1
+on_user_signal_2() {
+    USR2_PENDING=1
+}
+trap on_user_signal_2 USR2
 USR1_PENDING=0
 
 # ─── Cleanup ───────────────────────────────────────────────────────────────
@@ -459,6 +540,22 @@ while true; do
         USR1_PENDING=0
         query_dnd
         emit
+    fi
+    # Drain any USR2 (notif-click OTP-clicked path). The notif-click writer
+    # stores the clicked notification's id at /tmp/notif-otp-clicked so we
+    # can verify the signal targets the current transient (not a stale one).
+    if (( USR2_PENDING )); then
+        USR2_PENDING=0
+        if [[ -f /tmp/notif-otp-clicked ]]; then
+            _clicked_id=$(cat /tmp/notif-otp-clicked 2>/dev/null)
+            rm -f /tmp/notif-otp-clicked
+            if [[ -n $_clicked_id && -n $TRANSIENT_KIND && $_clicked_id == "$TRANSIENT_ID" ]]; then
+                TRANSIENT_OTP_COPIED=1
+                # Reset the 5s timer to use as a 500ms "copied" hold.
+                TRANSIENT_START=$(date +%s%3N)
+                emit
+            fi
+        fi
     fi
     if [[ -z $TRANSIENT_KIND ]]; then
         tick=1
