@@ -293,10 +293,16 @@ query_mako_state() {
     NEWEST_SUMMARY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].summary.data // \"\"" 2>/dev/null) || NEWEST_SUMMARY=""
     NEWEST_BODY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].body.data // \"\"" 2>/dev/null) || NEWEST_BODY=""
     # P2: capture the actions array for the NEWEST_ID notification. mako
-    # emits actions as alternating [key, label, key, label, ...] strings.
+    # emits actions as a {key: label} dict (D-Bus type a{ss}). We convert
+    # to a flat [key, label, key, label, ...] array so the parsing loop in
+    # on_arrival can iterate pairwise without caring about the source shape.
     NEWEST_ACTIONS_JSON=$(printf '%s' "$json" | jq -c \
-        "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].actions.data // []" \
+        "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].actions.data
+         | if type == \"object\" then (to_entries | map([.key, .value]) | flatten)
+           elif type == \"array\" then .
+           else [] end" \
         2>/dev/null) || NEWEST_ACTIONS_JSON='[]'
+    [[ -z $NEWEST_ACTIONS_JSON || $NEWEST_ACTIONS_JSON == "null" ]] && NEWEST_ACTIONS_JSON='[]'
 }
 
 # Refresh DND_ON from mako's current mode.
