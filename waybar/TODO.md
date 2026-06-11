@@ -81,6 +81,41 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-11** — **Notification center P3: focus profiles + sound.**
+  Replaces P1's binary DND toggle with 6 named profiles (Off, DND,
+  Sleep, Work, Gaming, Media), each declaring a `silenceMode`
+  (none / transient / all-but-critical-silent / non-allowed / all),
+  `criticalPulse`, `criticalSound`, optional `allowedApps`, and
+  optional `schedule` ("HH:MM-HH:MM Day-Day" with cross-midnight
+  wraparound). The bell glyph swaps between FA bell (`\xef\x83\xb3`,
+  Off only) and FA solid bell-slash (`\xef\x87\xb7`, every other
+  profile); pin colors continue to reflect unread state. `opt-pushed`
+  is gone — the glyph carries the engaged signal. A new
+  `custom/notif-profile` child pill (replacing `custom/notif-dnd`)
+  shows the active profile name; click opens a new `notif-rofi-profiles`
+  picker that writes an override file with `valid_until` = next
+  schedule boundary, then signals SIGUSR1 to the daemon.
+  Sound subsystem uses `canberra-gtk-play` with the freedesktop sound
+  theme: `message-new-instant` for normal arrivals, `dialog-warning`
+  for critical (when the profile allows). Rate-limited at 1 sound /
+  500ms via `LAST_SOUND_AT`.
+  **Hint:** `render_bell_for_state`'s 3rd arg renamed `DND_ON` (0/1)
+  → `SILENCE_MODE` (string). Callers must update — the daemon's
+  emit() does this, but any future unit tests that pass the old 0/1
+  form need conversion to "none"/"transient" or similar.
+  **Hint:** Profiles JSON path is
+  `~/.local/share/standard-os/notif-profiles.json` (materialized via
+  `home.file`), NOT `/etc/notif-profiles.json` as the spec originally
+  proposed. The env var `NOTIF_PROFILES_JSON` overrides per process.
+  **Hint:** Schedule resolution polls every 60s via a tick check in
+  `on_arrival`. SIGUSR1 (from notif-rofi-profiles) wakes the daemon
+  for an immediate re-resolve; the capped `read -t` cadence inherited
+  from P2 (≤0.5s during transient) ensures the override file is
+  picked up promptly.
+  **Hint:** The `dnd` subcommand of notif-click is GONE. Any user
+  keybindings or scripts calling it must migrate to
+  `notif-click profile` (opens the rofi picker).
+
 - **2026-06-10** — **Notification center P2: actions + app icons + 2FA extraction.**
   Composes onto the live P1 architecture: three child action pills
   (`custom/notif-action-{1,2,3}`) join `group/notif` and surface
