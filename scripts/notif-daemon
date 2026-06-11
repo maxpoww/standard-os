@@ -547,10 +547,13 @@ while true; do
         query_dnd
         emit
     fi
-    # Drain any USR2 (notif-click OTP-clicked path). The notif-click writer
-    # stores the clicked notification's id at /tmp/notif-otp-clicked so we
-    # can verify the signal targets the current transient (not a stale one).
-    if (( USR2_PENDING )); then
+    # Drain the OTP-clicked rendezvous. SIGUSR2 from notif-click sets
+    # USR2_PENDING; but bash signal traps fire in whatever subshell happens
+    # to be running at signal-delivery time, and $() command substitutions
+    # eat the variable update (see same issue with USR1_PENDING). We poll
+    # the rendezvous file existence on every loop iteration to make the
+    # transition reliable; SIGUSR2 just wakes the read sooner.
+    if (( USR2_PENDING )) || [[ -f /tmp/notif-otp-clicked ]]; then
         USR2_PENDING=0
         if [[ -f /tmp/notif-otp-clicked ]]; then
             _clicked_id=$(cat /tmp/notif-otp-clicked 2>/dev/null)
