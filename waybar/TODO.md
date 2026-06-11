@@ -116,6 +116,23 @@ for the maintenance contract.
   rofi (`build_rows | rofi -dmenu …`). The history section uses a
   two-pass approach: first collect tab-separated field strings (no NULs)
   into a bash array, then emit rows with direct printf calls.
+  **Hint:** bash signal traps fire in whatever subshell happens to be
+  active at signal-delivery time, and trap-body assignments are silently
+  lost when a `$()` subshell exits. P1 first hit this with SIGUSR1 (DND
+  toggle wake); P2 re-hits it with SIGUSR2 (OTP-click hold). The pattern
+  to defeat it: a file-existence rendezvous (`/tmp/notif-otp-clicked`)
+  PLUS a capped `read -t` timeout (≤0.5s during transient, ≤0.1s during
+  OTP-copied hold) so the top-of-loop file-poll runs frequently. The
+  trap itself stays — when delivered to the main shell it wakes `read`
+  early; when delivered to a subshell, the next iteration's poll catches
+  the file.
+  **Hint:** mako 1.10 returns the actions array as a D-Bus dict (type
+  `a{ss}`) which busctl --json=short renders as a JSON object, NOT the
+  alternating-strings array the freedesktop spec suggests. query_mako_state
+  type-switches with jq: object → `to_entries | map([.key, .value]) |
+  flatten` to get an alternating array; array → pass through; else → [].
+  Dict iteration order is mako-internal (currently insertion-reverse) so
+  the slot assignment to action-1/2/3 isn't argv-stable.
 
 - **2026-06-10** — **Notification center P1: drawer + DND + per-app rules.**
   Extends the spine (same-day spine commit) with a hover-revealed DND
