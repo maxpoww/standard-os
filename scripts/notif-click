@@ -18,12 +18,15 @@ CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif-bell}"
 # ─── Pure decision function ────────────────────────────────────────────────
 # notif_click_decide ACTION CACHE_CONTENT → one of (current outputs):
 #   bell  on transient  → "invoke-and-dismiss"  (P1; runtime wired in task 7)
+#   bell  on transient + otp_code → "invoke-otp"   (P2; copy + 500ms + dismiss)
 #   bell  on rest       → "open-rofi"           (P1; runtime wired in task 7)
 #   bell  on empty/bad  → "noop"
 #   dnd                 → "toggle-dnd"          (P1; runtime wired in task 7)
 #   invoke on transient → "invoke-latest"       (legacy spine; removed task 7)
 #   invoke on rest      → "dismiss-all"         (legacy spine; removed task 7)
 #   invoke on empty/bad → "noop"
+#   action on populated cache    → "invoke-action" (P2; makoctl invoke -n <id> <key>)
+#   action on empty/missing key  → "noop"
 #   drawer / unknown    → "noop"
 #
 # Transient detection: the daemon's render functions build transient text as
@@ -47,6 +50,14 @@ notif_click_decide() {
                 printf 'noop'
                 return 0
             fi
+            # P2: if cache carries a non-empty otp_code, the click should run
+            # the OTP-copy flow instead of the standard invoke+dismiss.
+            local otp
+            otp=$(printf '%s' "$cache_content" | jq -r '.otp_code // empty' 2>/dev/null)
+            if [[ -n $otp ]]; then
+                printf 'invoke-otp'
+                return 0
+            fi
             if [[ $cache_content == *' · '* ]]; then
                 printf 'invoke-and-dismiss'
             else
@@ -56,6 +67,16 @@ notif_click_decide() {
         dnd)
             # DND toggle is unconditional — mako handles toggle semantics.
             printf 'toggle-dnd'
+            ;;
+        action)
+            # Action click: cache must carry a non-empty `key` field.
+            local key
+            key=$(printf '%s' "$cache_content" | jq -r '.key // empty' 2>/dev/null)
+            if [[ -n $key ]]; then
+                printf 'invoke-action'
+            else
+                printf 'noop'
+            fi
             ;;
         invoke|drawer)
             # Legacy subcommands (spine spec). Kept until task 7 cleans up

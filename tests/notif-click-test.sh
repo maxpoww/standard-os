@@ -101,6 +101,34 @@ assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
 assert_eq "$(notif_click_decide unknown '')" "noop" \
     "unknown subcommand → noop"
 
+# ─── bell on transient with otp_code → 'invoke-otp' (P2) ──────────────────
+out=$(notif_click_decide bell '{"text":"<b>Bank</b> · Code 1234","class":["opt-pill","dark","opt-glow-green"],"tooltip":"","otp_code":"1234"}')
+assert_eq "$out" "invoke-otp" "[bell on transient + otp_code → invoke-otp]"
+
+# Bell transient WITHOUT otp_code → still invoke-and-dismiss
+out=$(notif_click_decide bell '{"text":"<b>App</b> · regular","class":["opt-pill","dark"],"tooltip":"","otp_code":""}')
+assert_eq "$out" "invoke-and-dismiss" "[bell on transient + no otp_code → invoke-and-dismiss]"
+
+# Bell transient with otp_code="" (empty string) → invoke-and-dismiss
+out=$(notif_click_decide bell '{"text":"<b>App</b> · t","class":["opt-pill","dark"],"otp_code":""}')
+assert_eq "$out" "invoke-and-dismiss" "[bell transient otp_code empty → invoke-and-dismiss]"
+
+# ─── action subcommand ───────────────────────────────────────────────────
+out=$(notif_click_decide action '{"text":"Reply","class":["opt-pill-child","dark","opt-yes"],"key":"reply"}')
+assert_eq "$out" "invoke-action" "[action on populated cache → invoke-action]"
+
+# Action on empty cache → noop
+out=$(notif_click_decide action '{"text":""}')
+assert_eq "$out" "noop" "[action on empty cache → noop]"
+
+# Action with no key field → noop
+out=$(notif_click_decide action '{"text":"Reply","class":["opt-pill-child","dark","opt-yes"]}')
+assert_eq "$out" "noop" "[action without key field → noop]"
+
+# Action with empty string key → noop
+out=$(notif_click_decide action '{"text":"Reply","key":""}')
+assert_eq "$out" "noop" "[action with empty key → noop]"
+
 if [[ $fail -eq 0 ]]; then
     printf '\n✓ all tests passed\n'; exit 0
 else
