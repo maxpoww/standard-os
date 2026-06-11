@@ -80,24 +80,34 @@ detect_otp() {
 
 # ─── render_bell_for_state ──────────────────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
-# during the 5s arrival window, opt-pushed composing with DND. Pure function.
+# during the 5s arrival window, glyph swap encoding the active silence profile.
+# Pure function.
 #
 # Args:
-#   $1 unread      — total unread count
-#   $2 critical    — critical unread count
-#   $3 dnd_on      — 0 or 1
-#   $4 kind        — '' | 'normal' | 'critical'  (transient kind)
-#   $5 app         — origin app (when kind != '')
-#   $6 title       — summary (when kind != '')
-#   $7 body        — body (tooltip text when transient)
-#   $8 otp_code    — extracted OTP code string, or empty (P2)
-#   $9 otp_copied  — 0 or 1; appends ' · copied' to text when 1 (P2)
+#   $1 unread        — total unread count
+#   $2 critical      — critical unread count
+#   $3 silence_mode  — 'none' | 'transient' | 'all-but-critical-silent' |
+#                      'non-allowed' | 'all'  (P3: replaces dnd_on 0/1)
+#   $4 kind          — '' | 'normal' | 'critical'  (transient kind)
+#   $5 app           — origin app (when kind != '')
+#   $6 title         — summary (when kind != '')
+#   $7 body          — body (tooltip text when transient)
+#   $8 otp_code      — extracted OTP code string, or empty (P2)
+#   $9 otp_copied    — 0 or 1; appends ' · copied' to text when 1 (P2)
 render_bell_for_state() {
-    local unread="${1:-0}" critical="${2:-0}" dnd_on="${3:-0}"
+    local unread="${1:-0}" critical="${2:-0}" silence_mode="${3:-none}"
     local kind="${4:-}" app="${5:-}" title="${6:-}" body="${7:-}"
     local otp_code="${8:-}" otp_copied="${9:-0}"
 
-    local bell=$'\xef\x83\xb3'
+    # Glyph: FA bell (U+F0F3 \xef\x83\xb3) when silenceMode=none,
+    # FA solid bell-slash (U+F1F7 \xef\x87\xb7) otherwise.
+    local bell
+    if [[ $silence_mode == "none" ]]; then
+        bell=$'\xef\x83\xb3'
+    else
+        bell=$'\xef\x87\xb7'
+    fi
+
     local -a classes=("opt-pill" "dark")
 
     if [[ -n $kind ]]; then
@@ -105,15 +115,12 @@ render_bell_for_state() {
             critical)
                 classes+=("opt-no" "opt-pulse-orange")
                 ;;
-            normal)
-                # No additional classes — silent normal arrival (Rule 4).
-                ;;
-            *)
-                # Defensive: unknown kind treated as silent normal.
+            normal|*)
                 ;;
         esac
         [[ -n $otp_code ]] && classes+=("opt-glow-green")
-        (( dnd_on == 1 )) && classes+=("opt-pushed")
+        # NB: opt-pushed dropped from P3. Profile-active signal lives in the
+        # glyph swap above (none → bell, anything else → bell-slash).
 
         local classes_json
         _classes_json classes_json "${classes[@]}"
@@ -139,7 +146,7 @@ render_bell_for_state() {
         return 0
     fi
 
-    # Rest face: bell glyph, pin color reflects urgency, no Pango.
+    # Rest face: glyph + pin color.
     if (( unread > 0 )); then
         if (( critical > 0 )); then
             classes+=("opt-pin-orange")
@@ -147,7 +154,7 @@ render_bell_for_state() {
             classes+=("opt-pin-green")
         fi
     fi
-    (( dnd_on == 1 )) && classes+=("opt-pushed")
+    # No opt-pushed on rest either.
 
     local classes_json
     _classes_json classes_json "${classes[@]}"

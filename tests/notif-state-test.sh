@@ -57,47 +57,47 @@ assert_eq "$(json_escape '\\"')"             '\\\\\"'    "json_escape: backslash
 # Returns one JSON object describing the bell parent pill.
 if command -v jq >/dev/null 2>&1; then
 
-    # Rest face — empty bell, DND off
-    out=$(render_bell_for_state 0 0 0 "" "" "" "")
+    # Rest face — empty bell, silence off
+    out=$(render_bell_for_state 0 0 "none" "" "" "" "")
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.class | contains(["opt-pin-green","opt-pin-orange","opt-pushed"])')" \
         "false" \
-        "bell: 0 unread, DND off → plain bell, no pin"
+        "bell: 0 unread, silence none → plain bell, no pin"
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.tooltip')" \
         "Notifications" \
         "bell: 0 unread → tooltip Notifications"
 
-    # Rest face — empty bell, DND on
-    out=$(render_bell_for_state 0 0 1 "" "" "" "")
+    # Rest face — empty bell, silence on (opt-pushed now dropped; glyph swap carries signal)
+    out=$(render_bell_for_state 0 0 "transient" "" "" "" "")
     assert_eq \
-        "$(printf '%s' "$out" | jq -r '.class | index("opt-pushed") != null')" \
+        "$(printf '%s' "$out" | jq -r '.class | index("opt-pushed") == null')" \
         "true" \
-        "bell: 0 unread, DND on → opt-pushed"
+        "bell: 0 unread, silence transient → no opt-pushed (P3: glyph swap carries signal)"
 
     # Rest face — N unread normal
-    out=$(render_bell_for_state 3 0 0 "" "" "" "")
+    out=$(render_bell_for_state 3 0 "none" "" "" "" "")
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.class | index("opt-pin-green") != null')" \
         "true" \
         "bell: 3 unread, no critical → opt-pin-green"
 
     # Rest face — N unread with critical
-    out=$(render_bell_for_state 3 1 0 "" "" "" "")
+    out=$(render_bell_for_state 3 1 "none" "" "" "" "")
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.class | index("opt-pin-orange") != null')" \
         "true" \
         "bell: critical pinned → opt-pin-orange"
 
-    # Composes DND + pin
-    out=$(render_bell_for_state 3 1 1 "" "" "" "")
+    # Composes silence mode + pin (opt-pushed dropped; only pin-orange present)
+    out=$(render_bell_for_state 3 1 "transient" "" "" "" "")
     assert_eq \
-        "$(printf '%s' "$out" | jq -r '[.class[] | select(. == "opt-pushed" or . == "opt-pin-orange")] | length')" \
-        "2" \
-        "bell: DND on + critical → opt-pushed + opt-pin-orange"
+        "$(printf '%s' "$out" | jq -r '.class | index("opt-pin-orange") != null')" \
+        "true" \
+        "bell: silence transient + critical → opt-pin-orange (no opt-pushed in P3)"
 
     # Transient face — normal (silent, no opt-flash, no animation)
-    out=$(render_bell_for_state 1 0 0 "normal" "Slack" "PR review" "body")
+    out=$(render_bell_for_state 1 0 "none" "normal" "Slack" "PR review" "body")
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.text | contains(" · ")')" \
         "true" \
@@ -112,7 +112,7 @@ if command -v jq >/dev/null 2>&1; then
         "bell transient normal: no animation"
 
     # Transient face — critical (pulse-orange, opt-no)
-    out=$(render_bell_for_state 1 1 0 "critical" "systemd" "foo.service" "failed")
+    out=$(render_bell_for_state 1 1 "none" "critical" "systemd" "foo.service" "failed")
     assert_eq \
         "$(printf '%s' "$out" | jq -r '.class | index("opt-pulse-orange") != null')" \
         "true" \
@@ -126,12 +126,12 @@ if command -v jq >/dev/null 2>&1; then
         "failed" \
         "bell transient critical: tooltip is body"
 
-    # Transient face — DND on critical (still pierces with same render)
-    out=$(render_bell_for_state 1 1 1 "critical" "systemd" "foo.service" "failed")
+    # Transient face — silence mode critical (opt-pushed dropped; only pulse-orange)
+    out=$(render_bell_for_state 1 1 "transient" "critical" "systemd" "foo.service" "failed")
     assert_eq \
-        "$(printf '%s' "$out" | jq -r '[.class[] | select(. == "opt-pulse-orange" or . == "opt-pushed")] | length')" \
-        "2" \
-        "bell transient critical+DND: pulse-orange still + opt-pushed composes"
+        "$(printf '%s' "$out" | jq -r '.class | index("opt-pulse-orange") != null')" \
+        "true" \
+        "bell transient critical+silence: pulse-orange present (no opt-pushed in P3)"
 
     # class is JSON array
     assert_eq \
@@ -182,7 +182,7 @@ fi
 # A raw " or \ in any field previously produced broken JSON and waybar rendered
 # an empty pill. Verify with jq — if the output parses, the escaping is correct.
 if command -v jq >/dev/null 2>&1; then
-    out=$(render_bell_for_state 1 0 0 "normal" 'Quote"App' 'Title with "quotes"' 'body with "more quotes" and \backslash')
+    out=$(render_bell_for_state 1 0 "none" "normal" 'Quote"App' 'Title with "quotes"' 'body with "more quotes" and \backslash')
     assert_eq \
         "$(printf '%s' "$out" | jq -e . >/dev/null 2>&1 && echo VALID || echo BROKEN)" \
         "VALID" \
@@ -270,34 +270,34 @@ assert_eq \
 # New args: OTP_CODE (string), OTP_COPIED (0/1)
 
 # Transient — pango-bold app name
-out=$(render_bell_for_state 1 0 0 "normal" "Slack" "PR review" "body" "" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "Slack" "PR review" "body" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.text')" \
     "<b>Slack</b> · PR review" \
     "[bell transient: app wrapped in <b>]"
 
 # Pango-escape: <, >, & in app name
-out=$(render_bell_for_state 1 0 0 "normal" "<script>" "title" "" "" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "<script>" "title" "" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.text')" \
     "<b>&lt;script&gt;</b> · title" \
     "[bell transient: pango-escape app <script>]"
 
-out=$(render_bell_for_state 1 0 0 "normal" "Tom & Jerry" "ep1" "" "" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "Tom & Jerry" "ep1" "" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.text')" \
     "<b>Tom &amp; Jerry</b> · ep1" \
     "[bell transient: pango-escape app &]"
 
 # Title also escaped
-out=$(render_bell_for_state 1 0 0 "normal" "App" "<b>injected</b>" "" "" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "App" "<b>injected</b>" "" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.text')" \
     "<b>App</b> · &lt;b&gt;injected&lt;/b&gt;" \
     "[bell transient: pango-escape title <b>]"
 
 # OTP_CODE non-empty → opt-glow-green added
-out=$(render_bell_for_state 1 0 0 "normal" "Bank" "Code 1234" "" "1234" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "Bank" "Code 1234" "" "1234" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.class | index("opt-glow-green") != null')" \
     "true" \
@@ -308,7 +308,7 @@ assert_eq \
     "[bell transient OTP: otp_code field present]"
 
 # OTP_CODE empty → no opt-glow-green, otp_code field empty string
-out=$(render_bell_for_state 1 0 0 "normal" "App" "title" "" "" 0)
+out=$(render_bell_for_state 1 0 "none" "normal" "App" "title" "" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.class | index("opt-glow-green") == null')" \
     "true" \
@@ -319,21 +319,21 @@ assert_eq \
     "[bell transient no-OTP: otp_code is empty string]"
 
 # OTP_COPIED=1 → text gains " · copied" suffix
-out=$(render_bell_for_state 1 0 0 "normal" "Bank" "Code 1234" "" "1234" 1)
+out=$(render_bell_for_state 1 0 "none" "normal" "Bank" "Code 1234" "" "1234" 1)
 assert_eq \
     "$(echo "$out" | jq -r '.text')" \
     "<b>Bank</b> · Code 1234 · copied" \
     "[bell transient OTP copied: text has copied suffix]"
 
 # Critical + OTP composes: opt-pulse-orange AND opt-glow-green
-out=$(render_bell_for_state 1 1 0 "critical" "Bank" "Critical" "danger" "9999" 0)
+out=$(render_bell_for_state 1 1 "none" "critical" "Bank" "Critical" "danger" "9999" 0)
 assert_eq \
     "$(echo "$out" | jq -r '[.class[] | select(. == "opt-pulse-orange" or . == "opt-glow-green")] | length')" \
     "2" \
     "[bell critical+OTP: both opt-pulse-orange and opt-glow-green]"
 
 # Rest face emits otp_code as empty string (schema stability)
-out=$(render_bell_for_state 0 0 0 "" "" "" "" "" 0)
+out=$(render_bell_for_state 0 0 "none" "" "" "" "" "" 0)
 assert_eq \
     "$(echo "$out" | jq -r '.otp_code')" \
     "" \
@@ -370,6 +370,43 @@ assert_eq \
 assert_eq \
   "$(echo "$out" | jq -r '.key')" 'key"with' \
   "[action: JSON-escapes quote in key]"
+
+# ─── render_bell_for_state — P3 SILENCE_MODE arg + glyph swap ────────────
+
+# Off (silenceMode=none) → bell glyph
+out=$(render_bell_for_state 0 0 "none" "" "" "" "" "" 0)
+text=$(echo "$out" | jq -r '.text' | od -An -tx1 | tr -d ' \n' | head -c 6)
+assert_eq "$text" "ef83b3" "[P3 rest: Off → bell glyph (ef83b3)]"
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pushed") == null')" "true" \
+  "[P3 rest: Off → no opt-pushed]"
+
+# Suppress modes → bell-slash glyph
+for mode in transient all-but-critical-silent non-allowed all; do
+    out=$(render_bell_for_state 0 0 "$mode" "" "" "" "" "" 0)
+    text=$(echo "$out" | jq -r '.text' | od -An -tx1 | tr -d ' \n' | head -c 6)
+    assert_eq "$text" "ef87b7" "[P3 rest: $mode → bell-slash glyph (ef87b7)]"
+    assert_eq \
+      "$(echo "$out" | jq -r '.class | index("opt-pushed") == null')" "true" \
+      "[P3 rest: $mode → no opt-pushed]"
+done
+
+# Pin colors compose orthogonally with profile
+out=$(render_bell_for_state 3 0 "transient" "" "" "" "" "" 0)
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pin-green") != null')" "true" \
+  "[P3 rest: 3 unread + transient → opt-pin-green]"
+
+out=$(render_bell_for_state 3 1 "all-but-critical-silent" "" "" "" "" "" 0)
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pin-orange") != null')" "true" \
+  "[P3 rest: 3 unread w/ critical + media → opt-pin-orange]"
+
+# Transient face: bold app + title remains unchanged; opt-pushed never appears.
+out=$(render_bell_for_state 1 0 "none" "normal" "Slack" "PR review" "body" "" 0)
+assert_eq \
+  "$(echo "$out" | jq -r '.class | index("opt-pushed") == null')" "true" \
+  "[P3 transient: no opt-pushed regardless of silence mode]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
