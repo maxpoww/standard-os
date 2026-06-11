@@ -115,6 +115,13 @@ for the maintenance contract.
   **Hint:** The `dnd` subcommand of notif-click is GONE. Any user
   keybindings or scripts calling it must migrate to
   `notif-click profile` (opens the rofi picker).
+  **Hint:** Acceptance gate: profile-change propagation after SIGUSR1
+  takes up to ~1.5s in the worst case because of the same bash
+  signal-vs-subshell bug P1/P2 hit. The daemon has BOTH a SIGUSR1
+  trap (immediate when delivered to the main shell) AND a 1s idle-tick
+  `resolve_and_load_profile + emit` fallback that catches missed
+  signals. Manual rofi-picker UX feels instant; programmatic tests
+  should sleep ≥1.5s after writing the override file + signaling.
 
 - **2026-06-10** — **Notification center P2: actions + app icons + 2FA extraction.**
   Composes onto the live P1 architecture: three child action pills
