@@ -46,6 +46,35 @@ check "[quoted summary passes through]" test -n "$(echo "$out" | grep -F 'has "q
 out=$(format_rofi_entry "2026-06-10T11:00:00-03:00" "" "" 1 0 0)
 check "[empty app/summary still produces a row]" test -n "$out"
 
+# ─── format_rofi_entry icon hint (P2) ─────────────────────────────────────
+# The icon hint is appended as rofi's row-metadata format:
+#   <display>\0icon\x1f<icon-name>
+# where \0 is NUL and \x1f is the ASCII unit separator. We use the
+# notification's app_name as the icon-theme lookup key.
+
+out=$(format_rofi_entry "2026-06-10T10:42:00-03:00" "Slack" "Hello" 1 1 0)
+
+# Display portion still present
+check "[icon row: display has hh:mm + App · Summary]" \
+  test -n "$(printf '%s' "$out" | grep -F '10:42  Slack · Hello')"
+
+# Icon hint appended after NUL + "icon" + US (0x1F)
+expected_suffix=$(printf '\0icon\x1fSlack')
+check "[icon row: ends with \\0icon\\x1f<app_name>]" \
+  test -n "$(printf '%s' "$out" | tr -d '\n' | grep -F "$expected_suffix")"
+
+# Historical entry (UNREAD=0): icon still appended
+out=$(format_rofi_entry "2026-06-09T09:00:00-03:00" "firefox" "Page loaded" 1 0 0)
+expected_suffix=$(printf '\0icon\x1ffirefox')
+check "[historical icon row: ends with \\0icon\\x1f<app_name>]" \
+  test -n "$(printf '%s' "$out" | tr -d '\n' | grep -F "$expected_suffix")"
+
+# Empty app — no icon hint suffix would be `\0icon\x1f` (empty icon).
+out=$(format_rofi_entry "2026-06-10T11:00:00-03:00" "" "" 1 0 0)
+expected_suffix=$(printf '\0icon\x1f')
+check "[empty app: icon hint still emitted (empty value)]" \
+  test -n "$(printf '%s' "$out" | tr -d '\n' | grep -F "$expected_suffix")"
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"

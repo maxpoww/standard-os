@@ -28,5 +28,10 @@ format_rofi_entry() {
         tags+=" · unread"
         (( critical )) && tags+=" · critical"
     fi
-    printf '%s  %s · %s%s' "$hhmm" "$app" "$summary" "$tags"
+    # Rofi row metadata: literal NUL + "icon" + literal US (0x1F) + value.
+    # The app_name doubles as the icon-theme lookup key. Rofi resolves it
+    # against the freedesktop icon theme via `-show-icons`; unknown names
+    # render as text-only rows (no icon column).
+    printf '%s  %s · %s%s\0icon\x1f%s' \
+        "$hhmm" "$app" "$summary" "$tags" "$app"
 }
