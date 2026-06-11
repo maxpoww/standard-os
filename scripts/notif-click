@@ -168,9 +168,10 @@ case "$decision" in
     open-rofi)
         exec notif-rofi
         ;;
-    toggle-dnd)
-        makoctl mode -t dnd 2>/dev/null || true
-        systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
+    open-profile-rofi)
+        # P3: launch the focus-profile picker. The picker writes the override
+        # file then signals SIGUSR1 to notif-daemon for immediate re-resolve.
+        exec notif-rofi-profiles
         ;;
     invoke-action)
         # P2: read the action key from the action-N cache; the wrapper above
