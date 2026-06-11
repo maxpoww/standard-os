@@ -83,33 +83,41 @@ build_rows() {
             fi
             local crit=0
             (( urgency == 2 )) && crit=1
-            printf '%s\n' "$(format_rofi_entry "$ts" "$app" "$summary" "$urgency" 1 "$crit")"
+            # Direct printf to stdout — preserves the \0icon\x1f<name>
+            # row metadata that format_rofi_entry appends (NULs are stripped
+            # by $() command substitution, so we emit directly).
+            format_rofi_entry "$ts" "$app" "$summary" "$urgency" 1 "$crit"
+            printf '\n'
         done <<< "$live_map"
     fi
 
-    # History — journal entries NOT in live map
+    # History — journal entries NOT in live map. Two-pass so we can emit the
+    # "History (N)" header before the rows when N > 0, without buffering
+    # NULs through a bash variable (subshell capture strips them).
     if [[ -s $JOURNAL ]]; then
-        local hist_count=0
-        local rows=""
+        local -a hist_fields=()
         while IFS= read -r line; do
             [[ -z $line ]] && continue
-            # Extract all fields in ONE jq invocation; tab-separated; defensive against
-            # malformed lines (fromjson? // empty would output nothing → continue).
             local fields id urgency ts app summary
             fields=$(printf '%s' "$line" | jq -r '
                 fromjson? // empty
                 | [.id, .urgency, .ts, .app, .summary] | @tsv
             ' 2>/dev/null) || continue
             [[ -z $fields ]] && continue
-            IFS=$'\t' read -r id urgency ts app summary <<< "$fields"
-            # Skip if this id is already rendered in the Unread section above.
+            id="${fields%%$'\t'*}"
             if grep -qE "^${id}"$'\t' <<< "$live_map"; then continue; fi
-            rows+="$(format_rofi_entry "$ts" "$app" "$summary" "$urgency" 0 0)"$'\n'
-            hist_count=$((hist_count+1))
+            hist_fields+=("$fields")
         done < <(tac "$JOURNAL")
+        local hist_count=${#hist_fields[@]}
         if (( hist_count > 0 )); then
-            printf '%s\n' "$(format_rofi_header "History ($hist_count)")"
-            printf '%s' "$rows"
+            format_rofi_header "History ($hist_count)"
+            printf '\n'
+            local f
+            for f in "${hist_fields[@]}"; do
+                IFS=$'\t' read -r id urgency ts app summary <<< "$f"
+                format_rofi_entry "$ts" "$app" "$summary" "$urgency" 0 0
+                printf '\n'
+            done
         fi
     fi
 }
@@ -163,6 +171,7 @@ handle_pick() {
 }
 
 # ─── Run ───────────────────────────────────────────────────────────────────
-rows=$(build_rows)
-pick=$(printf '%s' "$rows" | rofi -dmenu -i -p "notifications" -no-custom -theme-str 'window { width: 50%; }' 2>/dev/null) || exit 0
+# Pipe build_rows directly to rofi (no $() capture in between) so the
+# \0icon\x1f<app_name> row metadata reaches rofi intact.
+pick=$(build_rows | rofi -dmenu -i -p "notifications" -no-custom -show-icons -theme-str 'window { width: 50%; }' 2>/dev/null) || exit 0
 handle_pick "$pick"
