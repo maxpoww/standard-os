@@ -21,7 +21,7 @@ CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif-bell}"
 #   bell  on transient + otp_code → "invoke-otp"   (P2; copy + 500ms + dismiss)
 #   bell  on rest       → "open-rofi"           (P1; runtime wired in task 7)
 #   bell  on empty/bad  → "noop"
-#   dnd                 → "toggle-dnd"          (P1; runtime wired in task 7)
+#   profile             → "open-profile-rofi"   (P3; execs notif-rofi-profiles)
 #   invoke on transient → "invoke-latest"       (legacy spine; removed task 7)
 #   invoke on rest      → "dismiss-all"         (legacy spine; removed task 7)
 #   invoke on empty/bad → "noop"
@@ -64,9 +64,11 @@ notif_click_decide() {
                 printf 'open-rofi'
             fi
             ;;
-        dnd)
-            # DND toggle is unconditional — mako handles toggle semantics.
-            printf 'toggle-dnd'
+        profile)
+            # P3: always open the rofi profile picker. Cache content is
+            # ignored — the picker shows the full list regardless of which
+            # profile is currently active.
+            printf 'open-profile-rofi'
             ;;
         action)
             # Action click: cache must carry a non-empty `key` field.

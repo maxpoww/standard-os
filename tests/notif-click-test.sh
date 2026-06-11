@@ -89,13 +89,17 @@ assert_eq "$(notif_click_decide bell '{"text":""}')" "noop" \
 assert_eq "$(notif_click_decide bell 'not json')" "noop" \
     "bell on garbage → noop"
 
-# ─── dnd subcommand ───────────────────────────────────────────────────────
-# dnd always → toggle-dnd (mako handles direction)
-assert_eq "$(notif_click_decide dnd '{"text":"X","class":["opt-pill-child","dark"]}')" "toggle-dnd" \
-    "dnd → toggle-dnd"
+# ─── profile subcommand (P3) ──────────────────────────────────────────────
+out=$(notif_click_decide profile '{"text":"Work","class":["opt-pill-child","dark","opt-yes"]}')
+assert_eq "$out" "open-profile-rofi" "[profile → open-profile-rofi]"
 
-assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
-    "dnd with empty cache still toggle-dnd"
+# Even on empty cache, profile always opens rofi.
+out=$(notif_click_decide profile '')
+assert_eq "$out" "open-profile-rofi" "[profile (empty cache) → open-profile-rofi]"
+
+# Legacy `dnd` subcommand REMOVED; treated as unknown → noop.
+out=$(notif_click_decide dnd '{"text":"X"}')
+assert_eq "$out" "noop" "[dnd legacy removed → noop]"
 
 # ─── unknown subcommand → noop ────────────────────────────────────────────
 assert_eq "$(notif_click_decide unknown '')" "noop" \
