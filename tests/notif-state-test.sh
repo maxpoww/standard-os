@@ -188,7 +188,7 @@ if command -v jq >/dev/null 2>&1; then
         "VALID" \
         "C1 regression: transient with quotes in fields → emits valid JSON"
     assert_eq \
-        "$(printf '%s' "$out" | jq -r '.text' | cut -d' ' -f1)" \
+        "$(printf '%s' "$out" | jq -r '.text' | sed 's|^<b>||; s|</b>.*||')" \
         'Quote"App' \
         "C1 regression: transient with quotes — app round-trips through JSON"
 fi
@@ -265,6 +265,79 @@ assert_eq \
 assert_eq \
     "$(detect_otp "" "code 123456789")" "" \
     "[OTP: 9-digit ignored]"
+
+# ─── render_bell_for_state — P2 extensions ────────────────────────────────
+# New args: OTP_CODE (string), OTP_COPIED (0/1)
+
+# Transient — pango-bold app name
+out=$(render_bell_for_state 1 0 0 "normal" "Slack" "PR review" "body" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.text')" \
+    "<b>Slack</b> · PR review" \
+    "[bell transient: app wrapped in <b>]"
+
+# Pango-escape: <, >, & in app name
+out=$(render_bell_for_state 1 0 0 "normal" "<script>" "title" "" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.text')" \
+    "<b>&lt;script&gt;</b> · title" \
+    "[bell transient: pango-escape app <script>]"
+
+out=$(render_bell_for_state 1 0 0 "normal" "Tom & Jerry" "ep1" "" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.text')" \
+    "<b>Tom &amp; Jerry</b> · ep1" \
+    "[bell transient: pango-escape app &]"
+
+# Title also escaped
+out=$(render_bell_for_state 1 0 0 "normal" "App" "<b>injected</b>" "" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.text')" \
+    "<b>App</b> · &lt;b&gt;injected&lt;/b&gt;" \
+    "[bell transient: pango-escape title <b>]"
+
+# OTP_CODE non-empty → opt-glow-green added
+out=$(render_bell_for_state 1 0 0 "normal" "Bank" "Code 1234" "" "1234" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.class | index("opt-glow-green") != null')" \
+    "true" \
+    "[bell transient OTP: opt-glow-green present]"
+assert_eq \
+    "$(echo "$out" | jq -r '.otp_code')" \
+    "1234" \
+    "[bell transient OTP: otp_code field present]"
+
+# OTP_CODE empty → no opt-glow-green, otp_code field empty string
+out=$(render_bell_for_state 1 0 0 "normal" "App" "title" "" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.class | index("opt-glow-green") == null')" \
+    "true" \
+    "[bell transient no-OTP: no opt-glow-green]"
+assert_eq \
+    "$(echo "$out" | jq -r '.otp_code')" \
+    "" \
+    "[bell transient no-OTP: otp_code is empty string]"
+
+# OTP_COPIED=1 → text gains " · copied" suffix
+out=$(render_bell_for_state 1 0 0 "normal" "Bank" "Code 1234" "" "1234" 1)
+assert_eq \
+    "$(echo "$out" | jq -r '.text')" \
+    "<b>Bank</b> · Code 1234 · copied" \
+    "[bell transient OTP copied: text has copied suffix]"
+
+# Critical + OTP composes: opt-pulse-orange AND opt-glow-green
+out=$(render_bell_for_state 1 1 0 "critical" "Bank" "Critical" "danger" "9999" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '[.class[] | select(. == "opt-pulse-orange" or . == "opt-glow-green")] | length')" \
+    "2" \
+    "[bell critical+OTP: both opt-pulse-orange and opt-glow-green]"
+
+# Rest face emits otp_code as empty string (schema stability)
+out=$(render_bell_for_state 0 0 0 "" "" "" "" "" 0)
+assert_eq \
+    "$(echo "$out" | jq -r '.otp_code')" \
+    "" \
+    "[bell rest: otp_code field empty string]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then

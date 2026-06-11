@@ -78,7 +78,7 @@ detect_otp() {
     printf '%s' "$match"
 }
 
-# ─── render_bell_for_state (P1 design) ─────────────────────────────────────
+# ─── render_bell_for_state ──────────────────────────────────────────────────
 # The bell parent pill carries ALL state: pin color at rest, transient face
 # during the 5s arrival window, opt-pushed composing with DND. Pure function.
 #
@@ -90,20 +90,17 @@ detect_otp() {
 #   $5 app         — origin app (when kind != '')
 #   $6 title       — summary (when kind != '')
 #   $7 body        — body (tooltip text when transient)
+#   $8 otp_code    — extracted OTP code string, or empty (P2)
+#   $9 otp_copied  — 0 or 1; appends ' · copied' to text when 1 (P2)
 render_bell_for_state() {
     local unread="${1:-0}" critical="${2:-0}" dnd_on="${3:-0}"
     local kind="${4:-}" app="${5:-}" title="${6:-}" body="${7:-}"
+    local otp_code="${8:-}" otp_copied="${9:-0}"
 
-    # FA solid bell U+F0F3, raw UTF-8 bytes — verify with od -An -c if you edit
     local bell=$'\xef\x83\xb3'
-
-    # Build the class array as positional args, then format as JSON array literal
     local -a classes=("opt-pill" "dark")
 
     if [[ -n $kind ]]; then
-        # Transient face: wide pill, App · Title text. NO opt-flash on normal
-        # (Rule 4 silent context shift). Critical adds opt-no + opt-pulse-orange
-        # (urgency mandate pierces the silent rule, matches the spine).
         case "$kind" in
             critical)
                 classes+=("opt-no" "opt-pulse-orange")
@@ -112,28 +109,37 @@ render_bell_for_state() {
                 # No additional classes — silent normal arrival (Rule 4).
                 ;;
             *)
-                # Defensive: unknown kind treated as silent normal. The runtime
-                # state machine only ever produces 'normal' or 'critical'; this
-                # branch is dead in practice but keeps render pure.
+                # Defensive: unknown kind treated as silent normal.
                 ;;
         esac
+        [[ -n $otp_code ]] && classes+=("opt-glow-green")
         (( dnd_on == 1 )) && classes+=("opt-pushed")
+
         local classes_json
         _classes_json classes_json "${classes[@]}"
-        # Self-contained: escape app/title/body for JSON. The legacy renderer
-        # required callers to pre-escape; the new renderer owns its quoting so
-        # waybar never sees broken JSON when a notification has " or \ in any
-        # field (D-Bus does NOT escape these for us).
-        local app_esc title_esc body_esc
-        app_esc=$(json_escape "$app")
-        title_esc=$(json_escape "$title")
+
+        # Self-contained escaping: pango_escape BEFORE the <b>...</b> wrap so
+        # raw user-supplied text can't inject markup; then json_escape the
+        # composed text so the JSON itself stays valid.
+        local app_pango title_pango body_esc otp_code_esc
+        app_pango=$(pango_escape "$app")
+        title_pango=$(pango_escape "$title")
         body_esc=$(json_escape "$body")
-        printf '{"text":"%s · %s","class":%s,"tooltip":"%s"}' \
-            "$app_esc" "$title_esc" "$classes_json" "$body_esc"
+        otp_code_esc=$(json_escape "$otp_code")
+
+        local app_esc title_esc text_body
+        app_esc=$(json_escape "$app_pango")
+        title_esc=$(json_escape "$title_pango")
+        text_body="<b>${app_esc}</b> · ${title_esc}"
+        if (( otp_copied == 1 )); then
+            text_body+=" · copied"
+        fi
+        printf '{"text":"%s","class":%s,"tooltip":"%s","otp_code":"%s"}' \
+            "$text_body" "$classes_json" "$body_esc" "$otp_code_esc"
         return 0
     fi
 
-    # Rest face: bell glyph, pin color reflects urgency.
+    # Rest face: bell glyph, pin color reflects urgency, no Pango.
     if (( unread > 0 )); then
         if (( critical > 0 )); then
             classes+=("opt-pin-orange")
@@ -145,7 +151,8 @@ render_bell_for_state() {
 
     local classes_json
     _classes_json classes_json "${classes[@]}"
-    printf '{"text":"%s","class":%s,"tooltip":"Notifications"}' "$bell" "$classes_json"
+    printf '{"text":"%s","class":%s,"tooltip":"Notifications","otp_code":""}' \
+        "$bell" "$classes_json"
 }
 
 # ─── render_dnd_for_state ──────────────────────────────────────────────────
