@@ -527,6 +527,9 @@
       "transition-left-to-right": false
     },
     "modules": [
+      "custom/notif-action-3",
+      "custom/notif-action-2",
+      "custom/notif-action-1",
       "custom/notif-dnd",
       "custom/notif-bell"
     ]
@@ -548,6 +551,37 @@
     "signal": 12,
     "tooltip": true,
     "on-click": "notif-click dnd"
+  },
+  // ── P2 action child pills — hover-revealed under group/notif ────────────
+  // Populated by notif-daemon from each notification's `actions` array (up
+  // to 3 per notification). When the current transient has no actions, all
+  // three caches emit {"text":""} so the children .empty-collapse.
+  "custom/notif-action-1": {
+    "exec": "cat /tmp/waybar-cache/notif-action-1 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click action 1"
+  },
+  "custom/notif-action-2": {
+    "exec": "cat /tmp/waybar-cache/notif-action-2 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click action 2"
+  },
+  "custom/notif-action-3": {
+    "exec": "cat /tmp/waybar-cache/notif-action-3 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click action 3"
   },
   "custom/clock": {
     "exec": ". ~/.config/waybar/scripts/lib/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
