@@ -566,10 +566,27 @@ while true; do
             fi
         fi
     fi
+    # Cap read timeout so the top-of-loop drains (USR1 DND poll, USR2 OTP
+    # rendezvous file poll) run frequently even mid-transient. Bash signal
+    # traps fire in whatever subshell is active at signal-delivery time;
+    # if that subshell is a $() command-substitution, the *_PENDING flag
+    # update is silently lost. The file-existence poll is the reliable
+    # fallback, but it only runs once per loop iteration.
+    # - 0.5s during OTP-copied (need to fire the 500ms timer accurately)
+    # - 0.5s during transient (rendezvous file caught within 0.5s of click)
+    # - 1s idle
     if [[ -z $TRANSIENT_KIND ]]; then
         tick=1
+    elif (( TRANSIENT_OTP_COPIED == 1 )); then
+        tick=0.1
     else
-        tick=$(next_tick_seconds)
+        # Cap next_tick_seconds at 0.5s for responsive polling.
+        raw_tick=$(next_tick_seconds)
+        if awk -v r="$raw_tick" 'BEGIN{exit !(r>0.5)}'; then
+            tick=0.5
+        else
+            tick="$raw_tick"
+        fi
     fi
     # `read -t` exit codes:
     #   0     → got a line
