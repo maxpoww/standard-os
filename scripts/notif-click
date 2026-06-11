@@ -114,16 +114,27 @@ if [[ "${NOTIF_CLICK_LIB_ONLY:-0}" == "1" ]]; then
 fi
 
 # ─── Action runner ─────────────────────────────────────────────────────────
+# action <N> subcommand: redirect CACHE to /tmp/waybar-cache/notif-action-N
+# and rewrite $1 so notif_click_decide sees the canonical "action" subcommand.
+if [[ "${1:-}" == "action" && -n "${2:-}" ]]; then
+    N="$2"
+    case "$N" in
+        1|2|3)
+            CACHE="${NOTIF_ACTION_CACHE:-/tmp/waybar-cache/notif-action-$N}"
+            set -- action
+            ;;
+        *)
+            # Unknown N — fall through to the default 'invoke' which will
+            # decide to noop on the bell-cache's content.
+            ;;
+    esac
+fi
 action="${1:-invoke}"
 cache_content=$(cat "$CACHE" 2>/dev/null || true)
 decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
     invoke-and-dismiss)
-        # Bell transient click — invoke the notification's default action AND
-        # explicitly dismiss (mako 1.10 makoctl invoke does NOT auto-dismiss
-        # notifications without a registered "default" action — the common
-        # case for notify-send-shaped notifications).
         latest_id=$(busctl --user --json=short call \
             org.freedesktop.Notifications /fr/emersion/Mako \
             fr.emersion.Mako ListNotifications 2>/dev/null \
@@ -133,24 +144,50 @@ case "$decision" in
             makoctl dismiss -n "$latest_id" 2>/dev/null || true
         fi
         ;;
+    invoke-otp)
+        # P2: extract the OTP code from the bell cache, copy via wl-copy,
+        # then signal the daemon to enter the 500ms "copied" hold.
+        otp_code=$(jq -r '.otp_code // empty' "$CACHE" 2>/dev/null)
+        if [[ -n $otp_code ]]; then
+            printf '%s' "$otp_code" | wl-copy 2>/dev/null || true
+            # Rendezvous file: the daemon's SIGUSR2 handler reads this ID and
+            # only transitions if it matches the current TRANSIENT_ID (so a
+            # stale click after rapid noti-replacement is ignored).
+            latest_id=$(busctl --user --json=short call \
+                org.freedesktop.Notifications /fr/emersion/Mako \
+                fr.emersion.Mako ListNotifications 2>/dev/null \
+                | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+            if [[ -n $latest_id ]]; then
+                printf '%s' "$latest_id" > /tmp/notif-otp-clicked
+                systemctl --user kill --kill-who=main -s SIGUSR2 notif-daemon.service 2>/dev/null || true
+            fi
+        fi
+        ;;
     open-rofi)
-        # Bell at rest — launch the notification list browser. notif-rofi is
-        # packaged into PATH by the Nix module (task 8).
         exec notif-rofi
         ;;
     toggle-dnd)
         makoctl mode -t dnd 2>/dev/null || true
-        # mako 1.10 does not emit a ModeChanged D-Bus signal we can subscribe
-        # to, so wake notif-daemon directly to re-query the mode + re-render
-        # both caches. --kill-who=main targets only the main bash process
-        # (NOT the dbus-monitor child of the process substitution).
         systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
+        ;;
+    invoke-action)
+        # P2: read the action key from the action-N cache; the wrapper above
+        # has set CACHE to /tmp/waybar-cache/notif-action-N for us.
+        key=$(jq -r '.key // empty' "$CACHE" 2>/dev/null)
+        if [[ -n $key ]]; then
+            latest_id=$(busctl --user --json=short call \
+                org.freedesktop.Notifications /fr/emersion/Mako \
+                fr.emersion.Mako ListNotifications 2>/dev/null \
+                | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+            if [[ -n $latest_id ]]; then
+                makoctl invoke -n "$latest_id" "$key" 2>/dev/null || true
+                makoctl dismiss -n "$latest_id" 2>/dev/null || true
+            fi
+        fi
         ;;
     noop)
         : ;;
-    # Legacy decisions — kept for the duration of the transition; the live
-    # config.jsonc will be updated to call only `bell` and `dnd` subcommands
-    # in task 9. After that, these branches are unreachable but harmless.
+    # Legacy decisions
     invoke-latest)
         latest_id=$(busctl --user --json=short call \
             org.freedesktop.Notifications /fr/emersion/Mako \
