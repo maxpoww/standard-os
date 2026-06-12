@@ -81,6 +81,56 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-12 (incident)** — **Post-reboot blank bar: scripts/ migration committed without `nixos-rebuild switch`.**
+  After the sleep/hibernate work (2026-06-11) the user rebooted to validate
+  kernel-param changes. Bar came back missing "a lot of modules" — visually
+  the entire interactive layer was gone. Root cause: commit `a8d720a`
+  ("scripts/ tracked in repo + HM symlink") added
+  `xdg.configFile."waybar/scripts" = mkOutOfStoreSymlink …` to
+  `modules/waybar.nix` at 16:32, but no rebuild ran between the commit and
+  the reboot. At boot the activated HM generation was the pre-migration
+  one: `/nix/store/zvacrbqx…-home-manager-files/.config/waybar/` contained
+  only `config.jsonc`, `style.css`, `offers/` — no `scripts` entry — so
+  `~/.config/waybar/scripts/` was never materialised. Cascade:
+  `waybar-glass-text-daemon.service` and `waybar-workspace-daemon.service`
+  both exited 127 (`bash: glass-text-daemon.sh / workspace-daemon.sh: No
+  such file or directory`); waybar's per-module execs of `night-dimmer.sh`,
+  `battery.sh`, `lib/pill.sh`, `pill`, `pill-child` all failed the same
+  way; modules went empty or stayed on stale pre-reboot /tmp caches.
+  Fix: `sudo nixos-rebuild switch` (activated the new HM, materialised
+  the scripts symlink → `/etc/nixos/home/waybar/scripts/`) + restart
+  `waybar`, `waybar-glass-text-daemon`, `waybar-workspace-daemon`.
+  Verified: zero `No such file or directory` errors in waybar journal
+  since 17:00:15 restart, both daemons `active`, fresh writes landing in
+  `/tmp/waybar-cache/` (window pill ticked 17:01:29).
+  **Hint:** the deeper issue is unchanged — `scriptsDir =
+  "${config.home.homeDirectory}/.config/waybar/scripts"` makes the bar
+  fragile by design. Any missed activation, partial HM run, `rm -rf
+  ~/.config`, or fresh-install-before-user-activation breaks the entire
+  interactive layer. Real bulletproofing requires moving every script
+  into `pkgs.writeShellScriptBin` with curated PATH so daemons and
+  per-module execs reference `/nix/store/…/bin/<name>` directly and
+  $HOME stops being a runtime dep. Queued as the next major work item
+  (see NEXT entries "Workspace-daemon migration to Nix" and the broader
+  scripts-tree wave the 2026-06-12 audit entry below already flagged).
+  **Hint:** `/tmp` on this host is NOT tmpfs — `findmnt /tmp` returns
+  empty exit-1, meaning /tmp lives on the root filesystem and persists
+  across reboots. That's why some `/tmp/waybar-cache/*` files carry
+  pre-reboot mtimes (00:22 jun 12). It's not a daemon bug; workspace-
+  daemon's content-dedup correctly suppresses re-emits when the value
+  hasn't changed since last write, and the surviving file content is
+  current. The persistence is environmental and benign here, but worth
+  noting: a fresh distro install onto tmpfs-`/tmp` will have an empty
+  cache dir at every boot, and any module whose owning daemon doesn't
+  self-seed on startup will render empty until its first event. Audit
+  recipe before sealing the distro: each daemon must write its initial
+  cache file BEFORE entering its event loop.
+  **Hint:** rebuild-before-reboot is not yet a hook. Future safety net
+  candidate: a `nixos-rebuild-since-commit` check in shell rc or a
+  pre-poweroff hook that warns if the working tree has commits ahead
+  of the activated generation. Lower priority than the writeShellScriptBin
+  migration but cheap to add later.
+
 - **2026-06-12 (audit)** — **Waybar `scripts/` dir migrated into repo + HM symlink.**
   Deep-debug audit after the b/w switcher fix found that 1,444 lines of bash
   driving the entire bar UX — glass-text-daemon.sh (with today's RTMIN+11/+12
