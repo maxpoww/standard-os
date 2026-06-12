@@ -230,7 +230,11 @@ in
         };
         Install.WantedBy = [ "graphical-session.target" ];
         Service = {
-          Environment = "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin";
+          # WAYBAR_SCRIPTS_LIB lets per-module exec strings that need to
+          # source lib/pill.sh (e.g. the clock pill, which calls pill_emit
+          # + pill_theme as shell functions, not binaries) reach it via
+          # `. $WAYBAR_SCRIPTS_LIB/pill.sh` instead of a $HOME path.
+          Environment = "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin WAYBAR_SCRIPTS_LIB=${waybar-scripts}/share/waybar-scripts/lib";
           Type = "simple";
           ExecStart = "${cfg.waybarPackage}/bin/waybar";
           # No ExecStartPre wipe: waybar owns no on-disk state. The

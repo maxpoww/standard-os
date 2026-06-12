@@ -590,7 +590,7 @@
     "on-click": "notif-click action 3"
   },
   "custom/clock": {
-    "exec": ". ~/.config/waybar/scripts/lib/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
+    "exec": ". $WAYBAR_SCRIPTS_LIB/pill.sh; pill_emit \"$(TZ=America/Mendoza date +%H:%M)\" \"opt-pill $(pill_theme) opt-swap-cal\" \"$(TZ=America/Mendoza date +%Y\\ %B)\"",
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
   "custom/battery": {
