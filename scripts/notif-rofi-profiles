@@ -49,24 +49,24 @@ display_name() {
     esac
 }
 
-# Compose rows piped to rofi.
-{
-    active_display=$(display_name "$active_profile")
-    format_profile_header "$active_display" "$until_hhmm"
-    printf '\n'
-    while IFS= read -r p; do
-        [[ -z $p ]] && continue
-        local_disp=$(display_name "$p")
-        local_sched=$(jq -r --arg p "$p" '.[$p].schedule // empty' "$PROFILES_JSON" 2>/dev/null)
-        local_active=0
-        [[ "$p" == "$active_profile" ]] && local_active=1
-        format_profile_row "$p" "$local_disp" "" "$local_active" "$local_sched"
-        printf '\n'
-    done < <(jq -r 'keys_unsorted[]' "$PROFILES_JSON" 2>/dev/null)
-} | rofi -dmenu -i -p "focus" -no-custom -theme-str 'window { width: 30%; }' 2>/dev/null > "/tmp/notif-profile-pick.$$" || true
+# Compose rows piped to rofi. Build into a single string (not a process
+# substitution pipe) and capture via command substitution. -no-config: the
+# user's ~/.config/rofi/config.rasi has options (me-select-entry="",
+# hover-select, click-to-exit, fullscreen padding) that break dmenu
+# click → stdout in this rofi version.
+rows=""
+active_display=$(display_name "$active_profile")
+rows+="$(format_profile_header "$active_display" "$until_hhmm")"$'\n'
+while IFS= read -r p; do
+    [[ -z $p ]] && continue
+    local_disp=$(display_name "$p")
+    local_sched=$(jq -r --arg p "$p" '.[$p].schedule // empty' "$PROFILES_JSON" 2>/dev/null)
+    local_active=0
+    [[ "$p" == "$active_profile" ]] && local_active=1
+    rows+="$(format_profile_row "$p" "$local_disp" "" "$local_active" "$local_sched")"$'\n'
+done < <(jq -r 'keys_unsorted[]' "$PROFILES_JSON" 2>/dev/null)
 
-pick=$(<"/tmp/notif-profile-pick.$$" 2>/dev/null)
-rm -f "/tmp/notif-profile-pick.$$"
+pick=$(printf '%s' "$rows" | rofi -no-config -dmenu -i -p "focus" -no-custom 2>/dev/null)
 
 [[ -z $pick ]] && exit 0
 [[ $pick == '── '* ]] && exit 0   # header

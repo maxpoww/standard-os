@@ -11,6 +11,12 @@
        Flash (0/1):          .opt-flash                              (input acknowledged —
                              one-shot 250ms inset shadow that reads as a button being
                              pressed in. No color, no state meaning. Composes with everything.)
+       Beat (0/1):           .opt-beat                               (one-shot 450ms sharp
+                             color punch — pill bg jumps to a saturated tint then decays
+                             back to rest. No size change. Says "the OS noticed something"
+                             without surfacing content. Sibling of opt-flash in the
+                             one-shot family; flash is for user→OS ack, beat is for
+                             OS→user ack.)
        Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange
                              (solid secondary color held after animation resolves;
                               calm, no motion — the eye stays, the CPU doesn't)
@@ -84,7 +90,7 @@
    shared Nix module (see the distro roadmap).
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 @define-color opt-blue              rgba(179, 191, 255, 0.05);
-@define-color opt-blue-state        rgba(179, 191, 255, 0.35);
+@define-color opt-blue-state        rgba(110, 150, 255, 0.55);
 @define-color opt-yellow            rgba(255, 230, 179, 0.05);
 @define-color opt-yellow-state      rgba(255, 230, 179, 0.35);
 @define-color opt-red               rgba(255, 179, 179, 0.05);
@@ -330,6 +336,27 @@ window#waybar .opt-breathe.opt-tone-blue  { animation: opt-breathe-blue   6s eas
    repeats don't replay. The CSS treats both alternates identically. */
 window#waybar .opt-flash,
 window#waybar .opt-flash-r                { animation: opt-flash 250ms ease-out 1; }
+
+/* opt-beat — one-shot heartbeat ack. Lives alongside opt-flash as the second
+   member of the "one-shot" motion family: flash darkens (user input), beat
+   pulses outward (the OS noticed something). Two-pulse "lub-dub" pattern
+   over 600ms: a strong first beat (font-size 12→16 + bright tint), then a
+   softer second beat (12→14 + dimmer tint), then settle.
+   - GTK 3 CSS has no `transform`, so size is conveyed via `font-size` on
+     the glyph itself.
+   - The tint is the same `rgba(255,255,255,X)` inset shadow used by the
+     universal hover-brighten, so it composes cleanly with any pin color
+     underneath (green/orange) — the beat layers over the rest face without
+     replacing it.
+   First user: notification arrival in silenced profiles (Sleep/Work/Gaming/
+   Media). Future uses fit the same shape: brief "noticed" without surfacing
+   content. */
+@keyframes opt-beat {
+    0%   { background-color: @opt-surface-parent; }
+    10%  { background-color: @opt-green; }
+    100% { background-color: @opt-surface-parent; }
+}
+window#waybar .opt-beat                   { animation: opt-beat 450ms ease-out 1; }
 
 /* ── Hover-swap pattern — rest face shows info, hover reveals action ─────── */
 /* Each wired swap kind owns its complete hover block (rest face implicit

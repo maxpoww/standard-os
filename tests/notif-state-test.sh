@@ -75,12 +75,14 @@ if command -v jq >/dev/null 2>&1; then
         "true" \
         "bell: 0 unread, silence transient → no opt-pushed (P3: glyph swap carries signal)"
 
-    # Rest face — N unread normal
+    # Rest face — N unread normal. Per O_S palette: primary blue (opt-yes)
+    # is the "active/healthy" state — an unread non-critical noti is "you
+    # have something to attend to but it's not urgent."
     out=$(render_bell_for_state 3 0 "none" "" "" "" "")
     assert_eq \
-        "$(printf '%s' "$out" | jq -r '.class | index("opt-pin-green") != null')" \
+        "$(printf '%s' "$out" | jq -r '.class | index("opt-yes") != null')" \
         "true" \
-        "bell: 3 unread, no critical → opt-pin-green"
+        "bell: 3 unread, no critical → opt-yes (blue)"
 
     # Rest face — N unread with critical
     out=$(render_bell_for_state 3 1 "none" "" "" "" "")
@@ -355,11 +357,11 @@ for mode in transient all-but-critical-silent non-allowed all; do
       "[P3 rest: $mode → no opt-pushed]"
 done
 
-# Pin colors compose orthogonally with profile
+# State color composes orthogonally with profile
 out=$(render_bell_for_state 3 0 "transient" "" "" "" "" "" 0)
 assert_eq \
-  "$(echo "$out" | jq -r '.class | index("opt-pin-green") != null')" "true" \
-  "[P3 rest: 3 unread + transient → opt-pin-green]"
+  "$(echo "$out" | jq -r '.class | index("opt-yes") != null')" "true" \
+  "[P3 rest: 3 unread + transient → opt-yes (blue)]"
 
 out=$(render_bell_for_state 3 1 "all-but-critical-silent" "" "" "" "" "" 0)
 assert_eq \
@@ -477,27 +479,31 @@ assert_eq "$(transient_kind_for_state 1 transient 1 a '')" "" "[tk: normal + tra
 assert_eq "$(transient_kind_for_state 2 transient 1 a '')" "critical" "[tk: critical + transient + pulse=1 → critical]"
 assert_eq "$(transient_kind_for_state 2 transient 0 a '')" "" "[tk: critical + transient + pulse=0 → empty]"
 
-# all-but-critical-silent → everything silent (no transient, NO pulse)
-assert_eq "$(transient_kind_for_state 1 all-but-critical-silent 0 a '')" "" "[tk: normal + all-but-crit-silent → empty]"
-assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 0 a '')" "" "[tk: critical + all-but-crit-silent → empty]"
+# all-but-critical-silent → beat for non-critical; critical+pulse keeps
+# pulse, critical without pulse falls through to beat too.
+assert_eq "$(transient_kind_for_state 1 all-but-critical-silent 0 a '')" "beat" "[tk: normal + all-but-crit-silent → beat]"
+assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 0 a '')" "beat" "[tk: critical + all-but-crit-silent + pulse=0 → beat]"
+assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 1 a '')" "critical" "[tk: critical + all-but-crit-silent + pulse=1 → critical]"
 
-# all → normal silent; critical may pulse if pulse=1
-assert_eq "$(transient_kind_for_state 1 all 1 a '')" "" "[tk: normal + all → empty]"
+# all → beat for normal; critical pulses with pulse=1, else beat
+assert_eq "$(transient_kind_for_state 1 all 1 a '')" "beat" "[tk: normal + all → beat]"
 assert_eq "$(transient_kind_for_state 2 all 1 a '')" "critical" "[tk: critical + all + pulse=1 → critical]"
+assert_eq "$(transient_kind_for_state 2 all 0 a '')" "beat" "[tk: critical + all + pulse=0 → beat]"
 
-# non-allowed → check allowedApps
+# non-allowed → allowed apps render as `none` mode would; non-allowed apps
+# get the silent beat ack instead of full silence.
 assert_eq \
   "$(transient_kind_for_state 1 non-allowed 1 Slack 'Slack,Outlook')" "normal" \
   "[tk: normal + non-allowed + Slack allowed → normal]"
 assert_eq \
-  "$(transient_kind_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "" \
-  "[tk: normal + non-allowed + Facebook not allowed → empty]"
+  "$(transient_kind_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "beat" \
+  "[tk: normal + non-allowed + Facebook not allowed → beat]"
 assert_eq \
   "$(transient_kind_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "critical" \
   "[tk: critical + non-allowed + Slack allowed → critical]"
 assert_eq \
-  "$(transient_kind_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "" \
-  "[tk: critical + non-allowed + Facebook not allowed → empty]"
+  "$(transient_kind_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "beat" \
+  "[tk: critical + non-allowed + Facebook not allowed → beat]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then

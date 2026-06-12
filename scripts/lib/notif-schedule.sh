@@ -53,24 +53,26 @@ schedule_matches() {
 
 next_boundary_epoch() {
     local start="$1" end="$2" mask="$3" now_epoch="$4"
-    local current_in
-    local now_hhmm now_wd
-    now_hhmm=$(date -d "@$now_epoch" +%H%M)
+    local current_in now_hhmm now_wd
+    # printf '%(...)T' is a bash builtin (4.2+) — no fork per iteration.
+    # The original used `date -d` which forked twice per minute-tick across
+    # up to 8 days; on NixOS each fork costs ~2 ms, giving multi-second
+    # stalls for every profile change.
+    printf -v now_hhmm '%(%H%M)T' "$now_epoch"
     now_hhmm=$((10#$now_hhmm))
-    now_wd=$(date -d "@$now_epoch" +%u)
+    printf -v now_wd '%(%u)T' "$now_epoch"
     if schedule_matches "$start" "$end" "$mask" "$now_wd" "$now_hhmm"; then
         current_in=1
     else
         current_in=0
     fi
     local check_epoch=$(( now_epoch + 60 ))
-    local i
+    local i h w in_now
     for (( i = 0; i < 60 * 24 * 8; i++ )); do
-        local h w
-        h=$(date -d "@$check_epoch" +%H%M)
+        printf -v h '%(%H%M)T' "$check_epoch"
         h=$((10#$h))
-        w=$(date -d "@$check_epoch" +%u)
-        local in_now=0
+        printf -v w '%(%u)T' "$check_epoch"
+        in_now=0
         schedule_matches "$start" "$end" "$mask" "$w" "$h" && in_now=1
         if (( in_now != current_in )); then
             printf '%d' "$check_epoch"

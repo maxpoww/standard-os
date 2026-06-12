@@ -173,5 +173,10 @@ handle_pick() {
 # ─── Run ───────────────────────────────────────────────────────────────────
 # Pipe build_rows directly to rofi (no $() capture in between) so the
 # \0icon\x1f<app_name> row metadata reaches rofi intact.
-pick=$(build_rows | rofi -dmenu -i -p "notifications" -no-custom -show-icons -theme-str 'window { width: 50%; }' 2>/dev/null) || exit 0
+pick=$(build_rows | rofi -no-config -dmenu -i -p "notifications" -no-custom -show-icons -theme-str '
+  configuration { font: "meslo-ng 13"; show-icons: true; }
+  window { width: 50%; }
+  element-text { padding: 4px 10px; }
+  element-icon { size: 1.4em; padding: 0 6px 0 0; }
+' 2>/dev/null) || exit 0
 handle_pick "$pick"

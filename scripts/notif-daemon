@@ -20,11 +20,23 @@
 #   - RTMIN+12 fires only on real-content change (dedup at writer)
 #   - no per-tick jq / awk / head / tr forks in hot paths (bash builtins)
 #   - DBus FD opened ONCE with exec {FD}<…; reads via -u "$FD"
-#   - light/dark adaptation: `dark` class emitted unconditionally for non-empty
-#     state. (Glass-text-daemon flips the live class; for now we hardcode dark
-#     and rely on the glass-text rule to swap when implemented in a follow-up.)
+#   - light/dark adaptation: every emit reads /tmp/glass-mode fresh via
+#     glass_theme() so the cache file always carries the current theme. The
+#     central glass-text-daemon also rewrites our caches on mode change
+#     (defense in depth); we still emit theme-correctly so a fresh arrival
+#     between mode flips doesn't briefly carry the wrong class.
 
 set -uo pipefail
+
+# ─── glass_theme — mirror of pill.sh's pill_theme without sourcing it ────
+# Reads /tmp/glass-mode and echoes "light" or "dark". Defaults to "dark" on
+# any error: white text on a dark wallpaper stays visible, dark text on a
+# light wallpaper disappears, so "dark" is the safe fallback.
+glass_theme() {
+    local m
+    m=$(cat /tmp/glass-mode 2>/dev/null) || m=""
+    case "$m" in light|dark) printf '%s' "$m" ;; *) printf 'dark' ;; esac
+}
 
 # ─── json_escape — escape strings for embedding in JSON values ────────────
 # Notification fields arrive un-escaped from D-Bus. A single un-escaped
@@ -160,7 +172,9 @@ transient_kind_for_state() {
             [[ "$a" == "$app" ]] && { matched=1; break; }
         done
         if (( !matched )); then
-            printf ''; return
+            # Work: app is not in the allowed list — beat the bell as a
+            # silent ack rather than silencing entirely.
+            printf 'beat'; return
         fi
         mode="none"
     fi
@@ -181,13 +195,20 @@ transient_kind_for_state() {
             fi
             ;;
         all-but-critical-silent)
-            printf ''
+            if (( urgency == 2 )); then
+                (( crit_pulse )) && { printf 'critical'; return; }
+            fi
+            # Non-critical arrival in Sleep/Media: a subtle bell beat that
+            # acknowledges "something arrived" without surfacing content.
+            printf 'beat'
             ;;
         all)
             if (( urgency == 2 )) && (( crit_pulse )); then
                 printf 'critical'
             else
-                printf ''
+                # Gaming: beat-only ack for any urgency. Critical without
+                # crit_pulse still gets the beat (user knows to check later).
+                printf 'beat'
             fi
             ;;
         *)
@@ -226,7 +247,28 @@ render_bell_for_state() {
         bell=$'\xef\x87\xb7'
     fi
 
-    local -a classes=("opt-pill" "dark")
+    local -a classes=("opt-pill" "$(glass_theme)")
+
+    # Beat: short bell-arrival ack used when transient is silenced
+    # (Sleep/Work/Gaming/Media). Renders the rest face (bell glyph + unread
+    # state classes) plus opt-beat for the 450ms green-tint pulse animation.
+    # Distinct from the wide-pill kinds because the user hasn't asked to
+    # see content — they only want to know something arrived.
+    if [[ $kind == "beat" ]]; then
+        classes+=("opt-beat")
+        if (( unread > 0 )); then
+            if (( critical > 0 )); then
+                classes+=("opt-pin-orange")
+            else
+                classes+=("opt-yes")
+            fi
+        fi
+        local classes_json
+        _classes_json classes_json "${classes[@]}"
+        printf '{"text":"%s","class":%s,"tooltip":"Notifications","otp_code":""}' \
+            "$bell" "$classes_json"
+        return 0
+    fi
 
     if [[ -n $kind ]]; then
         case "$kind" in
@@ -264,12 +306,15 @@ render_bell_for_state() {
         return 0
     fi
 
-    # Rest face: glyph + pin color.
+    # Rest face: glyph + state color. Per the O_S palette pairing —
+    # blue = primary "active/healthy" state — an unread non-critical noti
+    # is "active/new" so the bell takes opt-yes (blue). Critical escalates
+    # to opt-pin-orange (the "needs attention" secondary).
     if (( unread > 0 )); then
         if (( critical > 0 )); then
             classes+=("opt-pin-orange")
         else
-            classes+=("opt-pin-green")
+            classes+=("opt-yes")
         fi
     fi
     # No opt-pushed on rest either.
@@ -290,11 +335,12 @@ render_profile_for_state() {
     local profile="$1" display="$2"
     local display_esc
     display_esc=$(json_escape "$display")
-    local classes
+    local classes theme
+    theme=$(glass_theme)
     if [[ $profile == "off" ]]; then
-        classes='["opt-pill-child","dark"]'
+        classes=$(printf '["opt-pill-child","%s"]' "$theme")
     else
-        classes='["opt-pill-child","dark","opt-yes"]'
+        classes=$(printf '["opt-pill-child","%s","opt-yes"]' "$theme")
     fi
     printf '{"text":"%s","class":%s,"tooltip":"Focus profile"}' \
         "$display_esc" "$classes"
@@ -314,8 +360,8 @@ render_action_for_state() {
     local label_esc key_esc
     label_esc=$(json_escape "$label")
     key_esc=$(json_escape "$key")
-    printf '{"text":"%s","class":["opt-pill-child","dark","opt-yes"],"tooltip":"%s","key":"%s"}' \
-        "$label_esc" "$label_esc" "$key_esc"
+    printf '{"text":"%s","class":["opt-pill-child","%s","opt-yes"],"tooltip":"%s","key":"%s"}' \
+        "$label_esc" "$(glass_theme)" "$label_esc" "$key_esc"
 }
 
 # ─── _classes_json VAR <class>... ──────────────────────────────────────────
@@ -583,6 +629,8 @@ check_transient_timer() {
     elapsed=$(( now - TRANSIENT_START ))
     if (( TRANSIENT_OTP_COPIED == 1 )); then
         limit=500   # 500ms post-click hold for the "copied" suffix
+    elif [[ $TRANSIENT_KIND == "beat" ]]; then
+        limit=700   # one-shot 600ms heartbeat + small buffer
     else
         limit="$TRANSIENT_MS"
     fi
@@ -603,10 +651,15 @@ check_transient_timer() {
 # Seconds (fractional) until the next 5s timer fires; sentinel 3600 when none.
 next_tick_seconds() {
     [[ -z $TRANSIENT_KIND ]] && { printf '3600'; return; }
-    local now elapsed remaining_ms
+    local now elapsed limit remaining_ms
     now=$(date +%s%3N)
     elapsed=$(( now - TRANSIENT_START ))
-    remaining_ms=$(( TRANSIENT_MS - elapsed ))
+    if [[ $TRANSIENT_KIND == "beat" ]]; then
+        limit=700
+    else
+        limit="$TRANSIENT_MS"
+    fi
+    remaining_ms=$(( limit - elapsed ))
     (( remaining_ms < 100 )) && remaining_ms=100
     awk -v ms="$remaining_ms" 'BEGIN{ printf "%.3f", ms/1000 }'
 }

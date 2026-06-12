@@ -81,6 +81,145 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-12** — **Glass-mode (b/w font switcher) rebuilt bulletproof.**
+  Three independent bugs were keeping the b/w font switcher silently broken
+  since the 2026-05-28 JSON array migration; user-visible symptom was that
+  only the apps-launcher `+` and (apparently) the workspace pills ever
+  flipped text color on a light wallpaper.
+  (1) `glass-text-daemon.sh::update_cache_mode` — the central "rewrite all
+  caches when /tmp/glass-mode flips" path — used a sed regex targeting the
+  obsolete string-form `"class":"…dark…"` while every cache file is array
+  form `"class":[…,"dark",…]` since 2026-05-28. Net effect: silent no-op for
+  ~2 weeks. Replaced with jq array surgery (`map(if . == "dark" or . ==
+  "light" then $m else . end)`) + atomic tmp+mv per file + dedup against
+  previous content. Layer 1.
+  (2) `lib/pill.sh::pill_emit` — added a fresh `pill_theme()` read at emit
+  time that auto-substitutes any "dark"/"light" token the caller passed
+  with the current value, then deduplicates so we never emit two theme
+  tokens. This collapses the workspace-daemon race: workspace-daemon caches
+  `m=$(pill_theme)` at top of its 1 s loop and reuses for ~20 pill_writes;
+  if glass-text-daemon flipped /tmp/glass-mode mid-iteration the cached `m`
+  would land in the cache and overwrite the central rewrite. Now pill_emit
+  re-reads, so the race window is microseconds, not seconds. Layer 2A.
+  (3) `notif-daemon` (4 emit sites), `voice-dictation.nix` (3 sites),
+  `power-sleep.nix` (2 sites), `standard-os-resume-user.nix` (1 site) all
+  hardcoded the literal string `"dark"` in class arrays. notif-daemon's
+  own comment explicitly said "for now we hardcode dark and rely on the
+  glass-text rule to swap when implemented in a follow-up" — the follow-up
+  never happened and the rule was broken anyway. Replaced each with a
+  fresh /tmp/glass-mode read (notif-daemon: new `glass_theme()` helper;
+  Nix-embedded printfs: inline `theme=$(cat /tmp/glass-mode 2>/dev/null) ||
+  theme=dark` with `case` validation). Layer 2B.
+  Verified with `/tmp/glass-mode-stress.sh` — toggles light↔dark via touch
+  on cached bg files, audits every /tmp/waybar-cache/*.json for the wrong
+  theme token. Before: 9 stale per iteration (notif-bell, notif-profile +
+  workspace race). After: 10/10 PASS at SETTLE=1 (1-second window). Smoke
+  tested fresh notif arrival under forced light → cache emits "light".
+  **Hint:** the three layers are independent and overlap deliberately. Layer
+  1 catches stale caches centrally on mode flip. Layer 2A catches any pill
+  going through pill_emit even if the daemon's cached `m` is stale (so it
+  protects bypass paths). Layer 2B catches event-driven daemons whose printfs
+  bypass pill_emit. Lose any one layer and there's a failure mode that
+  reappears (notif on light wallpaper, workspace-daemon race, dictate
+  recording on light, power-resume after suspend with light wallpaper).
+  **Hint:** new hazard added to waybar/CLAUDE.md "Known hazards": hardcoded
+  `"dark"` / `"light"` literal in any class-array emit site → pill never
+  adapts. Grep recipe: `grep -rn '"dark"\|"light"' /etc/nixos/home/scripts/
+  /etc/nixos/home/modules/ /etc/nixos/modules/ | grep -E '(class|opt-pill)'`
+  should return only comments after this commit.
+  **Hint:** stress test script at `/tmp/glass-mode-stress.sh` is one-shot,
+  not committed. If a regression reappears, recreate it (touches two
+  /tmp/hypr-edge-bg/bg_*.png files alternately, audits caches after each).
+  **Hint:** workspace-daemon and notif-daemon both need a restart after a
+  pill.sh edit (they source it once at process start). The systemctl --user
+  restart of waybar-glass-text-daemon, waybar-workspace-daemon, and
+  notif-daemon services is part of the post-change verification.
+
+- **2026-06-11** — **Sleep/resume display polish (blackout choreography).**
+  After the first-round sleep fixes landed (see next entry), the
+  remaining UX complaint was the visible "freeze → off → comes back
+  → off again" sequence on suspend and the symmetric "wake frozen →
+  off → live" sequence on resume — three subsystems (Hyprland, i915,
+  NVIDIA VRAM save) each touching the display during the handoff,
+  every transition visible. Two changes mask it as one clean fade:
+  (1) `power-sleep.nix`'s existing system-scope `standard-os-presleep`
+  service now blacks the panel before the kernel suspend kicks off
+  by walking `/run/user/*/hypr/*/.socket.sock`, deriving uid /
+  username / HYPRLAND_INSTANCE_SIGNATURE from the path, and invoking
+  `hyprctl dispatch dpms off` via `runuser -u <user> -- env …` (the
+  root→user bridge). 200 ms settle ensures the off-frame is fully
+  rendered before the kernel begins the suspend sequence. The
+  matching `standard-os-resume` service spawns a backgrounded
+  `restore_display` loop (1 s cadence, `timeout 1` per hyprctl
+  attempt, capped by `displayRestoreTimeoutSec`, default 5 s) that
+  dpms-on as soon as the compositor is reachable — typically iter
+  1–2 on a healthy resume, so the panel restores within ~1 s with
+  fresh-rendered content (not the stale framebuffer flash).
+  (2) `NVreg_PreserveVideoMemoryAllocations` flipped 1 → 2 — mode 2
+  saves VRAM into the kernel suspend image instead of mode 1's
+  sysfs-trigger that briefly re-activates the display. Eliminates
+  the "comes back, off again" sub-flash. While here, fixed a latent
+  bug in `standard-os-presleep`: its `path` was `[ coreutils bluez ]`
+  with no gawk, so `bluetoothctl … | awk '{print $2}'` silently
+  failed on every suspend (the `|| :` masked it) — the bt-connected-
+  presleep file was always empty and post-resume BT reconnect logic
+  was a no-op. Added gawk + hyprland + util-linux to the path.
+  *Hint #1:* The NVreg flip required `lib.mkAfter` plumbing because
+  nixpkgs's `hardware.nvidia.powerManagement.enable=true` silently
+  auto-appends `NVreg_PreserveVideoMemoryAllocations=1`. Kernel takes
+  the LAST occurrence of a module param when listed multiple times
+  on the cmdline. The override lives in `power-sleep.nix`'s
+  `boot.kernelParams = lib.mkMerge [ [...] (lib.mkAfter [...]) ]`
+  block — declaring it in `boot.nix` (default-priority list) was
+  silently overridden because nixpkgs's contribution landed after.
+  Validation: `cat /run/current-system/kernel-params | grep -oP
+  "Preserve[^ ]*" | tail -1` should print `…=2`.
+  *Hint #2 (the trap of the day):* user-scope `sleep.target` /
+  `suspend.target` do NOT exist on NixOS+systemd by default.
+  `systemctl --user list-unit-files | grep sleep` is empty. Any
+  Home-Manager `systemd.user.services.<x>.Install.WantedBy = [
+  "sleep.target" ]` is a dead letter — the existing
+  `standard-os-resume-user.service` has *never* fired since
+  2026-06-05 install (`ExecMainStartTimestamp=` empty, journal
+  has no entries across all boots). For Standard-OS purposes, any
+  user-touching work tied to sleep/resume must live in a system-
+  scope service with a root→user bridge (the pattern is now in
+  `standard-os-presleep` and `standard-os-resume` — copy from
+  there). Future fix candidate: a system-sleep hook that activates
+  user-scope sleep.target.wants/ via `runuser systemctl --user
+  start …`; not done in this round because the system-scope path
+  is sufficient and simpler.
+
+- **2026-06-11** — **Sleep/hibernate/lid resume hardening.**
+  Fixed three live sleep-system regressions after 3 days of suspend
+  cycles between Jun 8 reboot and now. (1) WiFi-after-resume: TLP
+  `DEVICES_TO_DISABLE_ON_BAT_NOT_IN_USE = "bluetooth wifi"` raced
+  NetworkManager on every resume — radio saw "no active connection"
+  on battery and was soft-blocked via rfkill until user manually
+  ran `rfkill unblock all`. Dropped wifi from the list (kept BT per
+  user pref), added `RESTORE_DEVICE_STATE_ON_STARTUP=1`. (2) Display
+  freeze on lid-open: i915 `adlp_tc_phy_connect` PHY-ready timeout
+  WARN on every resume (Lenovo Slim Pro 9i 83C0 / Alder Lake-P
+  USB-C DP-alt bug). Added `i915.enable_psr=0 i915.enable_fbc=0`
+  kernel params to `power-sleep.nix`. (3) NVIDIA wake glitches:
+  running kernel still on `NVreg_DynamicPowerManagement=0x02` (D3
+  cold) — boot.nix already had 0x01 (D3 hot) since 2026-06-05 but
+  kernel params only take effect on reboot. Hardened the post-resume
+  health-check with two-layer net probe (rfkill state + NM state)
+  and explicit `rfkill unblock wifi` in `remediate_net()`.
+  *Hint:* The i915 params are hardware-agnostic — kernel ignores
+  them on AMD GPUs and on `xe`-driven newer Intel iGPUs, so safe
+  for the distro. They live in `power-sleep.nix`'s `boot.kernelParams`
+  next to `resume=UUID=...`, gated by `standardOs.power.sleep.enable`.
+  Trade-off is ~0.5–1 W extra idle iGPU draw on battery for Intel
+  systems — worth it for resume stability. New kernel params require
+  a reboot to validate; TLP and resume-health changes took effect
+  live via `nixos-rebuild switch`. Future debugging seam: if a wifi
+  "block on resume" regression appears, check `journalctl -b 0 -u
+  tlp.service` for "Disabling radios" near suspend exit time, and
+  the resume pill (`/tmp/waybar-cache/power-resume`) for "net" in
+  the failure list — both will name the layer responsible.
+
 - **2026-06-11** — **Notification center P3: focus profiles + sound.**
   Replaces P1's binary DND toggle with 6 named profiles (Off, DND,
   Sleep, Work, Gaming, Media), each declaring a `silenceMode`

@@ -44,7 +44,11 @@ in
 
             write_pill() {
               local text="$1" tooltip="$2"
-              local classes='["opt-pill","opt-flash","opt-no","dark"]'
+              local theme
+              theme=$(cat /tmp/glass-mode 2>/dev/null) || theme=dark
+              case "$theme" in light|dark) ;; *) theme=dark ;; esac
+              local classes
+              classes=$(printf '["opt-pill","opt-flash","opt-no","%s"]' "$theme")
               local json="{\"text\":\"$text\",\"class\":$classes,\"tooltip\":\"$tooltip\"}"
               printf '%s' "$json" > "$CACHE.tmp" && mv -f "$CACHE.tmp" "$CACHE"
               ${pkgs.procps}/bin/pkill -RTMIN+10 waybar 2>/dev/null || true

@@ -104,17 +104,23 @@ let
         # geometry (font-size 13px, padding 3/8, border-radius 30px). Without
         # it the pill falls back to the universal `* { font-size:13px }` rule
         # but loses padding/background and looks wrong next to its neighbours.
+        # Theme: read /tmp/glass-mode fresh per emit so the pill flips text
+        # color when the wallpaper changes (defense in depth against the
+        # glass-text-daemon central rewrite).
+        local theme
+        theme=$(cat /tmp/glass-mode 2>/dev/null) || theme=dark
+        case "$theme" in light|dark) ;; *) theme=dark ;; esac
         case "$1" in
           idle)
             printf '{"text":""}\n' > "$STATE"
             ;;
           recording)
-            printf '{"text":"%s","tooltip":"Recording…","class":["opt-pill","dark","recording"],"alt":"recording"}\n' \
-              "$MIC_GLYPH" > "$STATE"
+            printf '{"text":"%s","tooltip":"Recording…","class":["opt-pill","%s","recording"],"alt":"recording"}\n' \
+              "$MIC_GLYPH" "$theme" > "$STATE"
             ;;
           transcribing)
-            printf '{"text":"%s","tooltip":"Transcribing…","class":["opt-pill","dark","transcribing"],"alt":"transcribing"}\n' \
-              "$MIC_GLYPH" > "$STATE"
+            printf '{"text":"%s","tooltip":"Transcribing…","class":["opt-pill","%s","transcribing"],"alt":"transcribing"}\n' \
+              "$MIC_GLYPH" "$theme" > "$STATE"
             ;;
         esac
         # Tell waybar to re-render the custom/dictate module.
@@ -281,8 +287,10 @@ let
         apps=$(cat "$MIC")
       fi
       if [ -n "$apps" ]; then
-        printf '{"text":"%s","tooltip":"Mic in use: %s","class":["opt-pill","dark","recording"],"alt":"mic-active"}\n' \
-          "$MIC_GLYPH" "$apps"
+        theme=$(cat /tmp/glass-mode 2>/dev/null) || theme=dark
+        case "$theme" in light|dark) ;; *) theme=dark ;; esac
+        printf '{"text":"%s","tooltip":"Mic in use: %s","class":["opt-pill","%s","recording"],"alt":"mic-active"}\n' \
+          "$MIC_GLYPH" "$apps" "$theme"
         exit 0
       fi
 
