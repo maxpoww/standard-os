@@ -263,6 +263,12 @@ in
           Description = "Waybar glass-text daemon (background-aware text color)";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
+          # StartLimit* belong in [Unit], not [Service] — systemd silently
+          # ignores them in [Service] (StartLimitIntervalSec reverts to the
+          # 10s default). Tuning lets the daemon survive 20 restart
+          # attempts over 5 minutes before tripping the burst limit.
+          StartLimitBurst       = 20;
+          StartLimitIntervalSec = "5min";
         };
         Install.WantedBy = [ "graphical-session.target" ];
         Service = {
@@ -273,12 +279,12 @@ in
           # owned by this unit rather than relying on luck.
           ExecStartPre = "${pkgs.coreutils}/bin/rm -f /tmp/glass-text-daemon.lock /tmp/glass-text-daemon.pid";
           ExecStart = "${waybar-scripts}/bin/glass-text-daemon";
-          Restart               = "on-failure";
-          RestartSec            = "1s";
-          RestartSteps          = 5;
-          RestartMaxDelaySec    = "30s";
-          StartLimitBurst       = 20;
-          StartLimitIntervalSec = "5min";
+          # Restart=on-failure (not always): graceful exits during shutdown
+          # don't trigger restart cycles. Expo backoff plateaus at 30s.
+          Restart            = "on-failure";
+          RestartSec         = "1s";
+          RestartSteps       = 5;
+          RestartMaxDelaySec = "30s";
         };
       };
 
@@ -287,6 +293,8 @@ in
           Description = "Waybar workspace cache daemon (per-module JSON writer)";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
+          StartLimitBurst       = 20;
+          StartLimitIntervalSec = "5min";
         };
         Install.WantedBy = [ "graphical-session.target" ];
         Service = {
@@ -298,12 +306,10 @@ in
           # cache for up to 1s after boot).
           ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/waybar-cache";
           ExecStart = "${waybar-scripts}/bin/workspace-daemon";
-          Restart               = "on-failure";
-          RestartSec            = "1s";
-          RestartSteps          = 5;
-          RestartMaxDelaySec    = "30s";
-          StartLimitBurst       = 20;
-          StartLimitIntervalSec = "5min";
+          Restart            = "on-failure";
+          RestartSec         = "1s";
+          RestartSteps       = 5;
+          RestartMaxDelaySec = "30s";
         };
       };
     })
