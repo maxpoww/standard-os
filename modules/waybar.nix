@@ -234,7 +234,10 @@ in
           # source lib/pill.sh (e.g. the clock pill, which calls pill_emit
           # + pill_theme as shell functions, not binaries) reach it via
           # `. $WAYBAR_SCRIPTS_LIB/pill.sh` instead of a $HOME path.
-          Environment = "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin WAYBAR_SCRIPTS_LIB=${waybar-scripts}/share/waybar-scripts/lib";
+          Environment = [
+            "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin"
+            "WAYBAR_SCRIPTS_LIB=${waybar-scripts}/share/waybar-scripts/lib"
+          ];
           Type = "simple";
           ExecStart = "${cfg.waybarPackage}/bin/waybar";
           # No ExecStartPre wipe: waybar owns no on-disk state. The
