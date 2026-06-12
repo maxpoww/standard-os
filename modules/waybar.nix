@@ -234,6 +234,7 @@ in
         };
         Install.WantedBy = [ "graphical-session.target" ];
         Service = {
+          Environment = "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin";
           Type = "simple";
           ExecStart = "${cfg.waybarPackage}/bin/waybar";
           # No ExecStartPre wipe: waybar owns no on-disk state. The
