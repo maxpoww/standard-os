@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Inline OPTIONS pill emitter — used in `exec` of static waybar custom modules
+# that don't need a daemon. Always prepends "opt-pill" (parent surface) and
+# the current glass-mode class.
+#
+# Usage: pill <text> [extra-class ...]
+# Example: pill '+' opt-yes opt-pulse
+#
+# Output: a single JSON object on stdout, suitable for waybar return-type:"json".
+
+set -uo pipefail
+
+# Resolve our own dir so the script works from any cwd and through symlinks.
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
+text="${1:-}"
+shift || true
+
+classes="$(pill_class "opt-pill" "$(pill_theme)" "$@")"
+pill_emit "$text" "$classes"

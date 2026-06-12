@@ -81,6 +81,47 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-12 (audit)** — **Waybar `scripts/` dir migrated into repo + HM symlink.**
+  Deep-debug audit after the b/w switcher fix found that 1,444 lines of bash
+  driving the entire bar UX — glass-text-daemon.sh (with today's RTMIN+11/+12
+  signal fanout), lib/pill.sh (with the Layer 2A pill_emit theme re-read fix
+  from 36abfe1), workspace-daemon.sh, the static pill / pill-child wrappers,
+  and every per-module script (battery, screen-type, warm-cycle, shader-*,
+  night-dimmer, win-action, win-icon, restore-minimized, swap-smart,
+  shader-stack) — lived ONLY in `~/.config/waybar/scripts/` as un-tracked
+  real files. A `rm -rf ~/.config` (or fresh-machine reinstall from the
+  git repo) would have erased the entire interactive layer plus today's
+  hard-won bugfixes. The bar would have come back wallpaper-broken on the
+  first install of a fresh distro image.
+  Migration: byte-identical snapshot of every script committed under
+  `/etc/nixos/home/waybar/scripts/` (mirrors `style.css` + `config.jsonc`
+  living next to them). `waybar.nix` gains a `scriptsSource` option +
+  `xdg.configFile."waybar/scripts"` declaration with
+  `mkOutOfStoreSymlink` — same out-of-store pattern as style.css.
+  Chain after activation:
+    ~/.config/waybar/scripts
+      → /nix/store/<hm-files>/.config/waybar/scripts (HM-managed)
+        → /nix/store/<hm_scripts> (mkOutOfStoreSymlink wrapper)
+          → /etc/nixos/home/waybar/scripts/ (the source of truth)
+  Edits to either end are immediately live (no rebuild for behavior
+  changes), and a fresh distro install gets every script materialised
+  on first `nixos-rebuild switch`.
+  Verified: byte-identical snapshot (cmp passes for every file),
+  daemons restart cleanly through the new symlink, real luminance
+  flip via touched bg file produces correct mode + cache + visual
+  flip across all pills.
+  **Hint:** the *full* nix migration (wrap each daemon in
+  `pkgs.writeShellScriptBin` with curated PATH so they survive without
+  `~/.config/waybar/scripts/` even existing) is still pending — that's
+  the "Workspace-daemon migration to Nix" entry in NEXT, expanded to
+  cover the whole `scripts/` tree. The current state already protects
+  against data-loss + makes fresh installs work; the writeShellScriptBin
+  wrap removes the last `$HOME` runtime dependency.
+  **Hint:** if HM activation reports `Existing file ... is in the way`
+  for a path under `waybar/scripts/`, look for a `.hm-bak` next to it
+  — HM backed up an old version. After confirming the symlink works,
+  it's safe to `rm` the `.hm-bak`.
+
 - **2026-06-12 (late)** — **Glass-mode actually works: the missing fourth layer was CSS.**
   Commit 36abfe1's "bulletproof" three-layer fix landed cache content correctly
   (`["opt-pill","light","opt-no",...]` everywhere) but the user reported the

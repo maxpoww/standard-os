@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Inline OPTIONS pill emitter for child-surface pills — used in `exec` of
+# waybar custom modules that live INSIDE an expanded drawer group. Always
+# prepends "opt-pill-child" (warm child surface) and the current glass-mode.
+#
+# Usage: pill-child <text> [extra-class ...]
+# Example: pill-child '󱂬' opt-yes
+#
+# Output: a single JSON object on stdout, suitable for waybar return-type:"json".
+
+set -uo pipefail
+
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
+text="${1:-}"
+shift || true
+
+classes="$(pill_class "opt-pill-child" "$(pill_theme)" "$@")"
+pill_emit "$text" "$classes"
