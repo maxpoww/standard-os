@@ -293,6 +293,7 @@ in
           Description = "Waybar workspace cache daemon (per-module JSON writer)";
           PartOf = [ "graphical-session.target" ];
           After = [ "graphical-session.target" ];
+          # StartLimit* in [Unit] — see glass-text-daemon above for why.
           StartLimitBurst       = 20;
           StartLimitIntervalSec = "5min";
         };
