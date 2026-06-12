@@ -273,8 +273,12 @@ in
           # owned by this unit rather than relying on luck.
           ExecStartPre = "${pkgs.coreutils}/bin/rm -f /tmp/glass-text-daemon.lock /tmp/glass-text-daemon.pid";
           ExecStart = "${waybar-scripts}/bin/glass-text-daemon";
-          Restart = "always";
-          RestartSec = 1;
+          Restart               = "on-failure";
+          RestartSec            = "1s";
+          RestartSteps          = 5;
+          RestartMaxDelaySec    = "30s";
+          StartLimitBurst       = 20;
+          StartLimitIntervalSec = "5min";
         };
       };
 
@@ -294,8 +298,12 @@ in
           # cache for up to 1s after boot).
           ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/waybar-cache";
           ExecStart = "${waybar-scripts}/bin/workspace-daemon";
-          Restart = "always";
-          RestartSec = 1;
+          Restart               = "on-failure";
+          RestartSec            = "1s";
+          RestartSteps          = 5;
+          RestartMaxDelaySec    = "30s";
+          StartLimitBurst       = 20;
+          StartLimitIntervalSec = "5min";
         };
       };
     })
