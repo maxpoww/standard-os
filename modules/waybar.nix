@@ -52,7 +52,7 @@ let
     hyprland
     imagemagick
     git
-    rofi-wayland
+    rofi
     libnotify
   ]);
 
