@@ -40,6 +40,63 @@
 let
   cfg = config.services.waybarBar;
 
+  binPath = lib.makeBinPath (with pkgs; [
+    bash
+    coreutils
+    gawk
+    gnused
+    gnugrep
+    jq
+    procps
+    inotify-tools
+    hyprland
+    imagemagick
+    git
+    rofi-wayland
+    libnotify
+  ]);
+
+  waybar-scripts = pkgs.stdenv.mkDerivation {
+    pname   = "standard-os-waybar-scripts";
+    version = "0.1.0";
+    src     = ../waybar/scripts;
+    nativeBuildInputs = [ pkgs.makeWrapper pkgs.shellcheck ];
+
+    # Gate the build on shellcheck for every script in source-of-truth.
+    # Runs against the source files BEFORE substituteInPlace rewrites
+    # the lib/pill.sh source line.
+    doCheck = true;
+    checkPhase = ''
+      runHook preCheck
+      shellcheck -s bash *.sh
+      runHook postCheck
+    '';
+
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/bin $out/libexec/waybar-scripts $out/share/waybar-scripts/lib
+
+      install -m 0644 lib/pill.sh $out/share/waybar-scripts/lib/pill.sh
+
+      for f in *.sh pill pill-child; do
+        name=''${f%.sh}
+        install -m 0755 "$f" "$out/libexec/waybar-scripts/$f"
+        # Rewrite every form the source uses to source the lib.
+        substituteInPlace "$out/libexec/waybar-scripts/$f" \
+          --replace 'source "$(dirname "$0")/lib/pill.sh"' \
+                    "source $out/share/waybar-scripts/lib/pill.sh" \
+          --replace '. "$(dirname "$0")/lib/pill.sh"' \
+                    ". $out/share/waybar-scripts/lib/pill.sh" \
+          --replace '. "$SELF_DIR/lib/pill.sh"' \
+                    ". $out/share/waybar-scripts/lib/pill.sh"
+        makeWrapper ${pkgs.bash}/bin/bash "$out/bin/$name" \
+          --add-flags "$out/libexec/waybar-scripts/$f" \
+          --prefix PATH : ${binPath}
+      done
+      runHook postInstall
+    '';
+  };
+
   # Where the runtime scripts live. Hard-coded against the user's home
   # because they're not yet nix-packaged; the distro migration will move
   # them under writeShellScriptBin and drop this option.
@@ -100,6 +157,12 @@ in
 
   config = lib.mkIf cfg.enable (lib.mkMerge [
     {
+      # Pull waybar-scripts into the system closure so the store path is
+      # reachable for inspection and pre-rewire verification. No ExecStart
+      # or exec site references it yet — Tasks 3–4 rewire onto the wrapped
+      # binaries once the derivation is confirmed to build correctly.
+      home.packages = [ waybar-scripts ];
+
       # waybar itself is already installed system-wide via modules/packages.nix.
       # We only own the per-user config files here.
       #
