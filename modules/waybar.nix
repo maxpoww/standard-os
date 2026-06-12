@@ -27,9 +27,16 @@
 # silently lost the bar when waybar died early in boot (no Restart= and no
 # unit observability — see distro work).
 #
-# Note: the daemon scripts (~/.config/waybar/scripts/*.sh) are NOT yet
-# managed by this module. They remain real files in the user's home for now;
-# migrating them to Nix is a separate task tracked in the distro work.
+# The daemon scripts are nix-packaged in this module as the
+# `waybar-scripts` derivation (let-block below). Source-of-truth lives
+# at /etc/nixos/home/waybar/scripts/; the derivation wraps each script
+# as a makeWrapper-curated binary under ${waybar-scripts}/bin/<name>
+# with lib/pill.sh shared at share/waybar-scripts/lib/. Until the
+# bulletproof migration finishes (Tasks 3–15), some ExecStarts and
+# config.jsonc exec sites still reference ~/.config/waybar/scripts/
+# via mkOutOfStoreSymlink; those rewire onto the wrapped binaries in
+# the same migration. See waybar/docs/superpowers/specs/2026-06-12-
+# waybar-bulletproof-design.md for the full picture.
 #
 # Usage:
 #   services.waybarBar.enable = true;
@@ -49,11 +56,13 @@ let
     jq
     procps
     inotify-tools
-    hyprland
-    imagemagick
-    git
-    rofi
-    libnotify
+    hyprland          # hyprctl
+    imagemagick       # glass-text-daemon luminance sample
+    git               # rebuild-pending check + shutdown-guard
+    rofi              # shutdown-guard + rebuild-prompt modals
+    libnotify         # notify-send fallback
+    brightnessctl     # night-dimmer, screen-type
+    hyprsunset        # warm-cycle, screen-type
   ]);
 
   waybar-scripts = pkgs.stdenv.mkDerivation {
@@ -73,7 +82,9 @@ let
       # (SC1090/SC1091 non-const source, SC2154 false-positive jq vars,
       # SC2034 unused INTERVAL). The gate's job is catching new bugs,
       # not enforcing a style pass on the pre-bulletproof corpus.
-      shellcheck -S error -s bash *.sh
+      # Explicit `pill pill-child` so the no-extension launchers don't
+      # silently slip through the `*.sh` glob.
+      shellcheck -S error -s bash *.sh pill pill-child
       runHook postCheck
     '';
 
@@ -84,16 +95,15 @@ let
       install -m 0644 lib/pill.sh $out/share/waybar-scripts/lib/pill.sh
 
       for f in *.sh pill pill-child; do
+        # name=f when extensionless (pill, pill-child); strip .sh otherwise.
         name=''${f%.sh}
         install -m 0755 "$f" "$out/libexec/waybar-scripts/$f"
-        # Rewrite every form the source uses to source the lib.
+        # Every source script uses `. "$SELF_DIR/lib/pill.sh"`. If any
+        # future script adopts a different form (e.g. `source "$(dirname
+        # "$0")/lib/pill.sh"`), append another --replace pair here.
         substituteInPlace "$out/libexec/waybar-scripts/$f" \
-          --replace 'source "$(dirname "$0")/lib/pill.sh"' \
-                    "source $out/share/waybar-scripts/lib/pill.sh" \
-          --replace '. "$(dirname "$0")/lib/pill.sh"' \
-                    ". $out/share/waybar-scripts/lib/pill.sh" \
-          --replace '. "$SELF_DIR/lib/pill.sh"' \
-                    ". $out/share/waybar-scripts/lib/pill.sh"
+          --replace-quiet '. "$SELF_DIR/lib/pill.sh"' \
+                          ". $out/share/waybar-scripts/lib/pill.sh"
         makeWrapper ${pkgs.bash}/bin/bash "$out/bin/$name" \
           --add-flags "$out/libexec/waybar-scripts/$f" \
           --prefix PATH : ${binPath}
@@ -102,9 +112,9 @@ let
     '';
   };
 
-  # Where the runtime scripts live. Hard-coded against the user's home
-  # because they're not yet nix-packaged; the distro migration will move
-  # them under writeShellScriptBin and drop this option.
+  # Legacy path — daemon ExecStarts still reference this until Task 3
+  # rewires them onto ${waybar-scripts}/bin/<name>. Removed in Task 15
+  # alongside the xdg.configFile."waybar/scripts" symlink.
   scriptsDir = "${config.home.homeDirectory}/.config/waybar/scripts";
 in
 {
