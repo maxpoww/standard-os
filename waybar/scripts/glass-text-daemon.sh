@@ -12,6 +12,7 @@ MODEFILE="/tmp/glass-mode"
 BG_CACHE="/tmp/hypr-edge-bg"
 THRESHOLD=140
 LAST_MODE=""
+LAST_HEX=""
 INTERVAL=0.25
 
 # ── Prevent duplicate instances (PID-based, survives SIGKILL) ────────────────
@@ -26,13 +27,6 @@ echo $$ > "$LOCKFILE"
 
 cleanup() { rm -f "$LOCKFILE"; }
 trap 'cleanup' EXIT
-
-# ── Write initial mode file ──────────────────────────────────────────────────
-# Re-asserted inside the main loop too — see ensure_mode below — so an
-# external wipe (waybar.service ExecStartPre, manual rm) self-heals.
-if [[ ! -f "$MODEFILE" ]]; then
-    echo "dark" > "$MODEFILE"
-fi
 
 ensure_mode() {
     # Make sure $MODEFILE always exists. If it was deleted out from under us,
@@ -105,9 +99,41 @@ hex_luminance() {
     echo $(( (r * 299 + g * 587 + b * 114) / 1000 ))
 }
 
+# ── Seed mode + pill caches before the event loop ────────────────────────────
+# On fresh tmpfs /tmp (reboot, manual rm -rf), neither /tmp/glass-mode nor
+# any /tmp/waybar-cache/* exist. The event loop only calls set_mode when the
+# detected hex CHANGES from LAST_HEX, so pills rendered before the first change
+# would show blank. self_seed runs once at startup: computes the actual mode
+# from the bg-hex cache (same logic as the loop), calls set_mode to write
+# /tmp/glass-mode + rewrite pill caches + signal waybar, and falls back to
+# "dark" when no bg cache exists yet.
+self_seed() {
+    local seed_mode="dark"
+    local seed_hex
+    seed_hex=$(ls -t "$BG_CACHE"/bg_??????.png 2>/dev/null | head -1)
+    if [[ -n "$seed_hex" ]]; then
+        seed_hex=${seed_hex##*/bg_}
+        seed_hex=${seed_hex%.png}
+        if [[ ${#seed_hex} -eq 6 ]]; then
+            local r g b lum
+            r=$((16#${seed_hex:0:2}))
+            g=$((16#${seed_hex:2:2}))
+            b=$((16#${seed_hex:4:2}))
+            lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
+            if (( lum > THRESHOLD )); then
+                seed_mode="light"
+            fi
+        fi
+    fi
+    LAST_MODE="$seed_mode"
+    LAST_HEX="${seed_hex:-}"
+    set_mode "$seed_mode"
+}
+
 echo "Glass text daemon started (reading from hypr-edge-bg cache)"
 
-LAST_HEX=""
+# Seed before entering the loop so waybar modules are never blank on fresh /tmp.
+self_seed
 
 while true; do
     ensure_mode
