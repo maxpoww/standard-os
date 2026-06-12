@@ -112,10 +112,6 @@ let
     '';
   };
 
-  # Legacy path — daemon ExecStarts still reference this until Task 3
-  # rewires them onto ${waybar-scripts}/bin/<name>. Removed in Task 15
-  # alongside the xdg.configFile."waybar/scripts" symlink.
-  scriptsDir = "${config.home.homeDirectory}/.config/waybar/scripts";
 in
 {
   options.services.waybarBar = {
@@ -269,8 +265,7 @@ in
           # the files declaratively before start keeps the lifecycle
           # owned by this unit rather than relying on luck.
           ExecStartPre = "${pkgs.coreutils}/bin/rm -f /tmp/glass-text-daemon.lock /tmp/glass-text-daemon.pid";
-          # Pass through PATH so `hyprctl` / `pkill` / friends are reachable.
-          ExecStart = "${pkgs.bash}/bin/bash ${scriptsDir}/glass-text-daemon.sh";
+          ExecStart = "${waybar-scripts}/bin/glass-text-daemon";
           Restart = "always";
           RestartSec = 1;
         };
@@ -291,7 +286,7 @@ in
           # tick (otherwise modules with interval=2 could read an empty
           # cache for up to 1s after boot).
           ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/waybar-cache";
-          ExecStart = "${pkgs.bash}/bin/bash ${scriptsDir}/workspace-daemon.sh";
+          ExecStart = "${waybar-scripts}/bin/workspace-daemon";
           Restart = "always";
           RestartSec = 1;
         };
