@@ -20,8 +20,8 @@
 //    CENTER-zone groups → expand away from the task anchor
 //
 //  Module exec patterns (post-refactor):
-//    Static pill:    "~/.config/waybar/scripts/pill '<glyph>' [opt-class ...]"
-//    Child pill:     "~/.config/waybar/scripts/pill-child '<glyph>' [opt-class ...]"
+//    Static pill:    "pill '<glyph>' [opt-class ...]"
+//    Child pill:     "pill-child '<glyph>' [opt-class ...]"
 //    Daemon-driven:  "cat /tmp/waybar-cache/<name> 2>/dev/null"
 //  The daemon writes JSON with the full class string baked in.
 // =====================================================================
@@ -95,7 +95,7 @@
     "format": "",
     "icon": true,
     "icon-size": 18,
-    "on-click": "~/.config/waybar/scripts/win-action.sh new-instance"
+    "on-click": "win-action new-instance"
   },
   "custom/win-close": {
     "exec": "cat /tmp/waybar-cache/win-close 2>/dev/null",
@@ -122,7 +122,7 @@
     "interval": 2,
     "signal": 10,
     "tooltip": false,
-    "on-click": "/home/max/.config/waybar/scripts/swap-smart.sh"
+    "on-click": "swap-smart"
   },
 
   // ── Per-window move drawer ──
@@ -223,24 +223,24 @@
     ]
   },
   "custom/warm-cycle": {
-    "exec": "~/.config/waybar/scripts/warm-cycle.sh exec",
+    "exec": "warm-cycle exec",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
-    "on-click": "~/.config/waybar/scripts/warm-cycle.sh click"
+    "on-click": "warm-cycle click"
   },
   "custom/shader-paper": {
-    "exec": "~/.config/waybar/scripts/shader-toggle.sh exec paper",
+    "exec": "shader-toggle exec paper",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
-    "on-click": "~/.config/waybar/scripts/shader-toggle.sh click paper"
+    "on-click": "shader-toggle click paper"
   },
   "custom/shader-newspaper": {
-    "exec": "~/.config/waybar/scripts/shader-toggle.sh exec newspaper",
+    "exec": "shader-toggle exec newspaper",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": true,
-    "on-click": "~/.config/waybar/scripts/shader-toggle.sh click newspaper"
+    "on-click": "shader-toggle click newspaper"
   },
   "custom/night-dimmer": {
-    "exec": "~/.config/waybar/scripts/night-dimmer.sh exec",
+    "exec": "night-dimmer exec",
     "return-type": "json", "format": "{}", "interval": 2, "signal": 10, "tooltip": true,
-    "on-click": "~/.config/waybar/scripts/night-dimmer.sh click"
+    "on-click": "night-dimmer click"
   },
   "custom/dictate": {
     "exec": "dictate-waybar",
@@ -264,18 +264,18 @@
     ]
   },
   "custom/new": {
-    "exec": "~/.config/waybar/scripts/pill '' opt-plus",
+    "exec": "pill '' opt-plus",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/hidden": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰍁' opt-yes",
+    "exec": "pill-child '󰍁' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "custom/x": {
-    "exec": "~/.config/waybar/scripts/pill '󱂬' opt-hover-blue",
+    "exec": "pill '󱂬' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "~/.config/waybar/scripts/restore-minimized.sh"
+    "on-click": "restore-minimized"
   },
 
   // ── System tools / BT / WiFi (group-2) ──
@@ -294,7 +294,7 @@
     ]
   },
   "custom/tools": {
-    "exec": "~/.config/waybar/scripts/pill ''",
+    "exec": "pill ''",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "group/group-blue": {
@@ -311,21 +311,21 @@
     ]
   },
   "custom/blue": {
-    "exec": "~/.config/waybar/scripts/pill-child '' opt-hover-blue",
+    "exec": "pill-child '' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰂲' opt-no",
+    "exec": "pill-child '󰂲' opt-no",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "custom/scan": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰛔' opt-yes",
+    "exec": "pill-child '󰛔' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/more": {
-    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "exec": "pill-child ''",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "group/group-wifi": {
@@ -342,21 +342,21 @@
     ]
   },
   "custom/wifi": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰖩' opt-hover-blue",
+    "exec": "pill-child '󰖩' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/kill2": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰖪' opt-no",
+    "exec": "pill-child '󰖪' opt-no",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
   "custom/scan2": {
-    "exec": "~/.config/waybar/scripts/pill-child '󱛄' opt-yes",
+    "exec": "pill-child '󱛄' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
     "on-click": "rofi -show drun"
   },
   "custom/more2": {
-    "exec": "~/.config/waybar/scripts/pill-child ''",
+    "exec": "pill-child ''",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false
   },
 
@@ -395,19 +395,19 @@
     ]
   },
   "custom/power": {
-    "exec": "~/.config/waybar/scripts/pill '' opt-hover-red",
+    "exec": "pill '' opt-hover-red",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Hibernate",
     "on-click": "systemctl hibernate"
   },
   "custom/reboot": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰜉' opt-middle",
+    "exec": "pill-child '󰜉' opt-middle",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Reboot",
     "on-click": "reboot"
   },
   "custom/lock": {
-    "exec": "~/.config/waybar/scripts/pill-child '󰍁' opt-yes",
+    "exec": "pill-child '󰍁' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Sleep",
     "on-click": "systemctl suspend"
@@ -594,7 +594,7 @@
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
   "custom/battery": {
-    "exec": "~/.config/waybar/scripts/battery.sh",
+    "exec": "battery",
     "return-type": "json", "format": "{}", "interval": 30, "signal": 10, "tooltip": true
   },
 
