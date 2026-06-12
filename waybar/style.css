@@ -511,15 +511,26 @@ window#waybar #custom-window label {
 }
 
 /* ── Adaptive text — glass-text-daemon writes .light or .dark on the pill ── */
+/* Color is set on the PILL element (not on a `label` descendant). In waybar
+   custom modules the GTK widget tree is EventBox > [Box >] Label, and the
+   descendant selector `.opt-pill.light label` does NOT reliably match the
+   GtkLabel in GTK 3 — the form was silently no-op for every pill except the
+   opt-plus pair, whose adaptive rules (.opt-plus.light, .opt-plus.opt-swap.light)
+   happen to set color on the pill itself, not on the label. Setting color on
+   the pill lets it cascade into the label via GTK CSS inheritance, which DOES
+   work. The opt-plus.opt-swap.light:hover `label { color: transparent }` rule
+   below relies on a label-direct rule winning by specificity over this pill
+   rule on hover — that still holds (4 compound classes + 1 element > 2 compound
+   classes), so swap-pill label hiding on hover is preserved. */
 
-window#waybar .opt-pill.light label,
-window#waybar .opt-pill-child.light label {
+window#waybar .opt-pill.light,
+window#waybar .opt-pill-child.light {
     color: @opt-text-on-light;
     text-shadow: 0 1px 2px @opt-text-light-shadow;
 }
 
-window#waybar .opt-pill.light:hover label,
-window#waybar .opt-pill-child.light:hover label {
+window#waybar .opt-pill.light:hover,
+window#waybar .opt-pill-child.light:hover {
     color: @opt-text-on-light-hov;
 }
 

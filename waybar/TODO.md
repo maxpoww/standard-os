@@ -81,6 +81,73 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-12 (late)** — **Glass-mode actually works: the missing fourth layer was CSS.**
+  Commit 36abfe1's "bulletproof" three-layer fix landed cache content correctly
+  (`["opt-pill","light","opt-no",...]` everywhere) but the user reported the
+  visual symptom unchanged: only the `+` launcher and `ws-current` pill flipped
+  on a light wallpaper. Everything else (ws-1..9 drawer, window title, clock,
+  battery, win-close/minimize/move-trigger, notif-bell, notif-profile, dictate)
+  stayed in dark-mode white text.
+  Root cause: the canonical adaptive-text rule in `style.css` was
+  `window#waybar .opt-pill.light label { color: @opt-text-on-light; ... }` —
+  a descendant selector on `label`. In waybar 0.14.0 / GTK 3 this silently
+  no-op'd for every text-bearing custom module. The only pills that visibly
+  flipped were the opt-plus pair, because their own light-mode rules
+  (`.opt-plus.light` for SVG-swap, `.opt-plus.opt-swap.light` for text)
+  happen to set `color:` directly on the pill, not via a label descendant.
+  Fix: rewrite the canonical rule (and its `:hover` sibling) without the
+  `label` descendant, so color cascades into the GtkLabel via GTK CSS
+  inheritance — same mechanism the working opt-plus.opt-swap rule used all
+  along. The label-direct override at line 437
+  (`.opt-pill.opt-plus.opt-swap.light:hover label { color: transparent }`)
+  still wins by specificity (4 compound classes > 2), so swap-pill label
+  hiding on hover is preserved.
+  Verified end-to-end: stopped glass-text-daemon, forced /tmp/glass-mode=light,
+  jq-rewrote all caches, sent RTMIN+10/+11/+12 to waybar; user confirmed
+  visually "everything flips dark now" (vs. the previous "only + and
+  ws-current"). Restarted glass-text-daemon afterward; daemon auto-reverted
+  /tmp/glass-mode to dark per the current dark-wallpaper luminance, and
+  text returned to white correctly.
+  **Hint:** new hazard added to waybar/CLAUDE.md: GTK 3 CSS descendant `label`
+  selector doesn't reliably match GtkLabel inside a waybar custom module —
+  always set color on the pill, not on `label` descendant. Reserve label-direct
+  rules for specificity overrides (the opt-plus-swap hover transparent-label
+  trick). Sanity grep: `grep -n '\.light label' style.css` — every hit should
+  be a deliberate override of a pill-direct rule, not a primary adaptive-text
+  rule.
+  **Hint:** this is the *fourth* layer of the glass-mode flip, missed entirely
+  by the 2026-06-12 morning audit which verified cache content but not CSS
+  application. Verification recipe must include a human-eye visual check
+  ("does the bar actually look different on a light wallpaper?"), not just
+  cache-content asserts — because the cache can be perfect and the bar still
+  wrong if the consuming CSS rule doesn't match.
+  **Hint:** notif-bell / notif-profile / notif-action-1/2/3 use `signal: 12`
+  and dictate uses `signal: 11` (their owning daemons drive them independently
+  of theme). Glass-text-daemon's `set_mode` now signals all three of RTMIN+10,
+  +11, +12 after rewriting caches, so those modules re-cat their (already
+  jq-rewritten) cache file immediately on theme flip. Without this, the cache
+  was correct but waybar wouldn't read it until the owning daemon's next
+  natural emission — meaning a notif-bell or dictate pill could carry stale
+  theme tokens across a wallpaper change. Adding the extra two signals is
+  free (signal delivery is microseconds). If a new module starts using a
+  signal other than 10/11/12 AND wants to re-render on theme flip, extend
+  `set_mode` to also send that signal. Reference: `glass-text-daemon.sh`
+  bottom of `set_mode()`. **Heads-up:** that script lives at
+  `~/.config/waybar/scripts/glass-text-daemon.sh` — NOT in this repo, so the
+  RTMIN+11/+12 fanout edit is NOT in the git commit. When this daemon migrates
+  to a Nix module (queued in NEXT as "Workspace-daemon migration to Nix"; the
+  glass-text-daemon belongs in the same wave), copy the edited `set_mode` body
+  into the new Nix-managed version verbatim.
+  **Hint:** battery is currently invisible when Status = Charging/Full or
+  capacity ≤ 15 % — `battery.sh` emits `text=""` for those three states (per
+  the script header KNOWN PRE-EXISTING BUG, inherited from the pre-refactor
+  inline exec). Waybar hides custom modules with empty text, so on a charging
+  laptop the pill is gone regardless of theme. This is queued as a separate
+  decision (which Nerd Font glyphs to use for charging/full/critical) and is
+  NOT a glass-mode regression — when the icon glyph lands, the theme flip
+  already works correctly because battery.sh re-reads `pill_theme()` on every
+  exec and waybar signal:10 re-execs it on every flip.
+
 - **2026-06-12** — **Glass-mode (b/w font switcher) rebuilt bulletproof.**
   Three independent bugs were keeping the b/w font switcher silently broken
   since the 2026-05-28 JSON array migration; user-visible symptom was that
