@@ -184,20 +184,52 @@ in {
     xdg.configFile."mako/config".text = ''
       # Managed by /etc/nixos/home/modules/notif-center.nix — do not edit.
       #
-      # max-visible=0 is the load-bearing line: mako 1.10 receives every
-      # notification via D-Bus, runs all matching criteria, and stores it
-      # in history, but renders ZERO visible popups. OPTIONS owns the
-      # visible surface (the notif-bell pill in the bar); mako is the
-      # persistence/state backbone. This is the only knob that reliably
-      # suppresses popups across mako versions — `invisible=1` at the
-      # global level is treated as a per-criteria field default and may or
-      # may not suppress depending on version (1.10 was still showing
-      # popups with it set, 2026-06-12 observation).
-      max-visible=0
+      # Popup suppression strategy: per-urgency criteria with invisible=1.
+      # OPTIONS owns the visible notification surface (the notif-bell pill
+      # in the bar); mako is the D-Bus capture + history + makoctl backbone.
+      # Popups MUST NOT render.
+      #
+      # Why per-urgency criteria and not the simpler knobs:
+      #
+      # • `invisible=1` at the global (top-of-config) level is documented
+      #   as a STYLE OPTION but in mako 1.10 is treated as a per-criteria
+      #   field default — popups still rendered with it set globally
+      #   (verified 2026-06-12 after notif-daemon came online for the
+      #   first time on this generation).
+      #
+      # • `max-visible=0` crashes mako 1.10 on Wayland surface init —
+      #   the layer-shell anchor/position logic ends up emitting
+      #   `wl_surface#3: error -1: x == 0 but anchor doesn't have left
+      #   and right` and the compositor kills the surface. D-Bus then
+      #   re-activates mako on the next notification, mako crashes
+      #   again, makoctl can't connect, and notif-daemon goes silent
+      #   (it queries via makoctl). Confirmed regression — DO NOT use
+      #   this knob on mako 1.10. Re-evaluate if mako > 1.11 ships.
+      #
+      # • mako(5) suggests `[mode=do-not-disturb] invisible=1` for the
+      #   manual DND toggle. That works on demand but not as the
+      #   permanent default — you'd need `makoctl mode -a do-not-disturb`
+      #   at session start, which is brittle across mako restarts.
+      #
+      # Mako 1.10 empirically ignores `invisible=1` for popup rendering
+      # in BOTH global position AND per-urgency criteria — verified by
+      # `notify-send -u {low,normal,high,critical}` with each config
+      # variant; all four still produced visible popups (2026-06-12).
+      # mako(5) hints `invisible` only governs max-visible cutoff override,
+      # not unconditional render suppression — the phrasing "even if it
+      # is above the max-visible cutoff" implies a presupposed cutoff.
+      #
+      # The docs DO offer a clean DND pattern: `[mode=<name>] invisible=1`
+      # criteria + `makoctl mode -a <name>` to enter that mode. Notifications
+      # arriving while in the active mode match the criteria and are
+      # suppressed. The default mode "default" matches all notifications
+      # when no mode is active — so the docs-canonical pattern is to wrap
+      # the suppression rules in a `[mode=default]` criteria. Verified to
+      # actually fire in mako 1.10 (per-urgency criteria did NOT).
       default-timeout=0
       history=1
-      # `invisible=1` kept as belt-and-braces for any future mako version
-      # that interprets it as a global default; harmless when ignored.
+
+      [mode=default]
       invisible=1
     '' + lib.concatMapStrings (app: ''
 
