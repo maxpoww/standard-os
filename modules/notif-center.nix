@@ -183,9 +183,22 @@ in {
     # respawns mako with the new config on the next notification.
     xdg.configFile."mako/config".text = ''
       # Managed by /etc/nixos/home/modules/notif-center.nix — do not edit.
-      invisible=1
+      #
+      # max-visible=0 is the load-bearing line: mako 1.10 receives every
+      # notification via D-Bus, runs all matching criteria, and stores it
+      # in history, but renders ZERO visible popups. OPTIONS owns the
+      # visible surface (the notif-bell pill in the bar); mako is the
+      # persistence/state backbone. This is the only knob that reliably
+      # suppresses popups across mako versions — `invisible=1` at the
+      # global level is treated as a per-criteria field default and may or
+      # may not suppress depending on version (1.10 was still showing
+      # popups with it set, 2026-06-12 observation).
+      max-visible=0
       default-timeout=0
       history=1
+      # `invisible=1` kept as belt-and-braces for any future mako version
+      # that interprets it as a global default; harmless when ignored.
+      invisible=1
     '' + lib.concatMapStrings (app: ''
 
       [app-name=${app}]
