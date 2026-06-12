@@ -11,7 +11,13 @@ SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 # shellcheck source=lib/pill.sh
 . "$SELF_DIR/lib/pill.sh"
 
-while true; do
+# ── Emit one complete snapshot of all workspace pill caches ──────────────────
+# Extracted so it can be called once before the event loop (self_seed) and
+# then on every subsequent tick. On fresh tmpfs /tmp (reboot, manual rm -rf),
+# calling this before the loop ensures all cache files exist within ~1 second
+# of daemon startup rather than waiting for the first loop iteration to complete
+# past its trailing sleep 1.
+emit_snapshot() {
     # Self-heal: recreate cache dir every tick so we survive any external wipe.
     mkdir -p "$PILL_CACHE_DIR"
 
@@ -109,6 +115,14 @@ while true; do
             pill_write "win-move-$i" "" "opt-pill-child empty"
         fi
     done
+}
 
+# Seed all pill caches once before entering the event loop. On fresh tmpfs /tmp
+# (reboot, manual rm -rf) this guarantees every cache file exists within ~1
+# second of daemon startup without waiting for the trailing sleep 1 to expire.
+emit_snapshot
+
+while true; do
+    emit_snapshot
     sleep 1
 done
