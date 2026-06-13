@@ -2,6 +2,13 @@
 # waybar-self-test: verify the bar's runtime invariants and surface
 # failures via a SYSTEM-zone pill. Kicked by waybar-self-test.timer
 # every 60s and on demand via click handler.
+#
+# Exit code contract (consumed by the update pipeline's phase_verify):
+#   0 — all invariants satisfied (bar healthy)
+#   1 — one or more invariants failed (bar unhealthy)
+#
+# Both branches also run the reboot-pending check so that pill stays
+# accurate regardless of health state.
 set -euo pipefail
 
 # Resolve lib path. When invoked via makeWrapper, $0 is the wrapper;
@@ -31,14 +38,6 @@ done
 for f in "${REQUIRED_FILES[@]}"; do
   [ -e "$f" ] || failures+=("$f: missing")
 done
-
-if [ "${#failures[@]}" -eq 0 ]; then
-  # Healthy: empty text → waybar hides the module entirely.
-  pill_write waybar-self-test "" "opt-pill" ""
-else
-  tooltip=$(printf 'Self-test failures:\n%s\n' "$(printf '• %s\n' "${failures[@]}")")
-  pill_write waybar-self-test "⚠ ${#failures[@]}" "opt-pill opt-no" "$tooltip"
-fi
 
 # ---- reboot-pending check ----
 # Fires when /run/current-system != /run/booted-system AND the user has
@@ -73,4 +72,15 @@ emit_reboot_pending() {
     fi
 }
 
-emit_reboot_pending
+# ---- emit health pill and exit with appropriate code ----
+if [ "${#failures[@]}" -eq 0 ]; then
+  # Healthy: empty text → waybar hides the module entirely.
+  pill_write waybar-self-test "" "opt-pill" ""
+  emit_reboot_pending
+  exit 0
+else
+  tooltip=$(printf 'Self-test failures:\n%s\n' "$(printf '• %s\n' "${failures[@]}")")
+  pill_write waybar-self-test "⚠ ${#failures[@]}" "opt-pill opt-no" "$tooltip"
+  emit_reboot_pending
+  exit 1
+fi
