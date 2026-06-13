@@ -140,7 +140,21 @@ phase_verify() {
         "Pre-existing system issues — see log" 2>/dev/null || true
     return 2
 }
-phase_signal()     { return 0; }   # Task 9 fills this
+phase_signal() {
+    # Reboot-pending is emitted by waybar-self-test.sh (the daemon) — it
+    # owns the boot-divergence check and runs every 60s. Phase 7 just
+    # nudges it to refresh sooner so the user sees the reboot pill
+    # within seconds of a successful switch.
+    pkill -RTMIN+10 waybar 2>/dev/null || true
+
+    pill_state_clear
+    log_summary "update succeeded"
+    notify-send -a "Standard-OS" "System updated" \
+        "Click the reboot pill to finalize when convenient" 2>/dev/null || true
+    # Truncate the error log on success so the next failure starts clean.
+    : > "$ERROR_LOG"
+    return 0
+}
 
 # ─── Main pipeline (filled in by Task 10) ─────────────────────────────────
 run_pipeline() {
