@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Click handler for custom/reboot-pending.
+# Rofi: "Reboot now" or "Dismiss".
+#   - Reboot now → standard-os-shutdown-guard reboot (existing path).
+#   - Dismiss   → write /run/standard-os/reboot-dismissed with the current
+#                 booted-system path. The pill emitter checks this marker
+#                 and stays hidden as long as it matches the current booted
+#                 system. New switch or actual reboot invalidates it.
+set -uo pipefail
+
+DISMISS_MARKER="/run/standard-os/reboot-dismissed"
+
+choice=$(printf '%s\n' \
+    "Reboot now" \
+    "Dismiss" \
+    | rofi -dmenu -p "system" \
+           -mesg "Reboot recommended to finalize the latest update." \
+           -theme-str 'window {width: 480px;}')
+
+case "$choice" in
+    "Reboot now")
+        exec standard-os-shutdown-guard reboot
+        ;;
+    "Dismiss")
+        mkdir -p "$(dirname "$DISMISS_MARKER")"
+        readlink /run/booted-system > "$DISMISS_MARKER" 2>/dev/null || true
+        # Nudge the bar to re-evaluate.
+        pkill -RTMIN+10 waybar 2>/dev/null || true
+        ;;
+    *)
+        exit 0
+        ;;
+esac
