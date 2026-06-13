@@ -63,6 +63,9 @@ let
     libnotify         # notify-send fallback
     brightnessctl     # night-dimmer, screen-type
     hyprsunset        # warm-cycle, screen-type
+    util-linux        # flock (update pipeline lock)
+    polkit            # pkexec (nixos-rebuild with elevated priv)
+    systemd           # systemd-run (scheduler spawns pipeline detached)
   ]);
 
   waybar-scripts = pkgs.stdenv.mkDerivation {
@@ -82,9 +85,9 @@ let
       # (SC1090/SC1091 non-const source, SC2154 false-positive jq vars,
       # SC2034 unused INTERVAL). The gate's job is catching new bugs,
       # not enforcing a style pass on the pre-bulletproof corpus.
-      # Explicit `pill pill-child` so the no-extension launchers don't
-      # silently slip through the `*.sh` glob.
-      shellcheck -S error -s bash *.sh pill pill-child
+      # Explicit extensionless names so they don't silently slip through
+      # the `*.sh` glob.
+      shellcheck -S error -s bash *.sh pill pill-child standard-os-update standard-os-update-scheduler
       runHook postCheck
     '';
 
@@ -94,7 +97,7 @@ let
 
       install -m 0644 lib/pill.sh $out/share/waybar-scripts/lib/pill.sh
 
-      for f in *.sh pill pill-child; do
+      for f in *.sh pill pill-child standard-os-update standard-os-update-scheduler; do
         # name=f when extensionless (pill, pill-child); strip .sh otherwise.
         name=''${f%.sh}
         install -m 0755 "$f" "$out/libexec/waybar-scripts/$f"
