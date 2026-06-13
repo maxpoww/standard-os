@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# standard-os-update-scheduler — fires from a user-systemd timer every
+# 5 minutes. Decides whether to run the UPDATE pipeline:
+#
+#   1. Detection: is anything pending? (source-ahead, boot-diverged in L1;
+#      channel-ahead, GC-overdue, optimise-overdue, CVE in L2–L5)
+#   2. Lock check: is a pipeline already running?
+#   3. Idle gates: is the user in focus? (fullscreen, idle time, DND)
+#   4. Spawn the pipeline detached via systemd-run --user --scope.
+#
+# Each gate exits 0 (silently) — the timer retries at the next tick.
+# Library mode (STANDARD_OS_UPDATE_SCHEDULER_LIB_ONLY=1) skips main body.
+set -uo pipefail
+
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
+LOCK_FILE="/run/standard-os/update.lock"
+PIPELINE_BIN="${PIPELINE_BIN:-standard-os-update}"
+
+# ─── Detection (L1 conditions only) ───────────────────────────────────────
+is_source_ahead() {
+    [ -f /run/standard-os/activated-commit ] || return 1
+    local activated head
+    activated=$(cat /run/standard-os/activated-commit 2>/dev/null) || return 1
+    head=$(git -C /etc/nixos/home rev-parse HEAD 2>/dev/null) || return 1
+    [ "$activated" != "$head" ]
+}
+
+# Anything pending → returns 0. L2–L5 add more conditions here.
+detection_any_pending() {
+    is_source_ahead && return 0
+    return 1
+}
+
+# ─── Idle gates ───────────────────────────────────────────────────────────
+# Fullscreen guard: if the focused window is fullscreen, the user is busy.
+gate_fullscreen() {
+    local fs
+    fs=$(hyprctl -j activewindow 2>/dev/null | jq -r '.fullscreen // 0')
+    [ "$fs" = "0" ] || [ -z "$fs" ]
+}
+
+# Input-idle guard: at least IDLE_THRESHOLD_SEC seconds since last input.
+# Uses logind IdleSinceHint (microseconds since CLOCK_MONOTONIC reset).
+# If the value is unavailable, fail open (assume idle).
+IDLE_THRESHOLD_SEC="${IDLE_THRESHOLD_SEC:-300}"
+gate_input_idle() {
+    local session idle_since now idle_sec
+    session=$(loginctl show-user "$(id -un)" -p Display --value 2>/dev/null)
+    [ -n "$session" ] || return 0
+    idle_since=$(loginctl show-session "$session" -p IdleSinceHint --value 2>/dev/null)
+    [ -n "$idle_since" ] && [ "$idle_since" != "0" ] || return 0
+    now=$(date +%s%N)
+    # idle_since is microseconds; convert to seconds for comparison.
+    idle_sec=$(( (now / 1000 - idle_since) / 1000000 ))
+    [ "$idle_sec" -ge "$IDLE_THRESHOLD_SEC" ]
+}
+
+# DND respect: if DND is on, the user explicitly asked for quiet.
+gate_dnd_off() {
+    local dnd
+    dnd=$(jq -r '.text // ""' /tmp/waybar-cache/notif-dnd 2>/dev/null)
+    # DND pill text contains the bell-slash glyph when DND is ON.
+    # Fail open: if cache missing/unreadable, treat as DND off (allow update).
+    [ -z "$dnd" ] || ! grep -q $'\xef\x86\xa4' <<<"$dnd"
+}
+
+# ─── Main dispatch ────────────────────────────────────────────────────────
+schedule() {
+    detection_any_pending || return 0
+    # Lock-file check: skip if a pipeline is already running.
+    if [ -e "$LOCK_FILE" ] && fuser "$LOCK_FILE" >/dev/null 2>&1; then
+        return 0
+    fi
+    gate_fullscreen   || return 0
+    gate_input_idle   || return 0
+    gate_dnd_off      || return 0
+    # Spawn the pipeline detached so the timer service exits promptly.
+    systemd-run --user --scope --unit="standard-os-update-run-$(date +%s)" \
+        "$PIPELINE_BIN" >/dev/null 2>&1 &
+    return 0
+}
+
+[ "${STANDARD_OS_UPDATE_SCHEDULER_LIB_ONLY:-0}" = "1" ] && return 0
+schedule
+exit 0
