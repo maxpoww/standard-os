@@ -81,6 +81,28 @@ for the maintenance contract.
 
 ## DONE
 
+- **Fix: post-reboot OPTIONS module loss + reboot-pill no-op** — 2026-06-13
+  User rebooted and OPTIONS came back stripped (night-dimmer / battery / clock
+  exec via $WAYBAR_SCRIPTS_LIB / standard-os-reboot-prompt all silently
+  failing). Three causes layered:
+  (1) Booted generation predated the Environment= block + waybar-scripts
+      derivation in waybar.nix — i.e. a `test` / never-`switch` regression of
+      the same pattern as 2026-06-12. Resolved by `sudo nixos-rebuild switch`.
+  (2) After switch, two extensionless scripts added during UPDATE pill L1
+      (`standard-os-reboot-prompt`, `standard-os-update-pill-ack`) were still
+      missing from the shellcheck + install loop in `modules/waybar.nix`.
+      Added to both lists.
+  (3) Curated `Environment=PATH` (previously inherited from systemctl --user)
+      dropped `/etc/profiles/per-user/max/bin` — sibling HM-module binaries
+      (`dictate-waybar`) became unreachable. Added the user profile to PATH.
+  **Hint:** the `*.sh` glob in waybar-scripts' shellcheck + install loop
+  silently swallows new extensionless scripts. Every new bare-name script
+  under `waybar/scripts/` MUST also be enumerated in both lines of
+  `modules/waybar.nix` (search `for f in *.sh`). Pair with: when curating
+  `Environment=PATH` for a waybar-like service, include
+  `/etc/profiles/per-user/max/bin` so sibling HM-module binaries still
+  resolve.
+
 - **UPDATE pill — L1 foundation (auto-pipeline + verify-rollback)** — 2026-06-13
   Replaced the manual rebuild workflow with an automatic 5-min-cadence
   pipeline gated on idle (fullscreen/IdleHint/DND). Pipeline phases:

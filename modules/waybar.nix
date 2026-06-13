@@ -87,7 +87,7 @@ let
       # not enforcing a style pass on the pre-bulletproof corpus.
       # Explicit extensionless names so they don't silently slip through
       # the `*.sh` glob.
-      shellcheck -S error -s bash *.sh pill pill-child standard-os-update standard-os-update-scheduler
+      shellcheck -S error -s bash *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler
       runHook postCheck
     '';
 
@@ -97,7 +97,7 @@ let
 
       install -m 0644 lib/pill.sh $out/share/waybar-scripts/lib/pill.sh
 
-      for f in *.sh pill pill-child standard-os-update standard-os-update-scheduler; do
+      for f in *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler; do
         # name=f when extensionless (pill, pill-child); strip .sh otherwise.
         name=''${f%.sh}
         install -m 0755 "$f" "$out/libexec/waybar-scripts/$f"
@@ -220,7 +220,12 @@ in
           # + pill_theme as shell functions, not binaries) reach it via
           # `. $WAYBAR_SCRIPTS_LIB/pill.sh` instead of a $HOME path.
           Environment = [
-            "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin"
+            # /etc/profiles/per-user/max/bin is the home-manager user-profile
+            # directory. Required so binaries declared in sibling HM modules
+            # (e.g. voice-dictation.nix's dictate-waybar) remain reachable
+            # from waybar's exec strings — previously inherited from the
+            # systemctl --user PATH, lost the moment we curated Environment=.
+            "PATH=${waybar-scripts}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/etc/profiles/per-user/max/bin:/run/current-system/sw/bin"
             "WAYBAR_SCRIPTS_LIB=${waybar-scripts}/share/waybar-scripts/lib"
           ];
           Type = "simple";
