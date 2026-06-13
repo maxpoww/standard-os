@@ -108,6 +108,8 @@ hex_luminance() {
 # /tmp/glass-mode + rewrite pill caches + signal waybar, and falls back to
 # "dark" when no bg cache exists yet.
 self_seed() {
+    # Default "dark" — white-on-dark text is always readable, dark-on-light
+    # disappears on dark wallpapers. Safe pick when bg cache is absent.
     local seed_mode="dark"
     local seed_hex
     seed_hex=$(ls -t "$BG_CACHE"/bg_??????.png 2>/dev/null | head -1)
@@ -115,11 +117,8 @@ self_seed() {
         seed_hex=${seed_hex##*/bg_}
         seed_hex=${seed_hex%.png}
         if [[ ${#seed_hex} -eq 6 ]]; then
-            local r g b lum
-            r=$((16#${seed_hex:0:2}))
-            g=$((16#${seed_hex:2:2}))
-            b=$((16#${seed_hex:4:2}))
-            lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
+            local lum
+            lum=$(hex_luminance "$seed_hex")
             if (( lum > THRESHOLD )); then
                 seed_mode="light"
             fi
