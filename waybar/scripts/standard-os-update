@@ -104,7 +104,42 @@ phase_switch() {
     notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
     return 1
 }
-phase_verify()     { return 0; }   # Task 8 fills this
+# How long to wait after switch for systemd-user reloads to settle.
+# 5s in production; tests can override to 0.
+VERIFY_SETTLE_SEC="${VERIFY_SETTLE_SEC:-5}"
+
+phase_verify() {
+    pill_state_working "Verifying…"
+    sleep "$VERIFY_SETTLE_SEC"
+    if "$WAYBAR_SELF_TEST_CMD" >/dev/null 2>&1; then
+        return 0
+    fi
+    # Post-switch self-test failed → roll back.
+    log "[verify] post-switch self-test FAILED; rolling back"
+    local out
+    if ! out=$("$PKEXEC_CMD" /run/current-system/sw/bin/nixos-rebuild switch --rollback 2>&1); then
+        log "[verify] ROLLBACK ITSELF FAILED — system may be in a bad state:"
+        log "$out"
+        pill_state_error "Rollback failed — manual intervention needed"
+        notify-send -u critical -a "Standard-OS" "Critical" \
+            "Update rollback failed — see /var/lib/standard-os/last-update-error.log" \
+            2>/dev/null || true
+        return 2
+    fi
+    sleep "$VERIFY_SETTLE_SEC"
+    if "$WAYBAR_SELF_TEST_CMD" >/dev/null 2>&1; then
+        log "[verify] rolled back successfully; previous gen restored"
+        pill_state_error "Update reverted — system unchanged"
+        notify-send -a "Standard-OS" "Update was reverted" \
+            "System is unchanged — click pill for details" 2>/dev/null || true
+        return 1
+    fi
+    log "[verify] rollback completed but self-test STILL red — system was already broken"
+    pill_state_error "System was already broken pre-update"
+    notify-send -u critical -a "Standard-OS" "Update aborted" \
+        "Pre-existing system issues — see log" 2>/dev/null || true
+    return 2
+}
 phase_signal()     { return 0; }   # Task 9 fills this
 
 # ─── Main pipeline (filled in by Task 10) ─────────────────────────────────

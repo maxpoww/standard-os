@@ -53,4 +53,26 @@ PKEXEC_CMD=fake_pkexec_fail
 phase_switch; rc=$?
 assert_eq "$rc" "1" "phase_switch: pkexec fail → 1"
 
+# ─── phase_verify ─────────────────────────────────────────────────────────
+# Scenario: self-test green post-switch → no rollback needed → return 0.
+WAYBAR_SELF_TEST_CMD=fake_self_test_green
+PKEXEC_CMD=fake_pkexec_ok
+VERIFY_SETTLE_SEC=0   # skip the 5s sleep in tests
+phase_verify; rc=$?
+assert_eq "$rc" "0" "phase_verify: green post-switch → 0"
+
+# Scenario: self-test red post-switch, rollback succeeds, post-rollback green → return 1.
+# Use a counter so the same stub returns red on first call, green on second.
+ST_CALLS=0
+fake_self_test_red_then_green() {
+    ST_CALLS=$((ST_CALLS + 1))
+    [ "$ST_CALLS" -eq 1 ] && return 1
+    return 0
+}
+WAYBAR_SELF_TEST_CMD=fake_self_test_red_then_green
+PKEXEC_CMD=fake_pkexec_ok
+ST_CALLS=0
+phase_verify; rc=$?
+assert_eq "$rc" "1" "phase_verify: red→rollback→green → 1 (rolled back)"
+
 exit "$fail"
