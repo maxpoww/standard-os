@@ -263,7 +263,7 @@ in
           # the files declaratively before start keeps the lifecycle
           # owned by this unit rather than relying on luck.
           ExecStartPre = "${pkgs.coreutils}/bin/rm -f /tmp/glass-text-daemon.lock /tmp/glass-text-daemon.pid";
-          ExecStart = "${waybar-scripts}/bin/glass-text-daemon-does-not-exist";
+          ExecStart = "${waybar-scripts}/bin/glass-text-daemon";
           # Restart=on-failure (not always): graceful exits during shutdown
           # don't trigger restart cycles. Expo backoff plateaus at 30s.
           Restart            = "on-failure";
