@@ -81,6 +81,31 @@ for the maintenance contract.
 
 ## DONE
 
+- **Reboot click bypasses the rebuild-pending rofi** — 2026-06-13
+  The power-parent spec's "direct reboot, no prompt" claim
+  (`2026-06-13-power-parent-reboot-pending-design.md` line 70-76) assumed
+  reboot-pending and rebuild-pending only ever co-occurred at the moment of
+  reboot — i.e., after a rebuild, HEAD == activated-commit so
+  `check_rebuild_pending` returned false and the guard exec'd `systemctl
+  reboot` directly. That assumption breaks the second the user makes a new
+  commit AFTER the rebuild (e.g., the power-pill theme fix earlier today):
+  rebuild-pending is now true again, the guard's existing logic fires the
+  rofi with "Rebuild + reboot / Reboot anyway / Cancel," and the power-pill
+  — which was already visibly advertising reboot urgency — feels like it's
+  second-guessing the click. New policy: when `action=reboot`, the guard
+  never prompts. Click intent is authoritative; rebuild handling belongs to
+  the background UPDATE pipeline (per `2026-06-13-update-pill-design.md`),
+  not the click path. Uncompiled commits past activated-commit ride the
+  next rebuild cycle. Other actions (sleep / hibernate / poweroff) keep the
+  existing guard rofi — they're not the path the power-pill visually
+  commits to.
+  **Hint:** the bypass lives at the top of
+  `waybar/scripts/standard-os-shutdown-guard.sh`'s decision block, before
+  `check_rebuild_pending` is consulted. Spec
+  `2026-06-13-power-parent-reboot-pending-design.md` line 76 ("we only get
+  a prompt in the legitimately-ambiguous case") is now stale — the dual-
+  state case also bypasses.
+
 - **Fix: power-pill emits the dark|light theme token** — 2026-06-13
   Follow-up to the power-parent ship earlier today. The new `power-pill.sh`
   helper went straight to raw `printf '{"text":"…","class":["opt-pill","…"]}'`

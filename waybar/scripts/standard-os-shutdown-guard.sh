@@ -40,6 +40,15 @@ run_or_dry() {
     fi
 }
 
+# Reboot click: never prompt. Click intent is authoritative; rebuild
+# handling belongs to the UPDATE pipeline (background, no user
+# interaction), not the click path. Any uncompiled commits past
+# activated-commit ride the next rebuild cycle.
+if [ "$action" = "reboot" ]; then
+    run_or_dry "${cmd[@]}"
+    exit 0
+fi
+
 if ! check_rebuild_pending; then
     run_or_dry "${cmd[@]}"
     exit 0
