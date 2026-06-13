@@ -40,33 +40,37 @@ else
   pill_write waybar-self-test "⚠ ${#failures[@]}" "opt-pill opt-no" "$tooltip"
 fi
 
-# ---- rebuild-pending check ----
+# ---- reboot-pending check ----
+# Fires when /run/current-system != /run/booted-system AND the user has
+# not dismissed for the current booted gen. The check runs every self-test
+# tick (60s default) so the pill appears within ~1min of a successful
+# update activating a new gen.
 
-check_rebuild_pending() {
-  [ -f /run/standard-os/activated-commit ] || return 1
-  local activated head
-  activated=$(cat /run/standard-os/activated-commit 2>/dev/null) || return 1
-  head=$(git -C /etc/nixos/home rev-parse HEAD 2>/dev/null) || return 1
-  [ "$activated" = "$head" ] && return 1   # up to date
+DISMISS_MARKER="/run/standard-os/reboot-dismissed"
+# FA power glyph (U+F011) — 3 bytes UTF-8.
+POWER_GLYPH=$'\xef\x80\x91'
 
-  git -C /etc/nixos/home merge-base --is-ancestor "$activated" HEAD 2>/dev/null
-  case $? in
-    0|1) return 0 ;;   # ahead OR exotic divergence → pending
-    *)   return 1 ;;   # bad SHA or other failure → fail open
-  esac
+check_reboot_pending() {
+    local current booted
+    current=$(readlink /run/current-system 2>/dev/null) || return 1
+    booted=$(readlink /run/booted-system 2>/dev/null) || return 1
+    [ "$current" = "$booted" ] && return 1
+    # Dismissed for THIS booted gen?
+    if [ -r "$DISMISS_MARKER" ]; then
+        local dismissed
+        dismissed=$(cat "$DISMISS_MARKER" 2>/dev/null) || dismissed=""
+        [ "$dismissed" = "$booted" ] && return 1
+    fi
+    return 0
 }
 
-emit_rebuild_pending() {
-  if check_rebuild_pending; then
-    local activated ahead last
-    activated=$(cat /run/standard-os/activated-commit)
-    ahead=$(git -C /etc/nixos/home rev-list --count "$activated..HEAD" 2>/dev/null || echo "?")
-    last=$(git -C /etc/nixos/home log -1 --format=%s HEAD 2>/dev/null || echo "?")
-    pill_write rebuild-pending "$(printf '\xef\x80\xa1')" "opt-pill opt-pin-orange" \
-      "Pending rebuild: $ahead commit(s) ahead — last: $last"
-  else
-    pill_write rebuild-pending "" "opt-pill" ""
-  fi
+emit_reboot_pending() {
+    if check_reboot_pending; then
+        pill_write reboot-pending "$POWER_GLYPH" "opt-pill opt-pin-orange" \
+            "Reboot recommended to finalize updates"
+    else
+        pill_write reboot-pending "" "opt-pill" ""
+    fi
 }
 
-emit_rebuild_pending
+emit_reboot_pending
