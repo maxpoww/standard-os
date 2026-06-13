@@ -60,6 +60,7 @@
     "group/notif",
     "group/group-2",
     "group/group-power",
+    "custom/waybar-self-test",
     "custom/power-resume",
     "custom/clock",
     "custom/battery",
@@ -499,6 +500,21 @@
   // as a plain string makes waybar treat the whole thing as ONE class name,
   // silently breaking every .opt-pill selector. Bit us on 2026-05-28 — see
   // CLAUDE.md "Known hazards" and the spec's daemon convention.)
+  // ── Waybar self-test pill ──
+  // Hidden when healthy (empty text — waybar collapses the module).
+  // Populated by waybar-self-test.service if any checks fail. Emits ⚠ N
+  // with opt-no class on failure. Click → kicks immediate re-check.
+  // Signal RTMIN+10 matches the daemon's broadcast frequency.
+  "custom/waybar-self-test": {
+    "exec": "cat /tmp/waybar-cache/waybar-self-test 2>/dev/null",
+    "return-type": "json",
+    "format": "{}",
+    "interval": 2,
+    "signal": 10,
+    "tooltip": true,
+    "on-click": "systemctl --user start waybar-self-test.service"
+  },
+
   // ── Post-resume failure pill ──
   // Hidden when empty (waybar collapses modules with empty text). Populated
   // by standard-os-resume.service if the post-resume health-check finds a
