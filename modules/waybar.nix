@@ -129,21 +129,6 @@ in
       description = "Path of the waybar style.css to install.";
     };
 
-    scriptsSource = lib.mkOption {
-      type = lib.types.path;
-      default = ./../waybar/scripts;
-      description = ''
-        Path of the waybar scripts directory to install at
-        ~/.config/waybar/scripts. Contains glass-text-daemon.sh,
-        workspace-daemon.sh, lib/pill.sh, the static pill/pill-child
-        wrappers, and every per-module script (battery, screen-type,
-        warm-cycle, shader-*, night-dimmer, win-action, win-icon, ...).
-        Mirrored into the user's config as a single out-of-store
-        symlink so edits in the repo are live without a rebuild and
-        a fresh distro install has every script materialised.
-      '';
-    };
-
     systemd.enable = lib.mkOption {
       type = lib.types.bool;
       default = true;
@@ -192,19 +177,16 @@ in
         force  = true;
       };
 
-      # ~/.config/waybar/scripts is a single out-of-store symlink to the
-      # repo's tracked scripts directory. Same iteration model as
-      # config.jsonc / style.css — edit + restart waybar (or the owning
-      # daemon for a script-only change). Without this symlink, every
-      # waybar daemon and per-module script (1,400+ lines of bash that
-      # drives the entire bar UX) lives only in $HOME and disappears on
-      # a fresh distro install. Closed 2026-06-12 after the b/w switcher
-      # audit found that glass-text-daemon.sh's RTMIN+11/+12 fanout and
-      # lib/pill.sh's Layer 2A theme-re-read fix were both un-versioned.
-      xdg.configFile."waybar/scripts" = {
-        source = config.lib.file.mkOutOfStoreSymlink cfg.scriptsSource;
-        force  = true;
-      };
+      # One-time cleanup: pre-bulletproof generations left a symlink at
+      # ~/.config/waybar/scripts; activation could also have backed up the
+      # old real directory as scripts.hm-bak. Both are removed here so the
+      # bar's $HOME footprint shrinks to config.jsonc + style.css (and the
+      # icons/, offers/, launch.sh, .git that the user manages outside
+      # this module).
+      home.activation.cleanupOldWaybarScripts =
+        lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          rm -rf $HOME/.config/waybar/scripts $HOME/.config/waybar/scripts.hm-bak
+        '';
     }
 
     (lib.mkIf cfg.systemd.enable {
