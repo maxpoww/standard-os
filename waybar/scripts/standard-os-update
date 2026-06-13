@@ -77,7 +77,7 @@ phase_pre_flight() {
     pill_state_error "Existing issues to resolve first"
     return 1
 }
-PKEXEC_CMD="${PKEXEC_CMD:-pkexec}"
+PKEXEC_CMD="${PKEXEC_CMD:-/run/wrappers/bin/pkexec}"
 
 phase_dry_build() {
     pill_state_working "Building…"
