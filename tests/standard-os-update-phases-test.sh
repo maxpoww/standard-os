@@ -44,4 +44,13 @@ PKEXEC_CMD=fake_pkexec_fail
 phase_dry_build; rc=$?
 assert_eq "$rc" "1" "phase_dry_build: pkexec fail → 1"
 
+# ─── phase_switch ─────────────────────────────────────────────────────────
+PKEXEC_CMD=fake_pkexec_ok
+phase_switch; rc=$?
+assert_eq "$rc" "0" "phase_switch: pkexec ok → 0"
+
+PKEXEC_CMD=fake_pkexec_fail
+phase_switch; rc=$?
+assert_eq "$rc" "1" "phase_switch: pkexec fail → 1"
+
 exit "$fail"

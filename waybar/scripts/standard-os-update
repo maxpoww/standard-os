@@ -91,7 +91,19 @@ phase_dry_build() {
     notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
     return 1
 }
-phase_switch()     { return 0; }   # Task 7 fills this
+phase_switch() {
+    pill_state_working "Activating…"
+    local out
+    if out=$("$PKEXEC_CMD" /run/current-system/sw/bin/nixos-rebuild switch 2>&1); then
+        log "[switch] succeeded"
+        return 0
+    fi
+    log "[switch] failed:"
+    log "$out"
+    pill_state_error "Activation failed"
+    notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
+    return 1
+}
 phase_verify()     { return 0; }   # Task 8 fills this
 phase_signal()     { return 0; }   # Task 9 fills this
 
