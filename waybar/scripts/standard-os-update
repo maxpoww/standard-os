@@ -63,7 +63,20 @@ log_summary() {
 }
 
 # ─── Phase entrypoints (filled in by Tasks 5–9) ───────────────────────────
-phase_pre_flight() { return 0; }   # Task 5 fills this
+# WAYBAR_SELF_TEST_CMD allows tests to substitute a stub. In production
+# it falls back to running the actual waybar-self-test binary, which is
+# in our PATH via the waybar-scripts derivation wrapper.
+WAYBAR_SELF_TEST_CMD="${WAYBAR_SELF_TEST_CMD:-waybar-self-test}"
+
+phase_pre_flight() {
+    pill_state_working "Checking…"
+    if "$WAYBAR_SELF_TEST_CMD" >/dev/null 2>&1; then
+        return 0
+    fi
+    log "[pre-flight] waybar-self-test reports failures; deferring update"
+    pill_state_error "Existing issues to resolve first"
+    return 1
+}
 phase_dry_build()  { return 0; }   # Task 6 fills this
 phase_switch()     { return 0; }   # Task 7 fills this
 phase_verify()     { return 0; }   # Task 8 fills this
