@@ -58,8 +58,8 @@ let
     inotify-tools
     hyprland          # hyprctl
     imagemagick       # glass-text-daemon luminance sample
-    git               # rebuild-pending check + shutdown-guard
-    rofi              # shutdown-guard + rebuild-prompt modals
+    git               # UPDATE scheduler L1 source-ahead check
+    rofi              # reboot-prompt modal
     libnotify         # notify-send fallback
     brightnessctl     # night-dimmer, screen-type
     hyprsunset        # warm-cycle, screen-type

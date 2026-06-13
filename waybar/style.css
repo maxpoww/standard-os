@@ -542,10 +542,6 @@ window#waybar #custom-waybar-self-test.light {
   color: @opt-text-on-light;
 }
 
-window#waybar #custom-rebuild-pending.light {
-  color: @opt-text-on-light;
-}
-
 window#waybar .opt-pill.light:hover,
 window#waybar .opt-pill-child.light:hover {
     color: @opt-text-on-light-hov;

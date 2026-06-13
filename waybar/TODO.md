@@ -81,6 +81,26 @@ for the maintenance contract.
 
 ## DONE
 
+- **Rebuild-pending orphan cleanup** — 2026-06-13
+  Today's retirement (commits `3f59b70` + `05ea9a9` + `6ed260b`) left four
+  loose threads after the UPDATE pipeline absorbed the user-facing rebuild
+  state. Cleared in one pass:
+  (1) Orphan cache file `/tmp/waybar-cache/rebuild-pending` (stale from
+  13:50, no module read it anymore).
+  (2) Dead CSS selector `window#waybar #custom-rebuild-pending.light` in
+  `waybar/style.css`.
+  (3) Stale runtime-dep comments in `modules/waybar.nix:61-62` (`git` is
+  now only for UPDATE scheduler L1; `rofi` is now only for reboot-prompt).
+  (4) `waybar/scripts/standard-os-shutdown-guard.sh` collapsed to a thin
+  dispatcher — the `check_rebuild_pending` function and rofi modal are
+  gone. Sleep/hibernate/poweroff now pass through immediately, same as
+  reboot did after `05ea9a9`. UPDATE pipeline handles rebuilds in the
+  background; no user-facing gate is needed before a power transition.
+  **Hint:** the script's behavior contract is unchanged from a caller's
+  POV — `standard-os-shutdown-guard <action>` still maps to `systemctl
+  <action>`. DRY_RUN=1 preserved for tests. Callers untouched
+  (`power-pill.sh`, `config.jsonc` x3, `standard-os-reboot-prompt`).
+
 - **Rebuild-pending is eliminated as a user-facing concept** — 2026-06-13
   Two changes combine to make "pending" the briefest possible window:
   (1) The UPDATE scheduler's three idle gates (fullscreen, input-idle,
