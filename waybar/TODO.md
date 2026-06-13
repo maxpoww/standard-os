@@ -81,6 +81,30 @@ for the maintenance contract.
 
 ## DONE
 
+- **Power parent absorbs reboot-pending state** — 2026-06-13
+  Retired the standalone `custom/reboot-pending` pill. The existing power
+  group's parent now swaps face when `current-system != booted-system`:
+  normal mode shows the FA power glyph + `opt-hover-red` and clicks
+  hibernate; reboot-pending mode shows the reboot glyph + `opt-pin-yellow`
+  (new pin variant — saturated yellow, same hue family as @opt-yellow /
+  @opt-yellow-state, 0.70 alpha to match the other pins;
+  opt-pin-orange read too peach-toned for the "reboot recommended" signal)
+  and clicks reboot. On hover the cluster's third slot swaps identity too
+  — reboot child in normal mode, hibernate child (red, `opt-no`) in
+  reboot-pending mode — so the sleep + escape-hatch hover affordance is
+  always present. Rule 6 (same option, same look) wins: reboot urgency
+  rides on the existing reboot affordance instead of growing a new pill.
+  New `power-pill.sh` helper does the state branch via direct readlink
+  on `/run/current-system` vs `/run/booted-system` (no cache dependency,
+  sidestepping the `text=empty hides module` hazard that left the old
+  standalone pill invisible anyway).
+  **Hint:** state predicate lives in `waybar/scripts/power-pill.sh`'s
+  `is_reboot_pending()` (mirrors `waybar-self-test.sh`'s
+  `check_reboot_pending`). Click on the parent goes through
+  `power-pill click power` so the same module slot dispatches to
+  reboot or hibernate based on state. Spec at
+  `docs/superpowers/specs/2026-06-13-power-parent-reboot-pending-design.md`.
+
 - **Fix: post-reboot OPTIONS module loss + reboot-pill no-op** — 2026-06-13
   User rebooted and OPTIONS came back stripped (night-dimmer / battery / clock
   exec via $WAYBAR_SCRIPTS_LIB / standard-os-reboot-prompt all silently

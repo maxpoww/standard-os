@@ -17,7 +17,7 @@
                              without surfacing content. Sibling of opt-flash in the
                              one-shot family; flash is for user→OS ack, beat is for
                              OS→user ack.)
-       Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange
+       Pin (0/1):            .opt-pin-violet | .opt-pin-green | .opt-pin-orange | .opt-pin-yellow
                              (solid secondary color held after animation resolves;
                               calm, no motion — the eye stays, the CPU doesn't)
        Pushed (0/1):         .opt-pushed                    (toggle ON — the ONLY
@@ -102,6 +102,13 @@
 @define-color opt-violet            rgba(217, 179, 255, 0.70);
 @define-color opt-green             rgba(179, 255, 179, 0.70);
 @define-color opt-orange            rgba(255, 191, 179, 0.70);
+
+/* Pin-strength yellow — same hue family as @opt-yellow / @opt-yellow-state
+   but at 0.70 alpha to match violet / green / orange pin saturation. Used
+   by .opt-pin-yellow on the power parent in reboot-pending mode (opt-pin-
+   orange read too peach-toned for the "reboot recommended" attention
+   signal; yellow lands the urgency without sliding into red territory). */
+@define-color opt-yellow-pin        rgba(255, 230, 179, 0.70);
 
 /* opt-pushed shadow — the soft top-inset shadow that signals "this toggle
    is engaged." Replaces the earlier hard 1px border + dark surface combo
@@ -245,6 +252,8 @@ window#waybar .opt-pill.opt-pin-green,
 window#waybar .opt-pill-child.opt-pin-green    { background: @opt-green;  }
 window#waybar .opt-pill.opt-pin-orange,
 window#waybar .opt-pill-child.opt-pin-orange   { background: @opt-orange; }
+window#waybar .opt-pill.opt-pin-yellow,
+window#waybar .opt-pill-child.opt-pin-yellow   { background: @opt-yellow-pin; }
 
 /* Pins inherit the universal opt-hover-bright overlay too — hovering
    signals acknowledgement, and the daemon's click/hover-clear path will

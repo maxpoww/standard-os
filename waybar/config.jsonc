@@ -61,7 +61,6 @@
     "group/group-2",
     "group/group-power",
     "custom/update-pending",
-    "custom/reboot-pending",
     "custom/waybar-self-test",
     "custom/power-resume",
     "custom/clock",
@@ -394,20 +393,39 @@
     "modules": [
       "custom/power",
       "custom/lock",
-      "custom/reboot"
+      "custom/reboot",
+      "custom/hibernate"
     ]
   },
+  // Parent face swaps based on current-system vs booted-system. Normal:
+  // hibernate (FA power glyph, opt-hover-red). Reboot-pending: reboot
+  // glyph + opt-pin-orange. Click is branched via `power-pill click power`
+  // so the same affordance reboots when reboot is pending and hibernates
+  // otherwise. See spec docs/superpowers/specs/2026-06-13-power-parent-
+  // reboot-pending-design.md.
   "custom/power": {
-    "exec": "pill '' opt-hover-red",
-    "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
-    "tooltip": "Hibernate",
-    "on-click": "standard-os-shutdown-guard hibernate"
+    "exec": "power-pill power",
+    "return-type": "json", "format": "{}", "interval": 5, "signal": 10,
+    "tooltip": true,
+    "on-click": "power-pill click power"
   },
+  // Reboot child - visible only in normal mode. In reboot-pending mode
+  // power-pill emits .empty (collapsed to zero width) since the parent
+  // IS the reboot affordance then.
   "custom/reboot": {
-    "exec": "pill-child '󰜉' opt-middle",
-    "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
-    "tooltip": "Reboot",
+    "exec": "power-pill reboot",
+    "return-type": "json", "format": "{}", "interval": 5, "signal": 10,
+    "tooltip": true,
     "on-click": "standard-os-shutdown-guard reboot"
+  },
+  // Hibernate child - visible only in reboot-pending mode (the parent
+  // has swapped to reboot, so hibernate moves into the cluster to keep
+  // the escape hatch on hover). Empty in normal mode.
+  "custom/hibernate": {
+    "exec": "power-pill hibernate",
+    "return-type": "json", "format": "{}", "interval": 5, "signal": 10,
+    "tooltip": true,
+    "on-click": "standard-os-shutdown-guard hibernate"
   },
   "custom/lock": {
     "exec": "pill-child '󰍁' opt-yes",
@@ -533,19 +551,14 @@
     "on-click": "standard-os-update-pill-ack"
   },
 
-  // ── Reboot-pending pill ──
-  // Hidden unless /run/current-system != /run/booted-system AND not
-  // dismissed for the current booted gen. Written by waybar-self-test.sh
-  // every 60s + signal-driven. Click → standard-os-reboot-prompt rofi.
-  "custom/reboot-pending": {
-    "exec": "cat /tmp/waybar-cache/reboot-pending 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": true,
-    "on-click": "standard-os-reboot-prompt"
-  },
+  // Reboot-pending state retired as a standalone pill 2026-06-13 — the
+  // urgency now rides on the existing custom/power parent (color + glyph
+  // swap), so the user reaches for the same affordance they already use
+  // to reboot. See spec docs/superpowers/specs/2026-06-13-power-parent-
+  // reboot-pending-design.md. waybar-self-test still writes
+  // /tmp/waybar-cache/reboot-pending as a debugging aid but no module
+  // reads it now (the new power-pill helper compares /run/current-system
+  // vs /run/booted-system directly).
 
   // ── Post-resume failure pill ──
   // Hidden when empty (waybar collapses modules with empty text). Populated
