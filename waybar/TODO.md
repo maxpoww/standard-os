@@ -81,6 +81,35 @@ for the maintenance contract.
 
 ## DONE
 
+- **Rebuild-pending is eliminated as a user-facing concept** — 2026-06-13
+  Two changes combine to make "pending" the briefest possible window:
+  (1) The UPDATE scheduler's three idle gates (fullscreen, input-idle,
+  DND) are gone for L1 source-ahead detection. The scheduler now just
+  checks detection + lock-file and fires the pipeline. Pkexec is
+  passwordless via `modules/standard-os-update-polkit.nix`, so the
+  whole pipeline runs silently in the background.
+  (2) A new post-commit git hook at `/etc/nixos/home/.git/hooks/post-commit`
+  fires the scheduler the moment any commit lands at HEAD. The
+  scheduler's lock-file check coalesces rapid commits during an
+  in-progress build — the next eligible tick (hook or 5-min timer)
+  picks up whatever HEAD became.
+  Surfaces the user sees: only the passive updating-pill while the
+  pipeline runs, then the power-pill's reboot face once activation
+  succeeds. Click the reboot face → boots into the new gen (the
+  guard rofi for reboot is gone as of this morning's earlier commit).
+  Failure modes preserved: the pipeline already had dry-build → switch
+  → verify-and-rollback, so a broken commit reverts itself before it
+  can wedge the system.
+  **Hint:** if the hook ever needs editing, change `postCommitHook` in
+  `modules/standard-os-update-scheduler.nix` — the activation
+  `install`-copies it from `/nix/store` into `.git/hooks/post-commit`
+  on every nixos-rebuild. The 5-min timer remains as the safety-net
+  trigger; `gate_*` functions in the scheduler script are deleted.
+  The race window (commit B lands while pipeline-for-A is running) is
+  closed by the next 5-min tick; if that's too slow in practice, a
+  follow-up could have the pipeline re-detect at end-of-run and
+  self-fire.
+
 - **Reboot click bypasses the rebuild-pending rofi** — 2026-06-13
   The power-parent spec's "direct reboot, no prompt" claim
   (`2026-06-13-power-parent-reboot-pending-design.md` line 70-76) assumed
