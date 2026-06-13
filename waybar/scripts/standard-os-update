@@ -158,6 +158,25 @@ phase_signal() {
 
 # ─── Main pipeline (filled in by Task 10) ─────────────────────────────────
 run_pipeline() {
+    log "[pipeline] start"
+    if ! phase_pre_flight; then
+        log "[pipeline] aborted at pre-flight"
+        return 1
+    fi
+    if ! phase_dry_build; then
+        log "[pipeline] aborted at dry-build"
+        return 1
+    fi
+    if ! phase_switch; then
+        log "[pipeline] aborted at switch (no rollback needed — switch didn't activate)"
+        return 1
+    fi
+    if ! phase_verify; then
+        log "[pipeline] verify failed (rollback handled within phase)"
+        return 1
+    fi
+    phase_signal
+    log "[pipeline] complete"
     return 0
 }
 
