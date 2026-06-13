@@ -81,6 +81,134 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-12 (bulletproof)** — **OPTIONS bar moves into /nix/store: scripts derivation, self-test pill, rebuild-pending pill, shutdown gate.**
+  Closes the architectural follow-up flagged in the incident DONE entry
+  below. A single `pkgs.stdenv.mkDerivation` wraps every script under
+  `/etc/nixos/home/waybar/scripts/` (plus three new ones —
+  `waybar-self-test`, `standard-os-shutdown-guard`,
+  `standard-os-rebuild-prompt`) as `${waybar-scripts}/bin/<name>`.
+  `lib/pill.sh` lives at `share/waybar-scripts/lib/pill.sh` and is
+  sourced via absolute path through `substituteInPlace`. The daemon
+  `ExecStart`s and `config.jsonc` exec sites move off
+  `~/.config/waybar/scripts/`; the `xdg.configFile."waybar/scripts"`
+  declaration is deleted. `~/.config/waybar/scripts` ceases to exist.
+  Restart-burst tuning (20 attempts / 5 min, expo backoff plateauing
+  at 30 s) replaces the 5-shots-in-12 ms failure mode the incident
+  exposed. `waybar-self-test.service` + 60 s timer drive a SYSTEM-zone
+  pill that surfaces broken daemons or missing caches in red (`⚠ N`),
+  invisible when healthy. `modules/standard-os-commit-tracking.nix`
+  writes `/run/standard-os/activated-commit` at every activation;
+  the same `waybar-self-test` script emits a second pill
+  (`rebuild-pending`, FA sync glyph + `opt-pin-orange`) whenever the
+  working tree at `/etc/nixos/home` is ahead. Power-cluster `on-click`
+  handlers route through `standard-os-shutdown-guard <action>` — clean
+  tree forwards immediately, pending tree opens a rofi modal (rebuild+
+  action / action-anyway / cancel).
+  Verified via end-to-end acceptance suite (16 commits across 15 tasks,
+  every AC PASS): 18 wrapped binaries in `${waybar-scripts}/bin/`,
+  `~/.config/waybar/{scripts,scripts.hm-bak}` both absent, services
+  active with clean journal, `rm -rf /tmp/waybar-cache /tmp/glass-mode`
+  + restart-of-all-daemons → every required cache present within 2 s,
+  self-test surface on daemon-down + clear on recovery, rebuild-pending
+  pill activates on `git commit --allow-empty` + clears on reset,
+  shutdown-guard DRY_RUN forwards directly on clean tree.
+  Spec: `waybar/docs/superpowers/specs/2026-06-12-waybar-bulletproof-design.md`.
+  Plan: `waybar/docs/superpowers/plans/2026-06-12-waybar-bulletproof.md`.
+  **Hint:** `lib/pill.sh` substitution covers only one form —
+  `. "$SELF_DIR/lib/pill.sh"`. If a future script uses any other form
+  (e.g. `source "$(dirname "$0")/lib/pill.sh"` or
+  `LIB=$(dirname "$0")/lib; source $LIB/pill.sh`), append the
+  `--replace-quiet` pair in `modules/waybar.nix` installPhase or the
+  wrapped binary will runtime-fail with "lib/pill.sh: No such file or
+  directory" on first call. The original spec template anticipated two
+  forms (`source "$(dirname...)" /` and `. "$(dirname...)"/`) — neither
+  appears in the codebase; the implementer's pre-flight grep caught
+  the discrepancy.
+  **Hint:** `shellcheck -S error` (not full severity) gates the build.
+  The corpus carries legitimate informational/warning findings
+  (SC1090/SC1091 non-const lib source, SC2154 false-positive jq vars,
+  SC2034 unused INTERVAL in glass-text-daemon) — the gate's job is
+  catching new errors, not enforcing a style pass. Adding a new
+  script: `nix-shell -p shellcheck --run 'shellcheck -S error -s bash
+  <name>.sh'` locally before committing. Explicit `pill pill-child`
+  added to the invocation so the no-extension launchers don't slip
+  through the `*.sh` glob.
+  **Hint:** self-seeding contract — `glass-text-daemon.sh` calls
+  `self_seed` (which uses `hex_luminance` + `set_mode` from the same
+  daemon, falling back to "dark") and `workspace-daemon.sh` calls
+  `emit_snapshot` before entering its event loop. New long-lived
+  daemons must do the same; the AC3 regression gate (`rm -rf
+  /tmp/waybar-cache /tmp/glass-mode && restart-all-daemons →
+  every required cache present within 2 s`) catches violations.
+  Caveat: only the two long-lived waybar daemons self-seed today;
+  `notif-daemon` was NOT touched in this migration. On a fresh tmpfs
+  `/tmp` boot, `notif-bell` cache will be missing until the first
+  notification arrives — the self-test pill correctly surfaces this
+  ("⚠ 1, cache/notif-bell: missing-or-empty") for ≤60s after boot.
+  Adding `self_seed` to notif-daemon is queued in NEXT.
+  **Hint:** `StartLimitBurst` / `StartLimitIntervalSec` belong in the
+  `[Unit]` section, NOT `[Service]`. systemd silently ignores
+  `StartLimitIntervalSec` when placed in `[Service]` (reverts to 10 s
+  default), making the burst math wrong on the exact failure mode
+  the tuning was designed to prevent (today's incident: 5 instant
+  restarts in 12 ms each). Both daemon definitions place the StartLimit*
+  fields under `Unit`, while `Restart` / `RestartSec` / `RestartSteps`
+  / `RestartMaxDelaySec` stay in `Service`. Verify with `systemctl
+  --user show <unit> -p StartLimitIntervalUSec` — should report `5min`,
+  not `10s`.
+  **Hint:** `/run/standard-os/activated-commit` is the rebuild-pending
+  ground truth. The activation script uses `${pkgs.git}/bin/git -c
+  safe.directory=/etc/nixos/home -C /etc/nixos/home rev-parse HEAD` —
+  the `-c safe.directory=...` is required because activation runs as
+  root while `/etc/nixos/home` is owned by user max, and git 2.35+
+  refuses cross-user repo operations by default. Without the override,
+  the activation script silently truncates `activated-commit` to zero
+  bytes (`> file` is non-atomic; the redirect fires before git can
+  produce output) and the rebuild-pending check fails open (correct
+  behavior, wrong reason). `modules/standard-os-commit-tracking.nix`
+  lives in `/etc/nixos/modules/` which is NOT a git repo on this host —
+  the file is part of the host config but untracked. If `/etc/nixos`
+  ever becomes git-versioned, retroactively commit it.
+  **Hint:** `standard-os-shutdown-guard` covers OPTIONS power-cluster
+  (`custom/lock`, `custom/power`, `custom/reboot`) and is the
+  authoritative path for user-initiated shutdown. Emergency hibernate
+  (lid close, low battery via UPower) intentionally bypasses the gate
+  (time-sensitive). Shell-typed `systemctl poweroff` intentionally
+  bypasses (expert escape hatch). If a user-initiated power path is
+  ever added (e.g., a new rofi power menu, SUPER+ESC binding), route
+  it through the guard or it'll skip the rebuild-pending modal.
+  **Hint:** the `waybar-self-test` REQUIRED lists (`REQUIRED_UNITS`,
+  `REQUIRED_CACHES`, `REQUIRED_FILES`) grow over time. When adding a
+  new daemon to the bar, add its unit name to `REQUIRED_UNITS` AND
+  add its canonical cache file to `REQUIRED_CACHES` if it's a reliable
+  presence-indicator. Current lists: `waybar`,
+  `waybar-glass-text-daemon`, `waybar-workspace-daemon` (units) +
+  `ws-current`, `window`, `notif-bell` (caches) + `/tmp/glass-mode`
+  (files).
+  **Hint:** the clock pill's exec inline-sources `lib/pill.sh` to call
+  `pill_emit` + `pill_theme` as shell functions (not binaries). The
+  `WAYBAR_SCRIPTS_LIB` env var set on waybar.service's `Environment`
+  list points to `${waybar-scripts}/share/waybar-scripts/lib` so the
+  inline source path `$WAYBAR_SCRIPTS_LIB/pill.sh` resolves without
+  `$HOME`. Any future custom module wanting to call lib functions
+  directly should use the same pattern.
+  **Hint:** `--replace` in `substituteInPlace` is deprecated; the
+  installPhase uses `--replace-quiet` (no warnings on no-match files,
+  modern API). If a future script doesn't source `lib/pill.sh`, the
+  silent no-match is correct — no false alarms in build output.
+  **Hint:** `restore-minimized.sh` (the alt-tab-style launcher)
+  sources `~/.config/rofi/window-helper.sh` (a user-managed rofi
+  helper, NOT under `/etc/nixos/home/waybar/scripts/`). This
+  reference was preserved as-is because (a) restore-minimized is
+  invoked via `on-click`, not from a daemon, so it runs in the
+  user's shell context with `$HOME` resolved; (b) the rofi helper
+  itself isn't yet nix-packaged. If the user reorganizes their
+  rofi setup, this script needs updating.
+  **Hint:** the 5-minute Argentinian-clock pill format ("HH:MM"
+  with "YYYY MMM" tooltip) is preserved in the inline exec at
+  `custom/clock`. If the format ever changes, the file to edit is
+  `config.jsonc` (still mkOutOfStoreSymlink'd; live iteration).
+
 - **2026-06-12 (incident)** — **Post-reboot blank bar: scripts/ migration committed without `nixos-rebuild switch`.**
   After the sleep/hibernate work (2026-06-11) the user rebooted to validate
   kernel-param changes. Bar came back missing "a lot of modules" — visually
