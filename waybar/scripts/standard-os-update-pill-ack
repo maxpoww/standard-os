@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Click handler for custom/update-pending.
+# Behaviour:
+#   - If pill is in Working state (opt-breathe in class), do nothing — the
+#     pipeline is running; let it finish.
+#   - If pill is in Error state (opt-no in class), open the error log in a
+#     terminal AND clear the pill (acknowledge).
+#   - Hidden state has no click target (waybar collapses the module).
+set -uo pipefail
+
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
+CACHE="/tmp/waybar-cache/update-pending"
+ERROR_LOG="/var/lib/standard-os/last-update-error.log"
+
+if ! [ -r "$CACHE" ]; then
+    exit 0
+fi
+
+content=$(cat "$CACHE")
+case "$content" in
+    *opt-breathe*)
+        # Pipeline running — no-op.
+        exit 0
+        ;;
+    *opt-no*)
+        # Error state — open log + clear pill.
+        if [ -s "$ERROR_LOG" ]; then
+            kitty --hold sh -c "less +G '$ERROR_LOG'" &
+        else
+            notify-send -a "Standard-OS" "Update error" "No log captured." 2>/dev/null || true
+        fi
+        pill_write update-pending "" "opt-pill" ""
+        exit 0
+        ;;
+    *)
+        exit 0
+        ;;
+esac
