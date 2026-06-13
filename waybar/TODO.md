@@ -81,6 +81,26 @@ for the maintenance contract.
 
 ## DONE
 
+- **UPDATE pill — L1 foundation (auto-pipeline + verify-rollback)** — 2026-06-13
+  Replaced the manual rebuild workflow with an automatic 5-min-cadence
+  pipeline gated on idle (fullscreen/IdleHint/DND). Pipeline phases:
+  pre-flight self-test → dry-build → switch → verify → signal. Verify
+  failure triggers immediate `nixos-rebuild switch --rollback`.
+  Two new SYSTEM pills: `custom/update-pending` (Hidden / Working /
+  Error states) and `custom/reboot-pending` (lights when current ≠
+  booted; click → rofi reboot/dismiss). Polkit rule scoped to four
+  nix binaries.
+  Bugs caught during implementation: (1) waybar.nix script-glob missing
+  extensionless scripts (fixed up-front); (2) waybar-scripts binPath
+  missing flock/pkexec/systemd-run (added); (3) systemd ExecStart needs
+  absolute path (Env=PATH doesn't help); (4) pkexec via makeWrapper PATH
+  resolved to non-setuid store binary (hardcoded /run/wrappers/bin/pkexec);
+  (5) waybar-self-test.sh always exited 0 — auto-rollback was non-functional
+  before this — now exits 1 on failure.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-13-update-pill-design.md`,
+  plan at `docs/superpowers/plans/2026-06-13-update-pill-l1.md`.
+  L2–L5 (channels, GC, optimise, CVE) are separate plans.
+
 - **2026-06-12 (bulletproof)** — **OPTIONS bar moves into /nix/store: scripts derivation, self-test pill, rebuild-pending pill, shutdown gate.**
   Closes the architectural follow-up flagged in the incident DONE entry
   below. A single `pkgs.stdenv.mkDerivation` wraps every script under
