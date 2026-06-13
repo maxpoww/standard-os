@@ -81,6 +81,30 @@ for the maintenance contract.
 
 ## DONE
 
+- **Fix: power-pill emits the dark|light theme token** — 2026-06-13
+  Follow-up to the power-parent ship earlier today. The new `power-pill.sh`
+  helper went straight to raw `printf '{"text":"…","class":["opt-pill","…"]}'`
+  for its six face branches instead of going through `lib/pill.sh::pill_emit`.
+  Every other emitter in the corpus uses `pill_emit`, which is the ONLY place
+  the `dark|light` glass-mode token gets injected into the class array. So the
+  three power-cluster modules (`custom/power`, `custom/reboot`, `custom/hibernate`)
+  rendered with class arrays that never carried a theme token, the canonical
+  `window#waybar .opt-pill.light` / `.opt-pill-child.light` rules in style.css
+  never matched, and the label color stayed at the dark-mode default regardless
+  of wallpaper. Rule violated: every text-bearing pill MUST emit `dark|light`
+  as a class (see `lib/pill.sh` header + `Known hazards`). Fix: source
+  `lib/pill.sh`, cache `theme="$(pill_theme)"` once per invocation, replace
+  each `printf` face with `pill_emit "$glyph" "$(pill_class opt-pill "$theme"
+  <state>)" "<tooltip>"`. Empty branches unchanged (`emit_empty` — text=""
+  hides the module; theme irrelevant). No CSS change needed; the adaptive
+  rules already cover these pills once the class is present.
+  **Hint:** the `pill_emit` theme-substitution loop (`case "$c" in dark|light)
+  c="$theme"`) means future face additions just need to pass the cached
+  `$theme` through `pill_class`. Verified: installed wrapper emits
+  `["opt-pill","dark",…]` with `glass-mode=dark` and `["opt-pill","light",…]`
+  with `glass-mode=light`. Nix install rewrites the `. "$SELF_DIR/lib/pill.sh"`
+  line to the absolute store path; same mechanism as `pill` / `pill-child`.
+
 - **Power parent absorbs reboot-pending state** — 2026-06-13
   Retired the standalone `custom/reboot-pending` pill. The existing power
   group's parent now swaps face when `current-system != booted-system`:

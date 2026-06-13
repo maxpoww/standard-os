@@ -20,6 +20,14 @@
 
 set -euo pipefail
 
+# Canonical pill helpers — pill_emit auto-substitutes the live dark|light
+# token from /tmp/glass-mode so every face below re-themes on glass flips.
+# The nix install rewrites this source line to the absolute store path; see
+# modules/waybar.nix installPhase.
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
 DISMISS_MARKER="/run/standard-os/reboot-dismissed"
 
 # Hibernate glyph: U+F011 (FA "power-off") — matches what custom/power
@@ -66,18 +74,23 @@ fi
 mode=normal
 is_reboot_pending && mode=pending
 
+theme="$(pill_theme)"
+
 case "$slot:$mode" in
     power:normal)
-        printf '{"text":"%s","class":["opt-pill","opt-hover-red"],"tooltip":"Hibernate"}\n' \
-            "$HIBERNATE_GLYPH"
+        pill_emit "$HIBERNATE_GLYPH" \
+            "$(pill_class "opt-pill" "$theme" "opt-hover-red")" \
+            "Hibernate"
         ;;
     power:pending)
-        printf '{"text":"%s","class":["opt-pill","opt-pin-yellow"],"tooltip":"Reboot to finalize updates"}\n' \
-            "$REBOOT_GLYPH"
+        pill_emit "$REBOOT_GLYPH" \
+            "$(pill_class "opt-pill" "$theme" "opt-pin-yellow")" \
+            "Reboot to finalize updates"
         ;;
     reboot:normal)
-        printf '{"text":"%s","class":["opt-pill-child","opt-middle"],"tooltip":"Reboot"}\n' \
-            "$REBOOT_GLYPH"
+        pill_emit "$REBOOT_GLYPH" \
+            "$(pill_class "opt-pill-child" "$theme" "opt-middle")" \
+            "Reboot"
         ;;
     reboot:pending)
         emit_empty
@@ -86,8 +99,9 @@ case "$slot:$mode" in
         emit_empty
         ;;
     hibernate:pending)
-        printf '{"text":"%s","class":["opt-pill-child","opt-no"],"tooltip":"Hibernate"}\n' \
-            "$HIBERNATE_GLYPH"
+        pill_emit "$HIBERNATE_GLYPH" \
+            "$(pill_class "opt-pill-child" "$theme" "opt-no")" \
+            "Hibernate"
         ;;
     *)
         echo "power-pill: unknown slot '$slot' (want power|reboot|hibernate|click)" >&2
