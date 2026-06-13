@@ -313,6 +313,34 @@ in
           RestartMaxDelaySec = "30s";
         };
       };
+
+      systemd.user.services.waybar-self-test = {
+        Unit = {
+          Description = "Waybar boot-time + periodic health check";
+          PartOf = [ "graphical-session.target" ];
+          After = [
+            "graphical-session.target"
+            "waybar.service"
+            "waybar-glass-text-daemon.service"
+            "waybar-workspace-daemon.service"
+          ];
+        };
+        Install.WantedBy = [ "graphical-session.target" ];
+        Service = {
+          Type = "oneshot";
+          ExecStart = "${waybar-scripts}/bin/waybar-self-test";
+        };
+      };
+
+      systemd.user.timers.waybar-self-test = {
+        Unit.Description = "Periodic re-check for waybar health";
+        Install.WantedBy = [ "timers.target" ];
+        Timer = {
+          OnBootSec       = "10s";
+          OnUnitActiveSec = "60s";
+          Unit            = "waybar-self-test.service";
+        };
+      };
     })
   ]);
 }
