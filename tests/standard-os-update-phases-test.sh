@@ -32,4 +32,16 @@ WAYBAR_SELF_TEST_CMD=fake_self_test_red
 phase_pre_flight; rc=$?
 assert_eq "$rc" "1" "phase_pre_flight: red self-test → 1"
 
+# ─── phase_dry_build ──────────────────────────────────────────────────────
+fake_pkexec_ok()   { return 0; }
+fake_pkexec_fail() { echo "fake build error" >&2; return 1; }
+
+PKEXEC_CMD=fake_pkexec_ok
+phase_dry_build; rc=$?
+assert_eq "$rc" "0" "phase_dry_build: pkexec ok → 0"
+
+PKEXEC_CMD=fake_pkexec_fail
+phase_dry_build; rc=$?
+assert_eq "$rc" "1" "phase_dry_build: pkexec fail → 1"
+
 exit "$fail"

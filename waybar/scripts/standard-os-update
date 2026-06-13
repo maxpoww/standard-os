@@ -77,7 +77,20 @@ phase_pre_flight() {
     pill_state_error "Existing issues to resolve first"
     return 1
 }
-phase_dry_build()  { return 0; }   # Task 6 fills this
+PKEXEC_CMD="${PKEXEC_CMD:-pkexec}"
+
+phase_dry_build() {
+    pill_state_working "Building…"
+    local out
+    if out=$("$PKEXEC_CMD" /run/current-system/sw/bin/nixos-rebuild dry-build 2>&1); then
+        return 0
+    fi
+    log "[build] dry-build failed:"
+    log "$out"
+    pill_state_error "Build failed"
+    notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
+    return 1
+}
 phase_switch()     { return 0; }   # Task 7 fills this
 phase_verify()     { return 0; }   # Task 8 fills this
 phase_signal()     { return 0; }   # Task 9 fills this
