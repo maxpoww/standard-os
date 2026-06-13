@@ -400,19 +400,19 @@
     "exec": "pill '' opt-hover-red",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Hibernate",
-    "on-click": "systemctl hibernate"
+    "on-click": "standard-os-shutdown-guard hibernate"
   },
   "custom/reboot": {
     "exec": "pill-child '󰜉' opt-middle",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Reboot",
-    "on-click": "reboot"
+    "on-click": "standard-os-shutdown-guard reboot"
   },
   "custom/lock": {
     "exec": "pill-child '󰍁' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10,
     "tooltip": "Sleep",
-    "on-click": "systemctl suspend"
+    "on-click": "standard-os-shutdown-guard sleep"
   },
 
   // ── Workspaces group ──
