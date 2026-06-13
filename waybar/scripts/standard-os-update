@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# standard-os-update — the L1 UPDATE pipeline.
+#
+# Phases (L1 subset; L2–L5 add 1, 5, 6, and CVE checks):
+#   0  pre-flight self-test          (refuse if existing bar is broken)
+#   2  dry-build                     (nixos-rebuild dry-build)
+#   3  switch                        (nixos-rebuild switch — atomic)
+#   4  verify + auto-rollback        (waybar-self-test post-switch)
+#   7  signal post-state             (notify-send toast, history append)
+#
+# Invariants:
+#   - At most one instance system-wide. /run/standard-os/update.lock is
+#     the mutex; flock-acquired with non-blocking flag.
+#   - Every phase logs to /var/lib/standard-os/last-update-error.log
+#     (truncated on success at Phase 7, preserved on failure).
+#   - The "update-pending" pill cache file at /tmp/waybar-cache/update-pending
+#     is the user-visible state. Pipeline writes it via pill_write.
+#   - On any failure post Phase 3 (switch already happened), execute
+#     `nixos-rebuild switch --rollback` before exiting.
+#
+# Tests source this with STANDARD_OS_UPDATE_LIB_ONLY=1 to skip the main
+# body and exercise individual functions.
+set -uo pipefail
+
+SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+# shellcheck source=lib/pill.sh
+. "$SELF_DIR/lib/pill.sh"
+
+# ─── Paths ────────────────────────────────────────────────────────────────
+LOCK_FILE="/run/standard-os/update.lock"
+ERROR_LOG="/var/lib/standard-os/last-update-error.log"
+SUMMARY_LOG="/var/lib/standard-os/last-update-summary.log"
+PILL_NAME="update-pending"
+# FA sync glyph (U+F021) — 3 bytes UTF-8.
+SYNC_GLYPH=$'\xef\x80\xa1'
+
+# ─── Pill helpers (compose with lib/pill.sh's pill_write) ─────────────────
+# pill_state_working <phase_label> — show opt-pin-orange + opt-breathe.
+pill_state_working() {
+    local phase="$1"
+    pill_write "$PILL_NAME" "$SYNC_GLYPH" \
+        "opt-pill opt-pin-orange opt-breathe" \
+        "$phase"
+}
+# pill_state_error <one_line_summary>
+pill_state_error() {
+    local summary="$1"
+    pill_write "$PILL_NAME" "$SYNC_GLYPH" \
+        "opt-pill opt-no" \
+        "Update failed — click for details: $summary"
+}
+# pill_state_clear — empty text → waybar collapses the module.
+pill_state_clear() {
+    pill_write "$PILL_NAME" "" "opt-pill" ""
+}
+
+# ─── Logging ──────────────────────────────────────────────────────────────
+log() {
+    printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$ERROR_LOG"
+}
+log_summary() {
+    printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$SUMMARY_LOG"
+}
+
+# ─── Phase entrypoints (filled in by Tasks 5–9) ───────────────────────────
+phase_pre_flight() { return 0; }   # Task 5 fills this
+phase_dry_build()  { return 0; }   # Task 6 fills this
+phase_switch()     { return 0; }   # Task 7 fills this
+phase_verify()     { return 0; }   # Task 8 fills this
+phase_signal()     { return 0; }   # Task 9 fills this
+
+# ─── Main pipeline (filled in by Task 10) ─────────────────────────────────
+run_pipeline() {
+    return 0
+}
+
+# ─── Library-only guard ───────────────────────────────────────────────────
+# Works whether the script is sourced (return exits the sourced context) or
+# run directly (exit 0 terminates the child process without harming the caller).
+if [ "${STANDARD_OS_UPDATE_LIB_ONLY:-0}" = "1" ]; then
+    # shellcheck disable=SC2317
+    return 0 2>/dev/null || exit 0
+fi
+
+# ─── Single-instance lock ─────────────────────────────────────────────────
+mkdir -p "$(dirname "$LOCK_FILE")" "$(dirname "$ERROR_LOG")"
+exec {LOCK_FD}>"$LOCK_FILE"
+if ! flock -n "$LOCK_FD"; then
+    # Already running — exit silently. Scheduler will retry on next tick.
+    exit 0
+fi
+# Truncate error log only at the START of a successful Phase 7 (Task 10
+# handles the lifecycle). Errors from this run accumulate first.
+
+run_pipeline
+exit $?
