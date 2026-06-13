@@ -19,7 +19,7 @@
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
-      Type = "oneshot"
+      Type = "oneshot";
       Environment = [
         "PATH=/etc/profiles/per-user/${config.home.username}/bin:/run/current-system/sw/bin"
       ];
