@@ -65,21 +65,35 @@ for the maintenance contract.
   `wl-paste --watch` for events.
 - **Control panel row** — second waybar instance for control-panel-style depth.
   Destination for transient pills' "go away to" target after their 4 s expires.
-- **`inactive` → `opt-dimmed` rename** — deferred until the workspace daemon
-  migrates from `~/.config/waybar/scripts/` to a Nix module (cross-repo
-  coupling would break dimming during the transition window otherwise).
-- **Workspace-daemon migration to Nix** — moves the daemon into the OPTIONS
-  module under `pkgs.writeShellScriptBin` with proper PATH curation.
-- **Composite-module pattern** — inotify on `/tmp/waybar-cache/` for pills
-  that subscribe to multiple upstream channels. Reference impl:
-  `/home/max/mpris-waybar/`.
+- **`inactive` → `opt-dimmed` rename** — now safe; the workspace daemon is
+  Nix-managed (via the hypr-context unification 2026-06-13). Single-pass
+  CSS + emitter rename.
 - **Per-window context surfacing** — focused-window class drives a silent
   swap of per-window options (e.g. text-app focused → format-text cluster
   appears in USER zone). Silent appearance per maintenance rule 4.
+  Hypr-context-daemon already publishes `focused.class` in
+  `/tmp/waybar-cache/hypr-context.json`; consumer is the missing piece.
 
 ---
 
 ## DONE
+
+- **Hypr-context unification** — 2026-06-13
+  Replaced the two-daemon Hyprland-state duplication (workspace-daemon +
+  hypr-activities) with one publisher (`hypr-context-daemon`, socket2
+  event-driven, bundled into the `waybar-scripts` derivation) feeding
+  both the waybar pill caches and a `/tmp/waybar-cache/hypr-context.json`
+  snapshot for inotify consumers. Folded the bg system into a single
+  `hypr-bg-daemon` with a 4-state-check rule (paint solid color when
+  workspace has zero gaps and a single tiled non-floating non-pseudo
+  window; otherwise restore the waypaper image). Folded glass-text-daemon
+  into hypr-bg-daemon — it now owns `/tmp/glass-mode` because it is the
+  only party that knows when the visible color changes. Dropped: hypr-dive,
+  the 4-mode color matrix, the dark_theme gsettings pipeline, and the
+  glib runtime dep. Absorbed the previously-NEXT "workspace-daemon
+  migration to Nix" and "composite-module pattern" items.
+  Hint: spec at `docs/superpowers/specs/2026-06-13-hypr-context-unification-design.md`,
+  plan at `docs/superpowers/plans/2026-06-13-hypr-context-unification.md`.
 
 - **Rebuild-pending orphan cleanup** — 2026-06-13
   Today's retirement (commits `3f59b70` + `05ea9a9` + `6ed260b`) left four
