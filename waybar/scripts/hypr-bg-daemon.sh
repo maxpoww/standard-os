@@ -114,22 +114,18 @@ apply_image() {
         MON_NAMES=$(jq -r '.[].name' <<<"$monitors_json")
         LAST_MONITORS="$monitors_json"
     fi
-    # Build a single hyprctl --batch combining preload (if not yet cached)
-    # + wallpaper call(s). Hyprpaper processes batch commands sequentially,
-    # so the wallpaper switch sees the preload complete. Saves one RTT on
-    # cold paints (~10 ms); collapses N-monitor switches to 1 RTT total.
-    local mon batch="" needs_preload=""
-    if [[ -z ${PRELOADED[$img]:-} ]]; then
-        batch="hyprpaper preload \"$img\";"
-        needs_preload=1
-    fi
+    # `hyprctl --batch` does NOT support hyprpaper sub-commands — hyprpaper
+    # uses its own IPC socket (`.hyprpaper.sock`), and batched commands go to
+    # Hyprland's main socket which returns "unknown request" silently.
+    # `hyprctl hyprpaper …` works by routing to the hyprpaper socket directly,
+    # so we do sequential calls. The PRELOADED tracking still amortises the
+    # preload RTT (~10 ms) on every cold paint.
+    ensure_preloaded "$img"
+    local mon
     while IFS= read -r mon; do
         [[ -z $mon ]] && continue
-        batch+="hyprpaper wallpaper \"$mon,$img\";"
+        hyprctl hyprpaper wallpaper "$mon,$img" >/dev/null 2>&1 || true
     done <<<"$MON_NAMES"
-    if [[ -n $batch ]] && hyprctl --batch "$batch" >/dev/null 2>&1; then
-        [[ -n $needs_preload ]] && PRELOADED[$img]="1"
-    fi
     if [[ -n $LAST_APPLIED && $LAST_APPLIED != "$identity" ]]; then
         local prev=${LAST_APPLIED#image:}
         prev=${prev#color-img:}
@@ -224,13 +220,17 @@ evaluate_and_apply() {
         IFS=$'\t' read -r bgnull bx by bw
         IFS= read -r monitors_json
     } < <(
+        # `,` has lower precedence than `|` in jq, so the @tsv branch
+        # MUST be wrapped in parens — otherwise `[...] | @tsv, .monitors`
+        # parses as `[...] | (@tsv, .monitors)` and the .monitors step
+        # tries to index the @tsv'd array with a string, exiting 5.
         jq -r '
-            [
+            ([
               (.bg_window == null),
               (.bg_window.x // 0),
               (.bg_window.y // 0),
               (.bg_window.w // 0)
-            ] | @tsv,
+            ] | @tsv),
             (.monitors | map({name}) | tojson)
         ' "$SNAPSHOT" 2>/dev/null
     )
