@@ -64,8 +64,8 @@ Every piece of system state that more than one module might want lives behind a 
 
 | Daemon | Service unit | Source | Writes | Signal |
 |---|---|---|---|---|
-| **workspace-daemon** | `waybar-workspace-daemon.service` | `~/.config/waybar/scripts/workspace-daemon.sh` | `/tmp/waybar-cache/{ws-current, ws-1..9, window, win-close, win-minimize, win-swap-right, win-move-trigger, win-move-1..9, win-move-new}` | RTMIN+10 |
-| **glass-text-daemon** | `waybar-glass-text-daemon.service` | `~/.config/waybar/scripts/glass-text-daemon.sh` | `/tmp/glass-mode` (single line, `light` \| `dark`) | none (consumers re-exec at their own cadence) |
+| **hypr-context-daemon** | `waybar-hypr-context-daemon.service` | `waybar/scripts/hypr-context-daemon.sh` (bundled in `waybar-scripts`) | `/tmp/waybar-cache/{ws-current, ws-1..9, window, has-window, win-close, win-minimize, win-swap-right, win-move-trigger, win-move-1..9, win-move-new, hypr-context.json}` | RTMIN+10 (per-pill caches only — `hypr-context.json` consumers use inotify) |
+| **hypr-bg-daemon** | `waybar-hypr-bg-daemon.service` | `waybar/scripts/hypr-bg-daemon.sh` (bundled in `waybar-scripts`) | `/tmp/glass-mode` (single line, `light` \| `dark`), `/tmp/hypr-edge-bg/bg_<hex>.png` (color cache), `/tmp/hypr-edge-bg/waypaper-luminance.json` | none — inotify-driven from `hypr-context.json` + waypaper config |
 | **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/{notif-bell, notif-profile, notif-action-{1,2,3}}` | RTMIN+12 |
 
 notif-daemon also maintains the persistent journal at
@@ -94,7 +94,7 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 
 | Signal | Owner | Purpose |
 |---|---|---|
-| RTMIN+10 | workspace-daemon | Window/workspace state changes |
+| RTMIN+10 | hypr-context-daemon | Window/workspace state changes (unified — succeeds workspace-daemon 2026-06-13) |
 | RTMIN+11 | dictation | Recording / transcribing indicator |
 | RTMIN+12 | notif-daemon (live) | OPTIONS notification center spine — mako bridge |
 | RTMIN+13 | network-daemon + bluetooth-daemon (planned) | Connectivity |
@@ -181,7 +181,7 @@ The mpris work in `/home/max/mpris-waybar/` is the reference example of this com
 
 ## Hyprland event subscription (the cheapest context source)
 
-Hyprland exposes a unix socket that pushes events for every window/workspace/monitor state change. The workspace-daemon currently polls `hyprctl` at 1 Hz — when we tighten this, the move is to subscribe.
+Hyprland exposes a unix socket that pushes events for every window/workspace/monitor state change. The `hypr-context-daemon` subscribes to it directly with a 16 ms inline-debounce (pattern lifted from the retired `hypr-activities`). It is the **only** consumer of `socket2` in the OPTIONS stack — every other module reads its outputs (per-pill caches signalled via RTMIN+10, or the `hypr-context.json` snapshot via inotify).
 
 ```bash
 socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket2.sock - | \
@@ -196,13 +196,14 @@ socat -u UNIX-CONNECT:$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE/.socket
     done
 ```
 
-When the workspace-daemon migrates from polling to event-subscription, it slots in here. The cache schema and signal stay identical; only the trigger source changes.
+Cache schema and signal are unchanged from the legacy workspace-daemon — every consuming module re-reads its cache file on RTMIN+10 exactly as before. The unification spec is
+`docs/superpowers/specs/2026-06-13-hypr-context-unification-design.md`.
 
 ---
 
 ## Light/dark adaptation (system-wide UX feature)
 
-The glass-text-daemon writes `light` or `dark` to `/tmp/glass-mode` based on the desktop color behind the bar. Every text-bearing pill must:
+The `hypr-bg-daemon` writes `light` or `dark` to `/tmp/glass-mode` based on the desktop color behind the bar (it knows: it's the one painting that color, either a top-edge sample of the focused window when the bg rule fires, or the waypaper image's cached luminance otherwise). The retired `glass-text-daemon` polled the bg cache dir for the same information — the new design folds writer and source into one process. Every text-bearing pill must:
 
 1. Read `/tmp/glass-mode` in its exec (default to `dark` if missing).
 2. Emit `"class": "<mode> ..."` with the mode as the first space-separated token.
@@ -245,7 +246,8 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ Group drawer + expansion-direction zones
 - ✓ Glass-text adaptive text (`light`/`dark` class)
 - ✓ Cache-file + signal pattern (RTMIN+10/11)
-- ✓ Workspace-daemon publishes window/workspace/win-move state
+- ✓ Workspace-daemon publishes window/workspace/win-move state (unified into `hypr-context-daemon` 2026-06-13 — socket2 event-driven, bundled in `waybar-scripts`, also publishes the `hypr-context.json` snapshot for non-waybar consumers)
+- ✓ Hypr-bg-daemon (single-rule painter) owns `/tmp/glass-mode` — wallpaper switches to the focused window's top-edge color when the workspace has zero gaps and a single tiled non-floating non-pseudo window; otherwise restores the waypaper image. Retires `hypr-edge-bg`, `hypr-activities`, `hypr-dive`, and `glass-text-daemon`.
 - ✓ Color system primary/secondary/parent-uncolored rule — codified in README/CLAUDE.md; `opt-yes/middle/no` classes wired
 - ✓ Three-zone layout — explicit in `config.jsonc` (`modules-left/center/right` blocks labelled USER / TASK / SYSTEM)
 - ✓ Parent vs child surface differentiation (`opt-pill` = cool 50,50,70 / `opt-pill-child` = warm 70,50,50)
@@ -260,9 +262,9 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ Tooltip popup styling — `tooltip` selector matches pill aesthetic
 - ~ `opt-pushed` adoption — class defined; not yet applied to `shader-paper`, `shader-newspaper`, `night-dimmer`, `dictate.recording` (those still use legacy paint)
 - ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
-- ~ Dimmed class rename to `opt-dimmed` — deferred until workspace-daemon migrates to Nix; today the class is `.inactive`
+- ~ Dimmed class rename to `opt-dimmed` — now safe (workspace-daemon migration landed via hypr-context unification 2026-06-13); class is still `.inactive` pending the rename pass
 - ✗ system-daemon, network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — none of the planned daemons exist yet
 - ✗ context-daemon (hardware-button reflection, RTMIN+17) — designed; not yet implemented
-- ✗ Composite-module pattern with inotify on `/tmp/waybar-cache/` — pattern documented, not implemented for any pill
+- ✓ Composite-module pattern with inotify on `/tmp/waybar-cache/` — `hypr-bg-daemon` is the reference impl (`inotifywait -m -q --format '%w%f' -e close_write,moved_to`, filtered by basename to `hypr-context.json` and the waypaper config)
 
 When this list reaches all ✓, OPTIONS is fully wired and the rest is just adding options that fit the grammar.
