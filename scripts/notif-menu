@@ -50,9 +50,7 @@ put_row() {
 # id has no journal entry yet (daemon was down at arrival).
 fetch_live_meta() {
     local id="$1"
-    busctl --user --json=short call \
-        org.freedesktop.Notifications /fr/emersion/Mako \
-        fr.emersion.Mako ListNotifications 2>/dev/null \
+    _mako_busctl_list \
         | jq -r --argjson id "$id" '
             .data[0][]? | select(.id.data == $id)
             | [."app-name".data // "?", .summary.data // "", .body.data // "",
@@ -90,8 +88,8 @@ populate_l1() {
         local id urg ts app summary body fields
         while IFS=$'\t' read -r id urg; do
             [[ -z $id ]] && continue
-            # Look in journal first (newest entry with that id and no
-            # dismissed_at — that's the active arrival).
+            # Look in journal first — newest entry with that id wins (matches the
+            # live arrival; head -1 below picks the most recent).
             fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
                 select(.id == $id) | [.ts, .app, .summary, .body] | @tsv
             ' 2>/dev/null | head -1)
@@ -127,7 +125,7 @@ populate_l1() {
             fi
             hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\n'
             hist_count=$((hist_count+1))
-        done < <(tac "$JOURNAL" | tail -n "$JOURNAL_READ_N")
+        done < <(journal_read "$JOURNAL" "$JOURNAL_READ_N")
     fi
 
     if (( hist_count > 0 )); then
