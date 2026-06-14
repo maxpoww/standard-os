@@ -18,7 +18,7 @@ SELF_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 # shellcheck source=lib/pill.sh
 . "$SELF_DIR/lib/pill.sh"
 
-REQUIRED_UNITS=(waybar waybar-glass-text-daemon waybar-workspace-daemon)
+REQUIRED_UNITS=(waybar waybar-hypr-context-daemon waybar-hypr-bg-daemon)
 REQUIRED_CACHES=(ws-current window notif-bell)
 REQUIRED_FILES=(/tmp/glass-mode)
 
