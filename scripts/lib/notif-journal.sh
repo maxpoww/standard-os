@@ -113,6 +113,8 @@ journal_remove() {
     local path="$1" id="$2" ts="$3"
     [[ -f $path && -s $path ]] || return 0
     local tmp="${path}.tmp.$$"
+    # No [[ -s $tmp ]] guard here: unlike mark_dismissed, removing the last/only
+    # entry is valid and intentionally leaves the file empty.
     if jq -c --argjson id "$id" --arg ts "$ts" '
         select(.id != $id or .ts != $ts)
     ' < "$path" > "$tmp" 2>/dev/null; then

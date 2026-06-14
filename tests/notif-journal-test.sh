@@ -99,6 +99,34 @@ out=$(journal_read "$empty" 5)
 check "[empty journal read returns empty string]" test -z "$out"
 rm -f "$empty"
 
+# ─── journal_remove (id+ts keyed) ─────────────────────────────────────────
+# Reset to a known state: 2-line journal where line 1 has dismissed_at set.
+# Then add a third line with id=1 again (recycled id, different ts) to test
+# the two-arg key semantics.
+: > "$JOURNAL"
+journal_append "$JOURNAL" "2026-06-10T10:00:00-03:00" 1 "appA" "sumA" "bodyA" 1
+journal_append "$JOURNAL" "2026-06-10T10:01:00-03:00" 2 "appB" "sumB" "bodyB" 1
+journal_mark_dismissed "$JOURNAL" 1 "2026-06-10T10:05:00-03:00"
+journal_append "$JOURNAL" "2026-06-10T11:00:00-03:00" 1 "appA" "sumA2" "bodyA2" 1
+before_lines=$(wc -l < "$JOURNAL")
+check "[journal_remove: pre-state has multiple lines]" test "$before_lines" -gt 1
+
+# Remove the original id=1 line (ts=10:00:00). Same-id later-ts line and id=2 line stay.
+journal_remove "$JOURNAL" 1 "2026-06-10T10:00:00-03:00"
+check "[journal_remove: dropped line count by 1]" test "$(wc -l < "$JOURNAL")" -eq $((before_lines - 1))
+check "[journal_remove: targeted ts gone]" ! grep -qF '"ts":"2026-06-10T10:00:00-03:00"' "$JOURNAL"
+check "[journal_remove: same-id later-ts preserved]" grep -qF '"ts":"2026-06-10T11:00:00-03:00"' "$JOURNAL"
+check "[journal_remove: untouched id=2 preserved]" grep -qF '"id":2' "$JOURNAL"
+
+# No-match → no-op
+post_lines=$(wc -l < "$JOURNAL")
+journal_remove "$JOURNAL" 999 "anything"
+check "[journal_remove: no-match leaves file intact]" test "$(wc -l < "$JOURNAL")" -eq "$post_lines"
+
+# Missing file → no-op (no error)
+journal_remove "/tmp/notif-journal-remove-missing.$$.jsonl" 1 "ts"
+check "[journal_remove: missing file is clean no-op]" test $? -eq 0
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"

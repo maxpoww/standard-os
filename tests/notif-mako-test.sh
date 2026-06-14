@@ -15,9 +15,6 @@ export -f busctl makoctl 2>/dev/null || true
 
 # shellcheck source=../scripts/lib/notif-mako.sh
 source "$HERE/../scripts/lib/notif-mako.sh"
-# shellcheck source=../scripts/lib/notif-journal.sh
-source "$HERE/../scripts/lib/notif-journal.sh"
-
 trap 'rm -f "$MAKOCTL_LOG"' EXIT
 
 pass=0; fail=0
@@ -61,6 +58,14 @@ out=$(mako_list_actions 42)
 check "[actions array: 2 rows]" test "$(wc -l <<<"$out")" -eq 2
 check "[actions array: has reply\tReply]" test -n "$(grep -F $'reply\tReply' <<<"$out")"
 
+# ── mako_list_actions: array payload with default — hoist must work too ──
+BUSCTL_PAYLOAD='{"data":[[{"id":{"data":42},"actions":{"data":["reply","Reply","default","Open"]}}]]}'
+out=$(mako_list_actions 42)
+first_key=$(head -1 <<<"$out" | cut -f1)
+first_label=$(head -1 <<<"$out" | cut -f2)
+check "[actions array: default action hoisted to top (by key)]" test "$first_key" = "default"
+check "[actions array: default action hoisted to top (by label)]" test "$first_label" = "Open"
+
 # ── mako_list_actions: empty actions ─────────────────────────────────────
 BUSCTL_PAYLOAD='{"data":[[{"id":{"data":42},"actions":{"data":{}}}]]}'
 out=$(mako_list_actions 42)
@@ -83,27 +88,6 @@ check "[mako_dismiss calls makoctl dismiss -n 42]" test -n "$(grep -F 'makoctl d
 : > "$MAKOCTL_LOG"
 mako_dismiss_all
 check "[mako_dismiss_all calls makoctl dismiss --all]" test -n "$(grep -F 'makoctl dismiss --all' "$MAKOCTL_LOG")"
-
-# ── journal_remove ───────────────────────────────────────────────────────
-J=$(mktemp)
-journal_append "$J" "2026-06-10T10:00:00-03:00" 1 "appA" "sumA" "bodyA" 1
-journal_append "$J" "2026-06-10T10:01:00-03:00" 2 "appB" "sumB" "bodyB" 1
-journal_append "$J" "2026-06-10T10:02:00-03:00" 1 "appA" "sumA2" "bodyA2" 1   # same id 1, later ts
-check "[setup: journal has 3 lines]" test "$(wc -l < "$J")" -eq 3
-
-journal_remove "$J" 1 "2026-06-10T10:00:00-03:00"
-check "[journal_remove: line count drops to 2]" test "$(wc -l < "$J")" -eq 2
-check "[journal_remove: targeted line gone]" ! grep -qF '"ts":"2026-06-10T10:00:00-03:00"' "$J"
-check "[journal_remove: same-id later-ts line preserved]" grep -qF '"ts":"2026-06-10T10:02:00-03:00"' "$J"
-check "[journal_remove: untouched line preserved]" grep -qF '"id":2' "$J"
-
-journal_remove "$J" 99 "anything"   # no-match → no-op, no wipe
-check "[journal_remove: no-match leaves file intact]" test "$(wc -l < "$J")" -eq 2
-
-journal_remove "/tmp/notif-nonexistent.$$.jsonl" 1 "ts"
-check "[journal_remove: missing file is clean no-op]" test $? -eq 0
-
-rm -f "$J"
 
 echo
 if [[ $fail -gt 0 ]]; then
