@@ -103,3 +103,21 @@ journal_read() {
     [[ -f $path && -s $path ]] || return 0
     tail -n "$n" "$path" | tac
 }
+
+# journal_remove PATH ID TS
+# Removes the single journal line whose id matches AND ts matches exactly.
+# (Two args used together because mako recycles numeric ids over time, so
+# id alone isn't a unique key across the journal's lifetime.)
+# Clean no-op when the file is missing, empty, or has no matching line.
+journal_remove() {
+    local path="$1" id="$2" ts="$3"
+    [[ -f $path && -s $path ]] || return 0
+    local tmp="${path}.tmp.$$"
+    if jq -c --argjson id "$id" --arg ts "$ts" '
+        select(.id != $id or .ts != $ts)
+    ' < "$path" > "$tmp" 2>/dev/null; then
+        mv -f "$tmp" "$path"
+    else
+        rm -f "$tmp" 2>/dev/null
+    fi
+}
