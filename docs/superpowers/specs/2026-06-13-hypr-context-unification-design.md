@@ -122,20 +122,21 @@ focused monitor:
 2. `workspace.floating_count == 0`
 3. `workspace.gaps_out == 0`
 4. `focused != null` AND `focused.floating == false` AND `focused.pseudo == false`
-5. `focused.y == monitor.y` (window's top edge meets monitor's top edge, modulo
-   waybar's reserved exclusive zone — Hyprland reports geometry relative to
-   the usable area, so this is the trivial `focused.y == 0` after exclusive-zone
-   reservation; verify during impl)
-6. `focused.x <= monitor.x` AND `focused.x + focused.w >= monitor.x + monitor.w`
-   (window spans the full monitor width)
 
 Otherwise → paint the waypaper image.
 
-The `fullscreen` field is NOT consulted; if conditions 1–6 hold, fullscreen
-mode is the strongest case and color is correct. Dropping that condition
-shrinks the rule from the May spec's six predicates to a single geometric
-truth ("the window covers the bar's strip with no margin"), which is what
-the user actually wants.
+**Why no geometric check.** Empirical finding during impl (2026-06-13):
+Hyprland reports window geometry in absolute monitor coordinates *including*
+waybar's reserved zone, not in usable-area coordinates. A naïve
+`focused.y == monitor.y` would never fire. The check could be repaired by
+adding `monitor.reserved[top]` to the snapshot and comparing
+`focused.y == monitor.y + reserved.top`, but Hyprland's layout system already
+guarantees that a single tiled non-floating non-pseudo window with
+`gaps_out == 0` fills the entire usable area. The geometric check is
+redundant. Dropping it keeps the rule to four pure state-comparisons.
+
+The `fullscreen` field is NOT consulted; if conditions 1–4 hold, fullscreen
+mode is the strongest case and color is correct.
 
 **Multi-monitor:** the rule is evaluated per-monitor against that monitor's
 focused workspace. Hyprpaper supports per-output wallpaper. First impl may
@@ -233,23 +234,21 @@ The bar must not blank during the cutover. Order matters.
   follow scrolling content. Confirmed by user.
 - **Replacing waypaper.** The user keeps waypaper as the wallpaper selector.
 
-## Open questions (resolve during implementation)
+## Open questions (resolved during implementation)
 
-1. **`focused.y` reporting under waybar's exclusive zone.** Hyprland may
-   report window geometry in absolute monitor coordinates or in
-   usable-area coordinates. Verify empirically with `hyprctl
-   activewindow -j` and adjust condition 5 accordingly.
+1. **~~`focused.y` reporting under waybar's exclusive zone.~~** Resolved
+   2026-06-13: Hyprland reports absolute monitor coordinates, NOT
+   usable-area. Rule simplified to four state checks (no geometry); see
+   "BG trigger rule" above.
 2. **Test fixture rewrite.** `hypr-edge-bg-test.nix` exercises the old
    matrix. Rewrite as `hypr-bg-test.nix` once the new daemon stabilises;
    ship without integration tests in the first cut to keep the cutover
    atomic.
-3. **`hypr-context-daemon` source location.** Either keep the daemon in
-   `/etc/nixos/home/scripts/` and reference it from the Nix module via
-   `writeShellScriptBin` reading the file, OR inline the script into the
-   `.nix` via `pkgs.writeShellScriptBin "hypr-context-daemon" '' … ''`. The
-   waybar-bulletproof pattern (May 2026) favored the inline form for
-   bundling + shellcheck-gating. Recommend matching that pattern; confirm
-   during plan-writing.
+3. **~~`hypr-context-daemon` source location.~~** Resolved during plan
+   writing: the daemon lives at `waybar/scripts/hypr-context-daemon.sh`
+   and is bundled into the existing `waybar-scripts` derivation in
+   `modules/waybar.nix` — same pattern as `workspace-daemon.sh`,
+   `glass-text-daemon.sh`. shellcheck-gated by the derivation.
 
 ## Salvage map (what comes from where)
 

@@ -42,7 +42,7 @@ Expected: at least 20 files copied. Used in Task 6 to verify the new daemon emit
 
 ---
 
-## Task 1: Trim `colors.sh` to the keepers + add `hex_luminance`
+## Task 1: Trim `colors.sh` to the keepers + add `hex_luminance` ✓ b1d7c4b
 
 **Files:**
 - Modify: `/etc/nixos/home/scripts/lib/colors.sh` (rewrite to ~30 lines)
@@ -778,10 +778,12 @@ evaluate_and_apply() {
     local snap
     snap=$(cat "$SNAPSHOT" 2>/dev/null) || return 0
 
+    # Rule = 4 state checks (no geometry — Hyprland reports absolute coords
+    # which would require knowing waybar's reserved zone; layout guarantees
+    # a single tiled non-floating non-pseudo window with gaps_out=0 fills
+    # the usable area regardless).
     local vals
     vals=$(jq -r '
-        .monitor_focused as $mfn |
-        (.monitors[] | select(.name == $mfn)) as $m |
         [
           .workspace.tiled_count,
           .workspace.floating_count,
@@ -791,15 +793,12 @@ evaluate_and_apply() {
           (if .focused == null then "false" else (.focused.pseudo | tostring) end),
           (if .focused == null then 0 else .focused.x end),
           (if .focused == null then 0 else .focused.y end),
-          (if .focused == null then 0 else .focused.w end),
-          ($m.x // 0),
-          ($m.y // 0),
-          ($m.w // 0)
+          (if .focused == null then 0 else .focused.w end)
         ] | @tsv
     ' <<<"$snap" 2>/dev/null) || return 0
 
-    local tc fc go fnull ffloat fpseudo fx fy fw mx my mw
-    IFS=$'\t' read -r tc fc go fnull ffloat fpseudo fx fy fw mx my mw <<<"$vals"
+    local tc fc go fnull ffloat fpseudo fx fy fw
+    IFS=$'\t' read -r tc fc go fnull ffloat fpseudo fx fy fw <<<"$vals"
 
     # apply_image only needs monitor names — keep this minimal.
     local monitors_json
@@ -812,15 +811,6 @@ evaluate_and_apply() {
     [[ $go -ne 0 ]] && fire=0
     [[ $ffloat != "false" ]] && fire=0
     [[ $fpseudo != "false" ]] && fire=0
-    if (( fire )); then
-        [[ $fy -ne $my ]] && fire=0
-    fi
-    if (( fire )); then
-        (( fx > mx )) && fire=0
-    fi
-    if (( fire )); then
-        (( fx + fw < mx + mw )) && fire=0
-    fi
 
     if (( fire )); then
         local hex
