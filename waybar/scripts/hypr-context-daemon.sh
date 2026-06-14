@@ -210,10 +210,19 @@ flush
 
 while IFS= read -r -t "$DEBOUNCE_S" -u "$SOCK_FD" line || true; do
     if [[ -n ${line:-} ]]; then
+        # `openlayer` / `closelayer` are included because Hyprland's `pseudo`
+        # dispatcher emits ONLY hyprpaper layer events (no movewindow / no
+        # activewindow / no changefloatingmode), so quiet windows would
+        # otherwise leave the snapshot stale on pseudo toggle and the
+        # painter would keep painting with the old non-pseudo geometry.
+        # Spurious wake-ups (rofi popups, notifications, etc.) cost ~7
+        # hyprctl IPC calls but write nothing because emit_snapshot /
+        # pill_write dedupe unchanged content.
         case "${line%%>>*}" in
             activewindow|activewindowv2|openwindow|closewindow|movewindow|\
             windowtitlev2|fullscreen|workspace|workspacev2|focusedmon|\
-            changefloatingmode|configreloaded|monitoradded|monitorremoved)
+            changefloatingmode|configreloaded|monitoradded|monitorremoved|\
+            openlayer|closelayer)
                 PENDING=1
                 ;;
         esac
