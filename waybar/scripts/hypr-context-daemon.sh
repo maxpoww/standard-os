@@ -104,7 +104,7 @@ flush() {
               ($active.address // ""),
               (($wsid // 0) | tostring),
               ($workspaces | [.[].id | tostring] | join(","))
-            ] | @tsv)
+            ] | join(""))
         ' <<<"$raw" 2>/dev/null
     )
 
@@ -116,7 +116,7 @@ flush() {
 
     # ----- Per-pill caches (bash-only, NO jq beyond the single slurp above) -----
     local class title addr ws_current ws_list_csv hw=""
-    IFS=$'\t' read -r class title addr ws_current ws_list_csv <<<"$pill_tsv"
+    IFS=$'\x1f' read -r class title addr ws_current ws_list_csv <<<"$pill_tsv"
     ws_current=${ws_current:-0}
     local ws_list=",${ws_list_csv},"
 

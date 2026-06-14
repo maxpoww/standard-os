@@ -78,6 +78,28 @@ for the maintenance contract.
 
 ## DONE
 
+- **Empty-ws caches: TASK window pill + ws-current decoupled** — 2026-06-14
+  Switching to an empty workspace painted the TASK center pill with the
+  CSV of occupied ws IDs (e.g. "3,9" — the *ws-list-in-use*, exactly
+  what the user reported) and the ws-current pill with literal `"0"`.
+  Root cause was bash `read` behavior, not jq: `hypr-context-daemon.sh`
+  packed five values into a tab-separated string and parsed back with
+  `IFS=$'\t' read -r class title addr ws_current ws_list_csv`, but
+  bash strips leading IFS-whitespace runs even when IFS is set
+  explicitly — and tab is in the whitespace set. On an empty ws the
+  first three fields (`$active.class`/`title`/`address`) all fall
+  through to "" because `j/activewindow` returns `{}`, producing a
+  `\t\t\t9\t3,9` payload that bash parsed as
+  `class=9, title=3,9, addr=, ws_current=, ws_list_csv=`. The
+  `${ws_current:-0}` fallback then surfaced the "0" symptom; the title
+  shift surfaced the "shows ws in use" symptom. Switched the
+  separator to Unit Separator `\x1F` (non-whitespace in bash IFS),
+  emitted by jq via `[...] | join("")` instead of `@tsv`.
+  Hint: any future packed-fields parse in a daemon must use a
+  non-whitespace delimiter (\x1f is the standard pick) when ANY field
+  can be empty. The `@tsv` form is fine ONLY when every field is
+  guaranteed non-empty.
+
 - **Bg-painter trigger: float-tolerant + fullscreen-aware + actually fires** — 2026-06-14
   Two flaws in the 2026-06-13 unification surfaced together. (1) The
   4-state rule missed real cases: a `w[tv1]` workspace with a floating
