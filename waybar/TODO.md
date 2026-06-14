@@ -78,21 +78,30 @@ for the maintenance contract.
 
 ## DONE
 
-- **Bg-painter trigger: float-tolerant + fullscreen-aware** — 2026-06-14
-  The 4-state-check rule shipped 2026-06-13 missed two real cases: (1) a
-  `w[tv1]` workspace with a floating window on top — focused was the float,
-  sampling its top edge mismatched the tile's color, so the daemon
-  conservatively didn't fire; (2) `f[1]` workspaces with multiple tiled or
-  floating siblings beneath the fullscreen window — `tiled_count==1` and
-  `floating_count==0` checks excluded them. Replaced with a `bg_window`
-  field computed by `hypr-context-daemon` (the fullscreen window if any,
-  else the lone non-floating non-pseudo tile, else null). The bg daemon
-  now fires iff `gaps_out==0 && bg_window != null` and samples
-  `bg_window`'s top edge — never the focused window. Matches the two
-  `gapsout:0` selectors in `hypr/modules/Workspace_Rules.conf` (`w[tv1]`,
-  `f[1]`) without separately encoding them.
+- **Bg-painter trigger: float-tolerant + fullscreen-aware + actually fires** — 2026-06-14
+  Two flaws in the 2026-06-13 unification surfaced together. (1) The
+  4-state rule missed real cases: a `w[tv1]` workspace with a floating
+  window on top focused the float, sampling its top edge mismatched the
+  tile; `f[1]` workspaces with multiple siblings beneath the fullscreen
+  window were excluded by `tiled_count==1` / `floating_count==0`.
+  (2) The `gaps_out == 0` guard read the GLOBAL config via
+  `hyprctl getoption` (always `"2 6 6 6"`), NOT the per-workspace
+  effective value the `w[tv1]`/`f[1]` selectors apply at render-time —
+  so the guard was always false in practice and the painter had not
+  fired at all since 2026-06-13 (the post-reboot "verification" only
+  checked daemon health, not paint behavior). Replaced with a
+  `bg_window` field computed by `hypr-context-daemon` (the workspace's
+  fullscreen window if any, else the lone non-floating non-pseudo tile,
+  else null) and a single topology trigger: fire iff `bg_window != null`,
+  sample `bg_window`'s top — never the focused window. Matches legacy
+  `hypr-edge-bg`'s inference rule ("a single tiled non-floating non-pseudo
+  window owns the screen → no visible gaps regardless of Hyprland's
+  gaps_in/gaps_out setting") without re-introducing its dive/poll
+  scaffold.
   Hint: snapshot schema gained `bg_window: {address,x,y,w,h} | null`;
-  bg-daemon's `evaluate_and_apply` dropped from 6 state checks to 2.
+  bg-daemon's `evaluate_and_apply` dropped from 6 state checks to 1.
+  CLAUDE.md hazard added: never re-introduce a `gaps_out`
+  check thinking it reflects per-workspace effective gaps.
 
 - **Hypr-context unification** — 2026-06-13
   Replaced the two-daemon Hyprland-state duplication (workspace-daemon +

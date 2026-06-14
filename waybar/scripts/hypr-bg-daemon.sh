@@ -2,15 +2,22 @@
 # hypr-bg-daemon — single-rule background painter.
 #
 # Trigger rule (paint solid color sampled from bg_window's top edge):
-#   workspace.gaps_out == 0
 #   bg_window != null    (context-daemon picks the fullscreen window if any,
 #                         else the lone non-floating non-pseudo tile)
 # Else: restore waypaper image.
 #
+# bg_window is a topology check — fullscreen window OR lone non-floating
+# non-pseudo tile — which matches the layout states that
+# hypr/modules/Workspace_Rules.conf collapses gaps for (`f[1]` and `w[tv1]`).
+# We do NOT check `workspace.gaps_out` because `hyprctl getoption
+# general:gaps_out` returns the GLOBAL config, not the per-workspace
+# effective value Hyprland applies via workspace selectors (the 2026-06-13
+# unification kept this check as "a guard" but it was always false in
+# practice and the painter never fired — fix landed 2026-06-14).
+#
 # bg_window — not focused — is sampled so a floating window focused on top of
 # a tile in a `w[tv1]` workspace doesn't break the sample (the bg sticks with
-# the underlying tile). See Workspace_Rules.conf for the matching Hyprland
-# selectors `w[tv1]` and `f[1]` that set gapsout:0.
+# the underlying tile).
 #
 # Also owns /tmp/glass-mode (replacing glass-text-daemon).
 # Spec: docs/superpowers/specs/2026-06-13-hypr-context-unification-design.md
@@ -185,15 +192,14 @@ evaluate_and_apply() {
     local snap
     snap=$(cat "$SNAPSHOT" 2>/dev/null) || return 0
 
-    # Two state checks: gaps_out == 0 (Hyprland's Workspace_Rules.conf only
-    # sets this for w[tv1] or f[1]), and bg_window != null (context-daemon
-    # picks the fullscreen window if any, else the lone non-floating
-    # non-pseudo tile). Geometry comes from bg_window, NOT focused, so a
-    # float-on-top doesn't perturb the sample.
+    # Single topology check: bg_window != null (context-daemon picks the
+    # fullscreen window if any, else the lone non-floating non-pseudo
+    # tile). Geometry comes from bg_window, NOT focused, so a float-on-top
+    # doesn't perturb the sample. See header comment on why we don't check
+    # gaps_out.
     local vals
     vals=$(jq -r '
         [
-          .workspace.gaps_out,
           (.bg_window == null),
           (.bg_window.x // 0),
           (.bg_window.y // 0),
@@ -201,17 +207,13 @@ evaluate_and_apply() {
         ] | @tsv
     ' <<<"$snap" 2>/dev/null) || return 0
 
-    local go bgnull bx by bw
-    IFS=$'\t' read -r go bgnull bx by bw <<<"$vals"
+    local bgnull bx by bw
+    IFS=$'\t' read -r bgnull bx by bw <<<"$vals"
 
     local monitors_json
     monitors_json=$(jq -c '.monitors | map({name})' <<<"$snap")
 
-    local fire=1
-    [[ $go -ne 0 ]] && fire=0
-    [[ $bgnull == "true" ]] && fire=0
-
-    if (( fire )); then
+    if [[ $bgnull == "false" ]]; then
         local hex
         hex=$(sample_top_edge "$bx" "$by" "$bw")
         if [[ -n $hex ]]; then
