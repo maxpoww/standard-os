@@ -54,6 +54,11 @@ build_snapshot() {
         ($mf.name // null) as $mfn |
         ($mf.activeWorkspace.id // null) as $wsid |
         ($clients | map(select(.workspace.id == $wsid))) as $wsc |
+        ($wsc | map(select(.fullscreen > 0)) | .[0] // null) as $fs |
+        ($wsc | map(select(.floating == false and .pseudo == false))) as $tiles |
+        (if $fs != null then $fs
+         elif ($tiles | length) == 1 then $tiles[0]
+         else null end) as $bgw |
         {
           ts: $ts,
           monitor_focused: $mfn,
@@ -71,6 +76,17 @@ build_snapshot() {
             gaps_out: $gaps_out,
             has_fullscreen: (($wsc | map(select(.fullscreen > 0)) | length) > 0)
           },
+          bg_window: (
+            if $bgw == null then null
+            else {
+              address: $bgw.address,
+              x: ($bgw.at[0] // 0),
+              y: ($bgw.at[1] // 0),
+              w: ($bgw.size[0] // 0),
+              h: ($bgw.size[1] // 0)
+            }
+            end
+          ),
           focused: (
             if ($active | type) == "object" and ($active | has("address")) then {
               address: $active.address,

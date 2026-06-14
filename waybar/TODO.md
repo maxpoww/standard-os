@@ -78,6 +78,22 @@ for the maintenance contract.
 
 ## DONE
 
+- **Bg-painter trigger: float-tolerant + fullscreen-aware** — 2026-06-14
+  The 4-state-check rule shipped 2026-06-13 missed two real cases: (1) a
+  `w[tv1]` workspace with a floating window on top — focused was the float,
+  sampling its top edge mismatched the tile's color, so the daemon
+  conservatively didn't fire; (2) `f[1]` workspaces with multiple tiled or
+  floating siblings beneath the fullscreen window — `tiled_count==1` and
+  `floating_count==0` checks excluded them. Replaced with a `bg_window`
+  field computed by `hypr-context-daemon` (the fullscreen window if any,
+  else the lone non-floating non-pseudo tile, else null). The bg daemon
+  now fires iff `gaps_out==0 && bg_window != null` and samples
+  `bg_window`'s top edge — never the focused window. Matches the two
+  `gapsout:0` selectors in `hypr/modules/Workspace_Rules.conf` (`w[tv1]`,
+  `f[1]`) without separately encoding them.
+  Hint: snapshot schema gained `bg_window: {address,x,y,w,h} | null`;
+  bg-daemon's `evaluate_and_apply` dropped from 6 state checks to 2.
+
 - **Hypr-context unification** — 2026-06-13
   Replaced the two-daemon Hyprland-state duplication (workspace-daemon +
   hypr-activities) with one publisher (`hypr-context-daemon`, socket2

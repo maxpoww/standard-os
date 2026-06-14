@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # hypr-bg-daemon — single-rule background painter.
 #
-# Trigger rule (paint solid color sampled from focused window's top edge):
-#   workspace.tiled_count == 1
-#   workspace.floating_count == 0
+# Trigger rule (paint solid color sampled from bg_window's top edge):
 #   workspace.gaps_out == 0
-#   focused != null AND not floating AND not pseudo
+#   bg_window != null    (context-daemon picks the fullscreen window if any,
+#                         else the lone non-floating non-pseudo tile)
 # Else: restore waypaper image.
+#
+# bg_window — not focused — is sampled so a floating window focused on top of
+# a tile in a `w[tv1]` workspace doesn't break the sample (the bg sticks with
+# the underlying tile). See Workspace_Rules.conf for the matching Hyprland
+# selectors `w[tv1]` and `f[1]` that set gapsout:0.
 #
 # Also owns /tmp/glass-mode (replacing glass-text-daemon).
 # Spec: docs/superpowers/specs/2026-06-13-hypr-context-unification-design.md
@@ -181,42 +185,35 @@ evaluate_and_apply() {
     local snap
     snap=$(cat "$SNAPSHOT" 2>/dev/null) || return 0
 
-    # Rule = 4 state checks (no geometry — Hyprland reports absolute coords
-    # which would require knowing waybar's reserved zone; layout guarantees
-    # a single tiled non-floating non-pseudo window with gaps_out=0 fills
-    # the usable area regardless).
+    # Two state checks: gaps_out == 0 (Hyprland's Workspace_Rules.conf only
+    # sets this for w[tv1] or f[1]), and bg_window != null (context-daemon
+    # picks the fullscreen window if any, else the lone non-floating
+    # non-pseudo tile). Geometry comes from bg_window, NOT focused, so a
+    # float-on-top doesn't perturb the sample.
     local vals
     vals=$(jq -r '
         [
-          .workspace.tiled_count,
-          .workspace.floating_count,
           .workspace.gaps_out,
-          (.focused == null),
-          (if .focused == null then "false" else (.focused.floating | tostring) end),
-          (if .focused == null then "false" else (.focused.pseudo | tostring) end),
-          (if .focused == null then 0 else .focused.x end),
-          (if .focused == null then 0 else .focused.y end),
-          (if .focused == null then 0 else .focused.w end)
+          (.bg_window == null),
+          (.bg_window.x // 0),
+          (.bg_window.y // 0),
+          (.bg_window.w // 0)
         ] | @tsv
     ' <<<"$snap" 2>/dev/null) || return 0
 
-    local tc fc go fnull ffloat fpseudo fx fy fw
-    IFS=$'\t' read -r tc fc go fnull ffloat fpseudo fx fy fw <<<"$vals"
+    local go bgnull bx by bw
+    IFS=$'\t' read -r go bgnull bx by bw <<<"$vals"
 
     local monitors_json
     monitors_json=$(jq -c '.monitors | map({name})' <<<"$snap")
 
     local fire=1
-    [[ $fnull == "true" ]] && fire=0
-    [[ $tc -ne 1 ]] && fire=0
-    [[ $fc -ne 0 ]] && fire=0
     [[ $go -ne 0 ]] && fire=0
-    [[ $ffloat != "false" ]] && fire=0
-    [[ $fpseudo != "false" ]] && fire=0
+    [[ $bgnull == "true" ]] && fire=0
 
     if (( fire )); then
         local hex
-        hex=$(sample_top_edge "$fx" "$fy" "$fw")
+        hex=$(sample_top_edge "$bx" "$by" "$bw")
         if [[ -n $hex ]]; then
             apply_color "$hex" "$monitors_json"
         fi
