@@ -76,7 +76,7 @@ in
 
             probe_options_daemons() {
               local d
-              for d in workspace-daemon.sh glass-text-daemon.sh; do
+              for d in hypr-context-daemon.sh hypr-bg-daemon.sh; do
                 ${pkgs.procps}/bin/pgrep -f "$d" >/dev/null 2>&1 || return 1
               done
               return 0
