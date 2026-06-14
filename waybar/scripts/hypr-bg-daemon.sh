@@ -148,6 +148,9 @@ read_waypaper_config() {
     img=$(grep -E '^\s*wallpaper\s*=' "$WAYPAPER_CFG" 2>/dev/null | sed -E 's/^\s*wallpaper\s*=\s*//' | head -1)
     img=${img//\"/}
     img=${img%$'\r'}
+    # Expand leading ~ to $HOME (waypaper writes paths with literal tilde).
+    [[ $img == "~/"* ]] && img="$HOME/${img#"~/"}"
+    [[ $img == "~" ]]   && img="$HOME"
     if [[ -n $img && $img != "$WAYPAPER_IMG" ]]; then
         WAYPAPER_IMG=$img
         compute_waypaper_luminance
