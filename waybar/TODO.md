@@ -94,6 +94,11 @@ for the maintenance contract.
   migration to Nix" and "composite-module pattern" items.
   Hint: spec at `docs/superpowers/specs/2026-06-13-hypr-context-unification-design.md`,
   plan at `docs/superpowers/plans/2026-06-13-hypr-context-unification.md`.
+  **Verified 2026-06-14 post-reboot:** all three new daemons (`waybar`,
+  `waybar-hypr-context-daemon`, `waybar-hypr-bg-daemon`) active; no legacy
+  units (`hypr-dive` / `hypr-edge-bg` / `hypr-activities` / `glass-text` /
+  `workspace-daemon`) present; `/tmp/waybar-cache/hypr-context.json` valid
+  (`monitor_focused = "eDP-1"`); `/tmp/glass-mode = dark`.
 
 - **Rebuild-pending orphan cleanup** — 2026-06-13
   Today's retirement (commits `3f59b70` + `05ea9a9` + `6ed260b`) left four

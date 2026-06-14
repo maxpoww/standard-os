@@ -57,7 +57,7 @@ let
     procps
     inotify-tools
     hyprland          # hyprctl
-    imagemagick       # glass-text-daemon luminance sample
+    imagemagick       # hypr-bg-daemon luminance sample (waypaper)
     git               # UPDATE scheduler L1 source-ahead check
     rofi              # reboot-prompt modal
     libnotify         # notify-send fallback
@@ -136,8 +136,8 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Run waybar and its two cache daemons (glass-text-daemon,
-        workspace-daemon) as systemd --user units bound to
+        Run waybar and its unified Hyprland-context cache daemon
+        (hypr-context-daemon, in a sibling module) as systemd --user units bound to
         graphical-session.target. Each unit has Restart=always so a
         crash or signal-kill is recovered without losing the bar.
 
@@ -203,12 +203,10 @@ in
           # partial bar > no bar.
           After = [
             "graphical-session.target"
-            "waybar-workspace-daemon.service"
-            "waybar-glass-text-daemon.service"
+            "waybar-hypr-context-daemon.service"
           ];
           Wants = [
-            "waybar-workspace-daemon.service"
-            "waybar-glass-text-daemon.service"
+            "waybar-hypr-context-daemon.service"
           ];
           # Don't try to start if waybar can't reach a wayland display.
           ConditionEnvironment = "WAYLAND_DISPLAY";
@@ -248,62 +246,6 @@ in
         };
       };
 
-      systemd.user.services.waybar-glass-text-daemon = {
-        Unit = {
-          Description = "Waybar glass-text daemon (background-aware text color)";
-          PartOf = [ "graphical-session.target" ];
-          After = [ "graphical-session.target" ];
-          # StartLimit* belong in [Unit], not [Service] — systemd silently
-          # ignores them in [Service] (StartLimitIntervalSec reverts to the
-          # 10s default). Tuning lets the daemon survive 20 restart
-          # attempts over 5 minutes before tripping the burst limit.
-          StartLimitBurst       = 20;
-          StartLimitIntervalSec = "5min";
-        };
-        Install.WantedBy = [ "graphical-session.target" ];
-        Service = {
-          Type = "simple";
-          # Clear our own stale lock/pid from the previous instance. The
-          # daemon also does a PID-alive check internally, but removing
-          # the files declaratively before start keeps the lifecycle
-          # owned by this unit rather than relying on luck.
-          ExecStartPre = "${pkgs.coreutils}/bin/rm -f /tmp/glass-text-daemon.lock /tmp/glass-text-daemon.pid";
-          ExecStart = "${waybar-scripts}/bin/glass-text-daemon";
-          # Restart=on-failure (not always): graceful exits during shutdown
-          # don't trigger restart cycles. Expo backoff plateaus at 30s.
-          Restart            = "on-failure";
-          RestartSec         = "1s";
-          RestartSteps       = 5;
-          RestartMaxDelaySec = "30s";
-        };
-      };
-
-      systemd.user.services.waybar-workspace-daemon = {
-        Unit = {
-          Description = "Waybar workspace cache daemon (per-module JSON writer)";
-          PartOf = [ "graphical-session.target" ];
-          After = [ "graphical-session.target" ];
-          # StartLimit* in [Unit] — see glass-text-daemon above for why.
-          StartLimitBurst       = 20;
-          StartLimitIntervalSec = "5min";
-        };
-        Install.WantedBy = [ "graphical-session.target" ];
-        Service = {
-          Type = "simple";
-          # Guarantee the cache dir exists before the daemon's first
-          # write. The daemon also self-heals each iteration, but doing
-          # the mkdir here makes the dir present from the very first
-          # tick (otherwise modules with interval=2 could read an empty
-          # cache for up to 1s after boot).
-          ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /tmp/waybar-cache";
-          ExecStart = "${waybar-scripts}/bin/workspace-daemon";
-          Restart            = "on-failure";
-          RestartSec         = "1s";
-          RestartSteps       = 5;
-          RestartMaxDelaySec = "30s";
-        };
-      };
-
       systemd.user.services.waybar-self-test = {
         Unit = {
           Description = "Waybar boot-time + periodic health check";
@@ -311,8 +253,7 @@ in
           After = [
             "graphical-session.target"
             "waybar.service"
-            "waybar-glass-text-daemon.service"
-            "waybar-workspace-daemon.service"
+            "waybar-hypr-context-daemon.service"
           ];
         };
         Install.WantedBy = [ "graphical-session.target" ];
