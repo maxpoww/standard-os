@@ -48,6 +48,7 @@ WAYPAPER_IMG=""
 WAYPAPER_LUM=""
 MON_NAMES=""
 LAST_MONITORS=""
+declare -A PRELOADED=()  # image path → "1" once hyprpaper has it cached
 
 # ----- helpers (lifted from hypr-edge-bg + glass-text-daemon) -----
 
@@ -97,6 +98,15 @@ set_glass_mode() {
     LAST_MODE=$mode
 }
 
+ensure_preloaded() {
+    local img=$1
+    [[ -z $img ]] && return 0
+    [[ -n ${PRELOADED[$img]:-} ]] && return 0
+    if hyprctl hyprpaper preload "$img" >/dev/null 2>&1; then
+        PRELOADED[$img]="1"
+    fi
+}
+
 apply_image() {
     local img=$1 monitors_json=$2 identity=$3
     [[ $identity == "$LAST_APPLIED" ]] && return 0
@@ -104,7 +114,7 @@ apply_image() {
         MON_NAMES=$(jq -r '.[].name' <<<"$monitors_json")
         LAST_MONITORS="$monitors_json"
     fi
-    hyprctl hyprpaper preload "$img" >/dev/null 2>&1 || true
+    ensure_preloaded "$img"
     local mon
     while IFS= read -r mon; do
         [[ -z $mon ]] && continue
@@ -115,6 +125,7 @@ apply_image() {
         prev=${prev#color-img:}
         if [[ $prev != "$img" && $prev != "$WAYPAPER_IMG" ]]; then
             hyprctl hyprpaper unload "$prev" >/dev/null 2>&1 || true
+            unset "PRELOADED[$prev]"
         fi
     fi
     LAST_APPLIED="$identity"
@@ -227,6 +238,11 @@ evaluate_and_apply() {
 # ----- main loop -----
 
 read_waypaper_config
+# Eager preload: cold transitions to waypaper otherwise pay the first-load
+# cost on the user's swipe (felt as a ~100 ms "color sticks" stall before
+# the waypaper appears). After this, ensure_preloaded short-circuits the
+# RTT for every subsequent transition.
+ensure_preloaded "$WAYPAPER_IMG"
 evaluate_and_apply
 
 inotifywait -m -q \
@@ -240,6 +256,7 @@ while IFS= read -r path; do
             ;;
         "$WAYPAPER_CFG")
             read_waypaper_config
+            ensure_preloaded "$WAYPAPER_IMG"
             evaluate_and_apply
             ;;
     esac
