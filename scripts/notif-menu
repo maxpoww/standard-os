@@ -93,8 +93,7 @@ populate_l1() {
             # Look in journal first (newest entry with that id and no
             # dismissed_at — that's the active arrival).
             fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
-                fromjson? // empty
-                | select(.id == $id) | [.ts, .app, .summary, .body] | @tsv
+                select(.id == $id) | [.ts, .app, .summary, .body] | @tsv
             ' 2>/dev/null | head -1)
             if [[ -n $fields ]]; then
                 IFS=$'\t' read -r ts app summary body <<<"$fields"
@@ -119,8 +118,7 @@ populate_l1() {
             [[ -z $line ]] && continue
             local row
             row=$(jq -r '
-                fromjson? // empty
-                | [.id, .urgency, .ts, .app, .summary, .body] | @tsv
+                [.id, .urgency, .ts, .app, .summary, .body] | @tsv
             ' <<<"$line" 2>/dev/null) || continue
             [[ -z $row ]] && continue
             IFS=$'\t' read -r id urg ts app summary body <<<"$row"
