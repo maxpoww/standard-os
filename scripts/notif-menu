@@ -149,3 +149,97 @@ populate_l1() {
         idx=$((idx+1))
     fi
 }
+
+# ── Level 2: live action menu ────────────────────────────────────────────
+# Populates the metadata arrays AND prints the L2 row sequence for a live
+# notification (whose data is taken from the L1 metadata arrays at IDX).
+# Sets globals L2_APP / L2_SUMMARY for the dispatcher's rofi prompt.
+declare -A l2_action_key   # idx → mako action key (empty for static rows)
+
+populate_l2_live() {
+    local l1_idx="$1"
+    local id="${id_at[$l1_idx]}" ts="${ts_at[$l1_idx]}"
+    local app="${app_at[$l1_idx]}" summary="${summary_at[$l1_idx]}"
+    local body="${body_at[$l1_idx]}" urg="${urgency_at[$l1_idx]}"
+    L2_APP="$app"; L2_SUMMARY="$summary"
+    L2_ID="$id"; L2_TS="$ts"; L2_BODY="$body"; L2_URG="$urg"
+    L2_KIND="live"
+
+    reset_index
+    l2_action_key=()
+    local idx=0
+
+    # Re-query mako to detect "live → vanished" between L1 pick and now.
+    if ! mako_list_live | grep -qE "^${id}"$'\t'; then
+        put_row $idx "header"
+        fmt_l1_header "no longer live — history actions only"; printf '\n'
+        idx=$((idx+1))
+        L2_KIND="history-fallback"
+        _populate_l2_history_tail $idx
+        return
+    fi
+
+    # App actions (default hoisted first by mako_list_actions).
+    local k label
+    while IFS=$'\t' read -r k label; do
+        [[ -z $k ]] && continue
+        put_row $idx "app_action"
+        l2_action_key[$idx]="$k"
+        printf '%s\n' "$label"
+        idx=$((idx+1))
+    done < <(mako_list_actions "$id")
+
+    # Separator
+    put_row $idx "noop"
+    fmt_l2_separator; printf '\n'
+    idx=$((idx+1))
+
+    # Generic actions
+    put_row $idx "copy_summary"; printf 'Copy summary\n'
+    idx=$((idx+1))
+    if [[ -n $body ]]; then
+        put_row $idx "copy_body"; printf 'Copy body\n'
+        idx=$((idx+1))
+    fi
+    put_row $idx "snooze_10m"; printf 'Snooze 10 minutes\n'
+    idx=$((idx+1))
+    put_row $idx "snooze_1h"; printf 'Snooze 1 hour\n'
+    idx=$((idx+1))
+    put_row $idx "dismiss"; printf 'Dismiss\n'
+    idx=$((idx+1))
+
+    put_row $idx "noop"; fmt_l2_separator; printf '\n'
+    idx=$((idx+1))
+    put_row $idx "back"; fmt_l2_back; printf '\n'
+}
+
+# ── Level 2: history action menu ─────────────────────────────────────────
+populate_l2_history() {
+    local l1_idx="$1"
+    L2_APP="${app_at[$l1_idx]}"; L2_SUMMARY="${summary_at[$l1_idx]}"
+    L2_ID="${id_at[$l1_idx]}"; L2_TS="${ts_at[$l1_idx]}"
+    L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
+    L2_KIND="history"
+
+    reset_index
+    l2_action_key=()
+    local idx=0
+    _populate_l2_history_tail $idx
+}
+
+# Shared tail: history-only rows (used by both true-history and the
+# live→vanished fallback inside populate_l2_live).
+_populate_l2_history_tail() {
+    local idx="$1"
+    put_row $idx "copy_summary"; printf 'Copy summary\n'
+    idx=$((idx+1))
+    if [[ -n ${L2_BODY:-} ]]; then
+        put_row $idx "copy_body"; printf 'Copy body\n'
+        idx=$((idx+1))
+    fi
+    put_row $idx "remove_history"; printf 'Remove from history\n'
+    idx=$((idx+1))
+    put_row $idx "noop"; fmt_l2_separator; printf '\n'
+    idx=$((idx+1))
+    put_row $idx "back"; fmt_l2_back; printf '\n'
+}
