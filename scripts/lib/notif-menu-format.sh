@@ -7,7 +7,8 @@
 # Non-selectable section row. The entry script treats any row starting with
 # '── ' as a no-op when picked.
 fmt_l1_header() {
-    printf '── %s ──' "$1"
+    local label="$1"
+    printf '── %s ──' "$label"
 }
 
 # fmt_l1_row TS APP SUMMARY UNREAD CRITICAL
