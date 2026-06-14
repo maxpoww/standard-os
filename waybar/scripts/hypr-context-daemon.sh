@@ -102,57 +102,61 @@ emit_snapshot() {
 # ===== Per-pill cache writers (same content as the old workspace-daemon) =====
 
 emit_pills() {
-    local active workspaces ws_current focused_class
+    local active workspaces ws_current title
     active=$(hyprctl activewindow -j 2>/dev/null) || return 0
     workspaces=$(hyprctl workspaces -j 2>/dev/null) || return 0
     ws_current=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .activeWorkspace.id // 0' 2>/dev/null)
     ws_current=${ws_current:-0}
 
-    # has-window: 1 iff activewindow returned a populated object
-    local has_window=0
-    if [[ $(jq -r 'type' <<<"$active") == "object" && $(jq -r 'has("address")' <<<"$active") == "true" ]]; then
-        has_window=1
+    # has-window: "1" iff activewindow returned a populated object (with non-0x address)
+    local hw="" win_class win_addr
+    win_class=$(jq -r '.class   // empty' <<<"$active" 2>/dev/null)
+    win_addr=$(jq  -r '.address // empty' <<<"$active" 2>/dev/null)
+    if [[ -n $win_class && -n $win_addr && $win_addr != "0x" ]]; then
+        hw="1"
     fi
 
     # ws-current: number of focused WS, opt-plus opt-swap face (canonical "+" hover)
     pill_write "ws-current" "$ws_current" "opt-pill dark opt-plus opt-swap"
 
-    # ws-1..9: empty (current OR vacant) / inactive (occupied non-current)
+    # ws-1..9: drawer siblings. Current and occupied both render the number on
+    # a parent surface; the only difference is the .inactive class (opacity) on
+    # non-current occupied slots so the eye is drawn to unvisited ones. Empty
+    # slots collapse via .empty.
     local i exists
     for i in 1 2 3 4 5 6 7 8 9; do
         exists=$(jq --argjson n "$i" '[.[] | select(.id == $n)] | length' <<<"$workspaces")
-        if [[ $i -eq $ws_current ]]; then
-            pill_write "ws-$i" "" "opt-pill empty"
-        elif [[ $exists -gt 0 ]]; then
-            pill_write "ws-$i" "$i" "opt-pill dark inactive"
+        if [[ $exists -gt 0 ]]; then
+            if [[ $i -eq $ws_current ]]; then
+                pill_write "ws-$i" "$i" "opt-pill dark"
+            else
+                pill_write "ws-$i" "$i" "opt-pill dark inactive"
+            fi
         else
             pill_write "ws-$i" "" "opt-pill empty"
         fi
     done
 
-    # window pill: focused class or empty
-    if [[ $has_window -eq 1 ]]; then
-        focused_class=$(jq -r '.class // ""' <<<"$active")
-        pill_write "window" "$focused_class" "opt-pill dark opt-swap-switch"
-    else
-        pill_write "window" "" "opt-pill dark opt-swap-switch"
-    fi
+    # window pill: focused window TITLE (center value pill, opt-swap-switch face).
+    title=$(jq -r '.title // empty' <<<"$active" 2>/dev/null)
+    pill_write "window" "${title:-}" "opt-pill dark opt-swap-switch"
 
-    # has-window: raw 0/1 marker (no JSON — used as a gate by per-window pills)
+    # has-window: raw "1" or "" (empty string when no window) — gate for per-window pills.
     local hw_path="$PILL_CACHE_DIR/has-window"
     local hw_prev=""
     [[ -r $hw_path ]] && hw_prev=$(cat "$hw_path" 2>/dev/null)
-    if [[ "$has_window" != "$hw_prev" ]]; then
-        printf '%s' "$has_window" >"$hw_path.tmp" && mv -f "$hw_path.tmp" "$hw_path"
+    if [[ "$hw" != "$hw_prev" ]]; then
+        printf '%s' "$hw" >"$hw_path.tmp" && mv -f "$hw_path.tmp" "$hw_path"
+        pkill -RTMIN+10 waybar 2>/dev/null || true
     fi
 
-    # win-* action pills (visible only when has_window)
-    if [[ $has_window -eq 1 ]]; then
-        pill_write "win-close" "󰅖" "opt-pill-child dark opt-no"
-        pill_write "win-minimize" "󰍶" "opt-pill-child dark opt-middle"
-        pill_write "win-swap-right" "" "opt-pill-child dark"
+    # win-* action pills (visible only when has-window)
+    if [[ $hw == "1" ]]; then
+        pill_write "win-close"        "󰅖" "opt-pill-child dark opt-no"
+        pill_write "win-minimize"     "󰍶" "opt-pill-child dark opt-middle"
+        pill_write "win-swap-right"   ""  "opt-pill-child dark"
         pill_write "win-move-trigger" "󰯍" "opt-pill-child dark opt-yes"
-        pill_write "win-move-new" "" "opt-pill-child dark opt-plus"
+        pill_write "win-move-new"     ""  "opt-pill-child dark opt-plus"
     else
         local n
         for n in close minimize swap-right move-trigger move-new; do
@@ -160,10 +164,10 @@ emit_pills() {
         done
     fi
 
-    # win-move-1..9: valid targets (exists AND not current AND has_window)
+    # win-move-1..9: valid targets (has-window AND exists AND not current)
     for i in 1 2 3 4 5 6 7 8 9; do
         exists=$(jq --argjson n "$i" '[.[] | select(.id == $n)] | length' <<<"$workspaces")
-        if [[ $has_window -eq 1 && $i -ne $ws_current && $exists -gt 0 ]]; then
+        if [[ $hw == "1" && $i -ne $ws_current && $exists -gt 0 ]]; then
             pill_write "win-move-$i" "$i" "opt-pill-child dark opt-yes"
         else
             pill_write "win-move-$i" "" "opt-pill-child empty"
