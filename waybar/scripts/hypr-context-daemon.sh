@@ -201,20 +201,31 @@ exec {SOCK_FD}< <(socat -u "UNIX-CONNECT:$HYPR_SOCK2" - 2>/dev/null)
 # Initial emit at startup (cold cache).
 flush
 
-# Drain-flush loop (NO fixed debounce): block on the first event, drain
-# anything else that buffered during the read, then flush ONCE. Workspace
-# switches that fire 3 events in <5 ms naturally coalesce into one flush
-# via the drain step. The legacy 16 ms read timeout was a fixed latency
-# penalty on every transition; under drain-flush the worst case is one
-# extra flush per burst (when the burst spans across our ~30 ms flush
-# window) and pill_write / snapshot dedupe absorbs the cost.
-while IFS= read -r -u "$SOCK_FD" line; do
+# Drain-flush loop. Block on the first event with a 500 ms safety timeout
+# (some state changes — notably `pseudo` toggles on quiet windows — emit
+# NO socket2 event Hyprland reliably gives us; the timeout caps staleness
+# at ~500 ms for those). On normal event arrival the drain catches whatever
+# else buffered during the read so a workspace-switch burst still
+# coalesces into one flush. `pill_write` and the snapshot dedupe absorb
+# no-op flush cost; downstream consumers (bg-daemon, waybar) see no extra
+# signals when nothing changed.
+#
+# `read -t 0` is a non-consuming PEEK in bash (returns 0 if input is
+# available but does NOT actually read), which leaves the loop variable
+# unset and trips `set -u`. The inner drain uses `-t 0.001` — a real read
+# with 1 ms penalty on the drain-exit iteration.
+while true; do
     NEED_FLUSH=0
-    is_interesting "$line" && NEED_FLUSH=1
-    # `read -t 0` is a non-consuming PEEK in bash (returns 0 if input is
-    # available but does NOT actually read), which leaves $extra unset and
-    # trips `set -u`. Use a 1 ms timeout instead — real reads on every
-    # available line, 1 ms penalty on the drain-exit iteration.
+    if IFS= read -r -t 0.5 -u "$SOCK_FD" line; then
+        is_interesting "$line" && NEED_FLUSH=1
+    else
+        rc=$?
+        if (( rc > 128 )); then
+            NEED_FLUSH=1   # safety tick — bound staleness on event-less changes
+        else
+            break          # EOF: socat died, let systemd restart us
+        fi
+    fi
     while IFS= read -r -t 0.001 -u "$SOCK_FD" extra; do
         is_interesting "$extra" && NEED_FLUSH=1
     done

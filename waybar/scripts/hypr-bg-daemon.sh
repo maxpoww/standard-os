@@ -114,12 +114,22 @@ apply_image() {
         MON_NAMES=$(jq -r '.[].name' <<<"$monitors_json")
         LAST_MONITORS="$monitors_json"
     fi
-    ensure_preloaded "$img"
-    local mon
+    # Build a single hyprctl --batch combining preload (if not yet cached)
+    # + wallpaper call(s). Hyprpaper processes batch commands sequentially,
+    # so the wallpaper switch sees the preload complete. Saves one RTT on
+    # cold paints (~10 ms); collapses N-monitor switches to 1 RTT total.
+    local mon batch="" needs_preload=""
+    if [[ -z ${PRELOADED[$img]:-} ]]; then
+        batch="hyprpaper preload \"$img\";"
+        needs_preload=1
+    fi
     while IFS= read -r mon; do
         [[ -z $mon ]] && continue
-        hyprctl hyprpaper wallpaper "$mon,$img" >/dev/null 2>&1 || true
+        batch+="hyprpaper wallpaper \"$mon,$img\";"
     done <<<"$MON_NAMES"
+    if [[ -n $batch ]] && hyprctl --batch "$batch" >/dev/null 2>&1; then
+        [[ -n $needs_preload ]] && PRELOADED[$img]="1"
+    fi
     if [[ -n $LAST_APPLIED && $LAST_APPLIED != "$identity" ]]; then
         local prev=${LAST_APPLIED#image:}
         prev=${prev#color-img:}
@@ -134,18 +144,22 @@ apply_image() {
 apply_color() {
     local hex=$1 monitors_json=$2
     [[ $hex == "$LAST_HEX" ]] && return 0
+    # Inlined distance check (was 3 subshell forks via `< <(hex_to_rgb)` and
+    # `$(rgb_dist_sq)` calling colors.sh helpers — pure-bash arithmetic
+    # doesn't need the forks).
     if [[ -n $LAST_HEX ]]; then
-        local r1 g1 b1 r2 g2 b2 d
-        read -r r1 g1 b1 < <(hex_to_rgb "$hex")
-        read -r r2 g2 b2 < <(hex_to_rgb "$LAST_HEX")
-        d=$(rgb_dist_sq "$r1" "$g1" "$b1" "$r2" "$g2" "$b2")
-        if ((d < DIST_THRESHOLD)); then return 0; fi
+        local r1=$((16#${hex:0:2})) g1=$((16#${hex:2:2})) b1=$((16#${hex:4:2}))
+        local r2=$((16#${LAST_HEX:0:2})) g2=$((16#${LAST_HEX:2:2})) b2=$((16#${LAST_HEX:4:2}))
+        local dr=$((r1 - r2)) dg=$((g1 - g2)) db=$((b1 - b2))
+        if (( dr*dr + dg*dg + db*db < DIST_THRESHOLD )); then return 0; fi
     fi
     local img lum mode
     img=$(ensure_solid_png "$hex")
     apply_image "$img" "$monitors_json" "color-img:$img"
     LAST_HEX="$hex"
-    lum=$(hex_luminance "$hex")
+    # Inlined luminance (BT.601, matches hex_luminance in colors.sh).
+    local r=$((16#${hex:0:2})) g=$((16#${hex:2:2})) b=$((16#${hex:4:2}))
+    lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
     if ((lum > GLASS_THRESHOLD)); then mode="light"; else mode="dark"; fi
     set_glass_mode "$mode"
     prune_cache
@@ -200,29 +214,27 @@ compute_waypaper_luminance() {
 
 evaluate_and_apply() {
     [[ -r $SNAPSHOT ]] || return 0
-    local snap
-    snap=$(cat "$SNAPSHOT" 2>/dev/null) || return 0
 
-    # Single topology check: bg_window != null (context-daemon picks the
-    # fullscreen window if any, else the lone non-floating non-pseudo
-    # tile). Geometry comes from bg_window, NOT focused, so a float-on-top
-    # doesn't perturb the sample. See header comment on why we don't check
-    # gaps_out.
-    local vals
-    vals=$(jq -r '
-        [
-          (.bg_window == null),
-          (.bg_window.x // 0),
-          (.bg_window.y // 0),
-          (.bg_window.w // 0)
-        ] | @tsv
-    ' <<<"$snap" 2>/dev/null) || return 0
-
-    local bgnull bx by bw
-    IFS=$'\t' read -r bgnull bx by bw <<<"$vals"
-
-    local monitors_json
-    monitors_json=$(jq -c '.monitors | map({name})' <<<"$snap")
+    # Single jq: emit TSV scalars on line 1, monitors_json on line 2. Avoids
+    # the prior cat + 2 jq forks (~10 ms) per evaluation. Geometry comes
+    # from bg_window — NOT focused — so a float-on-top doesn't perturb the
+    # sample. See header comment on why we don't check gaps_out.
+    local bgnull bx by bw monitors_json
+    {
+        IFS=$'\t' read -r bgnull bx by bw
+        IFS= read -r monitors_json
+    } < <(
+        jq -r '
+            [
+              (.bg_window == null),
+              (.bg_window.x // 0),
+              (.bg_window.y // 0),
+              (.bg_window.w // 0)
+            ] | @tsv,
+            (.monitors | map({name}) | tojson)
+        ' "$SNAPSHOT" 2>/dev/null
+    )
+    [[ -z ${bgnull:-} ]] && return 0
 
     if [[ $bgnull == "false" ]]; then
         local hex
