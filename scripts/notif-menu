@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# notif-menu — rofi notification selector with per-notif action surfacing.
+#
+# Two-level flow:
+#   L1 → list (Actions block + Unread + History sections)
+#   L2 → per-notif actions (app actions + Copy/Snooze/Dismiss for live;
+#                           Copy + Remove for history)
+#
+# Manual launch only this iteration; the bar's notif-bell still uses notif-rofi.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+LIB_DIR="${NOTIF_LIB_DIR:-$HERE/lib}"
+[[ -d $LIB_DIR ]] || { printf 'notif-menu: lib dir not found: %s\n' "$LIB_DIR" >&2; exit 1; }
+
+# shellcheck source=lib/notif-mako.sh
+source "$LIB_DIR/notif-mako.sh"
+# shellcheck source=lib/notif-journal.sh
+source "$LIB_DIR/notif-journal.sh"
+# shellcheck source=lib/notif-menu-format.sh
+source "$LIB_DIR/notif-menu-format.sh"
+
+JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
+JOURNAL_READ_N="${NOTIF_JOURNAL_READ_N:-200}"
+
+# ── Index arrays — populated by populate_l1, consumed by dispatch ────────
+# Indexed by 0-based row index as rofi sees it (-format i).
+declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at
+
+reset_index() {
+    kind_at=(); id_at=(); ts_at=(); app_at=()
+    summary_at=(); body_at=(); urgency_at=()
+}
+
+# put_row IDX KIND [ID TS APP SUMMARY BODY URGENCY]
+# Populates the metadata arrays. Missing trailing args become empty strings.
+put_row() {
+    local idx="$1" kind="$2" id="${3:-}" ts="${4:-}" app="${5:-}" \
+          summary="${6:-}" body="${7:-}" urgency="${8:-}"
+    kind_at[$idx]="$kind"
+    id_at[$idx]="$id"
+    ts_at[$idx]="$ts"
+    app_at[$idx]="$app"
+    summary_at[$idx]="$summary"
+    body_at[$idx]="$body"
+    urgency_at[$idx]="$urgency"
+}
+
+# fetch_live_meta ID → "app\tsummary\tbody\tts" via busctl. Used when a live
+# id has no journal entry yet (daemon was down at arrival).
+fetch_live_meta() {
+    local id="$1"
+    busctl --user --json=short call \
+        org.freedesktop.Notifications /fr/emersion/Mako \
+        fr.emersion.Mako ListNotifications 2>/dev/null \
+        | jq -r --argjson id "$id" '
+            .data[0][]? | select(.id.data == $id)
+            | [."app-name".data // "?", .summary.data // "", .body.data // "",
+               (now | strftime("%Y-%m-%dT%H:%M:%S%z"))]
+            | @tsv
+        ' 2>/dev/null
+}
+
+# populate_l1 → populates the metadata arrays AND prints the L1 row sequence.
+# Caller pipes the stdout to rofi -format i; the returned index is then used
+# to look up metadata in the arrays.
+populate_l1() {
+    reset_index
+    local idx=0
+
+    # ── Actions block ────────────────────────────────────────────────────
+    put_row $idx "header"
+    fmt_l1_header "Actions"; printf '\n'
+    idx=$((idx+1))
+
+    put_row $idx "dismiss_all"
+    printf 'Dismiss all unread\n'
+    idx=$((idx+1))
+
+    # ── Live unread ──────────────────────────────────────────────────────
+    local live_map unread_count=0
+    live_map=$(mako_list_live)
+    [[ -n $live_map ]] && unread_count=$(grep -c '^' <<<"$live_map")
+
+    if (( unread_count > 0 )); then
+        put_row $idx "header"
+        fmt_l1_header "Unread ($unread_count)"; printf '\n'
+        idx=$((idx+1))
+
+        local id urg ts app summary body fields
+        while IFS=$'\t' read -r id urg; do
+            [[ -z $id ]] && continue
+            # Look in journal first (newest entry with that id and no
+            # dismissed_at — that's the active arrival).
+            fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
+                fromjson? // empty
+                | select(.id == $id) | [.ts, .app, .summary, .body] | @tsv
+            ' 2>/dev/null | head -1)
+            if [[ -n $fields ]]; then
+                IFS=$'\t' read -r ts app summary body <<<"$fields"
+            else
+                # Journal miss → busctl fetch.
+                fields=$(fetch_live_meta "$id")
+                IFS=$'\t' read -r app summary body ts <<<"$fields"
+            fi
+            local crit=0
+            (( urg == 2 )) && crit=1
+            put_row $idx "unread" "$id" "$ts" "$app" "$summary" "$body" "$urg"
+            fmt_l1_row "$ts" "$app" "$summary" 1 "$crit"; printf '\n'
+            idx=$((idx+1))
+        done <<<"$live_map"
+    fi
+
+    # ── History (journal entries whose id is NOT in the live set) ────────
+    local hist_buf="" hist_count=0
+    if [[ -s $JOURNAL ]]; then
+        local line id urg ts app summary body
+        while IFS= read -r line; do
+            [[ -z $line ]] && continue
+            local row
+            row=$(jq -r '
+                fromjson? // empty
+                | [.id, .urgency, .ts, .app, .summary, .body] | @tsv
+            ' <<<"$line" 2>/dev/null) || continue
+            [[ -z $row ]] && continue
+            IFS=$'\t' read -r id urg ts app summary body <<<"$row"
+            if [[ -n $live_map ]] && grep -qE "^${id}"$'\t' <<<"$live_map"; then
+                continue
+            fi
+            hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\n'
+            hist_count=$((hist_count+1))
+        done < <(tac "$JOURNAL" | tail -n "$JOURNAL_READ_N")
+    fi
+
+    if (( hist_count > 0 )); then
+        put_row $idx "header"
+        fmt_l1_header "History ($hist_count)"; printf '\n'
+        idx=$((idx+1))
+
+        local id urg ts app summary body
+        while IFS=$'\t' read -r id urg ts app summary body; do
+            [[ -z $id ]] && continue
+            put_row $idx "history" "$id" "$ts" "$app" "$summary" "$body" "$urg"
+            fmt_l1_row "$ts" "$app" "$summary" 0 0; printf '\n'
+            idx=$((idx+1))
+        done <<<"$hist_buf"
+    fi
+
+    # ── Empty placeholder ────────────────────────────────────────────────
+    if (( unread_count == 0 && hist_count == 0 )); then
+        put_row $idx "header"
+        fmt_l1_header "no notifications"; printf '\n'
+        idx=$((idx+1))
+    fi
+}
