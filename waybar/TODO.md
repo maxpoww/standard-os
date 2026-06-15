@@ -78,6 +78,30 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **notif-rofi: fix latent `fromjson?` bug (clicks were no-op).**
+  Three jq pipelines in notif-rofi used `fromjson? // empty | select(.id == $id)`
+  against bare jq stdin. Bare jq already parses each input line as JSON,
+  so `fromjson` (which expects a JSON-encoded STRING) raised a type error
+  on every line; the `?` swallowed it; `// empty` made every entry vanish.
+  Net: per-id journal lookups silently returned nothing.
+  Symptoms (latent since 2026-06-10 commit 771e2e25, only surfaced now
+  because the mako cutover removed the masking error):
+   1. Unread rows used `date -Iseconds` fallback timestamps (current time)
+      instead of the actual arrival ts because the journal lookup failed
+      and we fell through to the live-fetch branch.
+   2. History section was empty — every line dropped by the same broken
+      jq when iterating the journal for "non-live" entries.
+   3. **Click did nothing** — handle_pick couldn't resolve picked rows
+      back to live ids, so neither InvokeAction nor CloseNotification fired.
+  Fix: drop `fromjson? // empty |` from all three sites. `notif-menu`
+  (the modern replacement) already gets this right with plain
+  `select(.id == $id)`.
+  **Hint:** `lib/notif-journal.sh` uses `fromjson?` CORRECTLY because
+  it invokes `jq -nR` (null-input, raw-input), making `inputs` produce
+  raw strings that DO need `fromjson` to parse. The June 10 commit
+  copy-pasted the pattern from journal.sh into notif-rofi without
+  carrying the `-nR` flag — and `?` made the type error silent.
+
 - **2026-06-15** — **notif-os-daemon cutover: click stack migration (followup).**
   The initial cutover migrated `notif-daemon` (the spine), but the click-
   handler stack still hardcoded the dead mako interface. Symptom: bell

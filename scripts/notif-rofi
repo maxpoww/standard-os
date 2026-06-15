@@ -65,7 +65,7 @@ build_rows() {
             [[ -z $id ]] && continue
             local fields app summary ts
             fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
-                fromjson? // empty | select(.id == $id) | [.ts, .app, .summary] | @tsv
+                select(.id == $id) | [.ts, .app, .summary] | @tsv
             ' 2>/dev/null | head -1)
             if [[ -n $fields ]]; then
                 IFS=$'\t' read -r ts app summary <<< "$fields"
@@ -97,8 +97,7 @@ build_rows() {
             [[ -z $line ]] && continue
             local fields id urgency ts app summary
             fields=$(printf '%s' "$line" | jq -r '
-                fromjson? // empty
-                | [.id, .urgency, .ts, .app, .summary] | @tsv
+                [.id, .urgency, .ts, .app, .summary] | @tsv
             ' 2>/dev/null) || continue
             [[ -z $fields ]] && continue
             id="${fields%%$'\t'*}"
@@ -151,7 +150,7 @@ handle_pick() {
         [[ -z $live_id ]] && continue
         local entry
         entry=$(tac "$JOURNAL" 2>/dev/null | jq -c --argjson id "$live_id" '
-            fromjson? // empty | select(.id == $id)' 2>/dev/null | head -1)
+            select(.id == $id)' 2>/dev/null | head -1)
         local e_app e_sum
         e_app=$(echo "$entry" | jq -r '.app')
         e_sum=$(echo "$entry" | jq -r '.summary')
