@@ -79,6 +79,15 @@ let
     env = LIBVA_DRIVER_NAME,nvidia
     env = __GLX_VENDOR_LIBRARY_NAME,nvidia
     env = WLR_NO_HARDWARE_CURSORS,1
+
+    # Mute Hyprland's hardcoded "you're using an NVIDIA GPU" CHyprError
+    # banner. No targeted knob exists; debug:suppress_errors is the only
+    # mute and suppresses ALL CHyprError popups. Acceptable because
+    # `hyprctl reload` still surfaces config-parse failures via exit code,
+    # and nixos-rebuild gates activation on Nix eval + shellcheck.
+    debug {
+        suppress_errors = true
+    }
   '' else ''
     # services.hyprlandConfig.nvidia.enable = false — no NVIDIA env vars emitted.
   '';
