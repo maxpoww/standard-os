@@ -4,7 +4,7 @@
 # Called by custom/notif's on-click / on-click-right handlers in
 # waybar/config.jsonc. The decision logic (notif_click_decide) is a pure
 # function tested by tests/notif-click-test.sh; this script wraps it with
-# the actual makoctl invocation.
+# the actual invocation through notif-os-daemon (org.standardos.NotifOS).
 #
 # Spine spec:
 #   waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
@@ -14,6 +14,28 @@
 set -uo pipefail
 
 CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif-bell}"
+
+# ─── Resolve lib path + source notif-os.sh ─────────────────────────────────
+# NOTIF_LIB_DIR is exported by mkScript when packaged. Dev-launch (running
+# from the source tree) falls back to the in-repo lib dir. The pure
+# decision function (notif_click_decide) is exercised by the test suite
+# with NOTIF_CLICK_LIB_ONLY=1 — that path returns before reaching any
+# helper that needs notif-os.sh, so a missing lib here is non-fatal.
+_lib=""
+for _c in "${NOTIF_LIB_DIR:-}" "/etc/nixos/home/scripts/lib"; do
+    [[ -z $_c ]] && continue
+    if [[ -f "$_c/notif-os.sh" ]]; then _lib="$_c"; break; fi
+done
+if [[ -n $_lib ]]; then
+    # shellcheck source=lib/notif-os.sh
+    source "$_lib/notif-os.sh"
+fi
+unset _lib _c
+
+# Helper: max id currently in the notif-os-daemon store, or empty.
+_latest_id() {
+    _notif_list_raw | jq -r '[.[].id] | max // empty' 2>/dev/null
+}
 
 # ─── Pure decision function ────────────────────────────────────────────────
 # notif_click_decide ACTION CACHE_CONTENT → one of (current outputs):
@@ -25,7 +47,7 @@ CACHE="${NOTIF_CACHE:-/tmp/waybar-cache/notif-bell}"
 #   invoke on transient → "invoke-latest"       (legacy spine; removed task 7)
 #   invoke on rest      → "dismiss-all"         (legacy spine; removed task 7)
 #   invoke on empty/bad → "noop"
-#   action on populated cache    → "invoke-action" (P2; makoctl invoke -n <id> <key>)
+#   action on populated cache    → "invoke-action" (P2; NotifOS InvokeAction <id> <key>)
 #   action on empty/missing key  → "noop"
 #   drawer / unknown    → "noop"
 #
@@ -137,13 +159,10 @@ decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
     invoke-and-dismiss)
-        latest_id=$(busctl --user --json=short call \
-            org.freedesktop.Notifications /fr/emersion/Mako \
-            fr.emersion.Mako ListNotifications 2>/dev/null \
-            | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+        latest_id=$(_latest_id)
         if [[ -n $latest_id ]]; then
-            makoctl invoke -n "$latest_id" 2>/dev/null || true
-            makoctl dismiss -n "$latest_id" 2>/dev/null || true
+            mako_invoke "$latest_id" default >/dev/null 2>&1 || true
+            mako_dismiss "$latest_id" >/dev/null 2>&1 || true
         fi
         ;;
     invoke-otp)
@@ -155,10 +174,7 @@ case "$decision" in
             # Rendezvous file: the daemon's SIGUSR2 handler reads this ID and
             # only transitions if it matches the current TRANSIENT_ID (so a
             # stale click after rapid noti-replacement is ignored).
-            latest_id=$(busctl --user --json=short call \
-                org.freedesktop.Notifications /fr/emersion/Mako \
-                fr.emersion.Mako ListNotifications 2>/dev/null \
-                | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+            latest_id=$(_latest_id)
             if [[ -n $latest_id ]]; then
                 printf '%s' "$latest_id" > /tmp/notif-otp-clicked
                 systemctl --user kill --kill-who=main -s SIGUSR2 notif-daemon.service 2>/dev/null || true
@@ -178,13 +194,13 @@ case "$decision" in
         # has set CACHE to /tmp/waybar-cache/notif-action-N for us.
         key=$(jq -r '.key // empty' "$CACHE" 2>/dev/null)
         if [[ -n $key ]]; then
-            latest_id=$(busctl --user --json=short call \
-                org.freedesktop.Notifications /fr/emersion/Mako \
-                fr.emersion.Mako ListNotifications 2>/dev/null \
-                | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+            latest_id=$(_latest_id)
             if [[ -n $latest_id ]]; then
-                makoctl invoke -n "$latest_id" "$key" 2>/dev/null || true
-                makoctl dismiss -n "$latest_id" 2>/dev/null || true
+                # mako_invoke fires ActionInvoked + NotificationClosed for any
+                # id; the explicit dismiss covers the "no such id" case where
+                # the user clicked an action whose notif was just closed.
+                mako_invoke "$latest_id" "$key" >/dev/null 2>&1 || true
+                mako_dismiss "$latest_id" >/dev/null 2>&1 || true
             fi
         fi
         ;;
@@ -192,16 +208,13 @@ case "$decision" in
         : ;;
     # Legacy decisions
     invoke-latest)
-        latest_id=$(busctl --user --json=short call \
-            org.freedesktop.Notifications /fr/emersion/Mako \
-            fr.emersion.Mako ListNotifications 2>/dev/null \
-            | jq -r '[.data[0][]?.id.data] | max // empty' 2>/dev/null)
+        latest_id=$(_latest_id)
         if [[ -n $latest_id ]]; then
-            makoctl invoke -n "$latest_id" 2>/dev/null || true
-            makoctl dismiss -n "$latest_id" 2>/dev/null || true
+            mako_invoke "$latest_id" default >/dev/null 2>&1 || true
+            mako_dismiss "$latest_id" >/dev/null 2>&1 || true
         fi
         ;;
     dismiss-all)
-        makoctl dismiss --all 2>/dev/null || true
+        mako_dismiss_all
         ;;
 esac

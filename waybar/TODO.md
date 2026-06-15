@@ -78,6 +78,28 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **notif-os-daemon cutover: click stack migration (followup).**
+  The initial cutover migrated `notif-daemon` (the spine), but the click-
+  handler stack still hardcoded the dead mako interface. Symptom: bell
+  click opened a rofi list with NO "Unread" section — all freshly-arrived
+  notifications got bucketed into "History (N)" at the top, easy to miss
+  because there was no Unread header above them and they looked like old
+  entries. Same root cause hit `notif-click action N` (the per-action pill
+  click): five busctl-to-`fr.emersion.Mako` blocks + makoctl invoke/dismiss
+  all silently no-op'd.
+  Migrated both `notif-rofi` and `notif-click` to source `lib/notif-os.sh`
+  and route through `org.standardos.NotifOS` via the existing adapter
+  (`mako_list_live`, `mako_invoke`, `mako_dismiss`, `mako_dismiss_all`).
+  `notif-click` gained a `_latest_id` helper to centralize the "max id in
+  store" pattern previously inlined in four places.
+  **Hint:** the adapter helpers kept the `mako_` prefix on purpose (per
+  notif-os.sh's own header) to avoid touching every call site this pass.
+  Rename to `notif_*` in the same future sweep that touches
+  `query_mako_state` in the daemon.
+  **Hint:** `notif-click-test.sh` and `notif-rofi-test.sh` both exercise
+  only the pure libraries (decision function / row formatter) — neither
+  touches busctl. Migration needed no test changes.
+
 - **2026-06-15** — **notif-os-daemon: live cutover, mako inert.**
   notif-os-daemon (Rust) is now the live `org.freedesktop.Notifications`
   owner. New `systemd.user.services.notif-os-daemon` unit starts it at

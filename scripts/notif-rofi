@@ -4,8 +4,7 @@
 # Composes:
 #   - lib/notif-journal.sh  → persistent history reader
 #   - lib/notif-rofi-format.sh → pure row formatters
-#   - busctl Mako.ListNotifications → live unread set
-#   - makoctl invoke / dismiss → row-action effects
+#   - lib/notif-os.sh → live list + invoke/dismiss via org.standardos.NotifOS
 #
 # Click flow (from waybar):
 #   custom/notif-bell → on-click → notif-click bell → "open-rofi" → this script.
@@ -33,17 +32,17 @@ fi
 source "$LIB_DIR/notif-journal.sh"
 # shellcheck source=lib/notif-rofi-format.sh
 source "$LIB_DIR/notif-rofi-format.sh"
+# shellcheck source=lib/notif-os.sh
+source "$LIB_DIR/notif-os.sh"
 
 JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
 
 # ─── Live unread set ───────────────────────────────────────────────────────
-# Returns the set of ids currently in mako's history as "<id>\t<urgency>" lines
-# so we can mark journal entries as unread / critical without extra D-Bus traffic.
+# Thin wrapper around notif-os.sh's mako_list_live — keeps the prior
+# function name (live_unread_map) and "<id>\t<urgency>" line format that
+# the rest of this script consumes.
 live_unread_map() {
-    busctl --user --json=short call \
-        org.freedesktop.Notifications /fr/emersion/Mako \
-        fr.emersion.Mako ListNotifications 2>/dev/null \
-        | jq -r '.data[0][]? | "\(.id.data)\t\(.urgency.data)"' 2>/dev/null
+    mako_list_live
 }
 
 # ─── Compose the rofi-input list ───────────────────────────────────────────
@@ -73,13 +72,11 @@ build_rows() {
             else
                 # Journal miss (daemon was down at arrival) — fetch from live.
                 local live_entry
-                live_entry=$(busctl --user --json=short call \
-                    org.freedesktop.Notifications /fr/emersion/Mako \
-                    fr.emersion.Mako ListNotifications 2>/dev/null \
-                    | jq -c --argjson id "$id" '.data[0][]? | select(.id.data == $id)')
+                live_entry=$(_notif_list_raw \
+                    | jq -c --argjson id "$id" '.[] | select(.id == $id)')
                 ts=$(date -Iseconds)
-                app=$(echo "$live_entry" | jq -r '."app-name".data // "?"')
-                summary=$(echo "$live_entry" | jq -r '.summary.data // ""')
+                app=$(echo "$live_entry" | jq -r '.app // "?"')
+                summary=$(echo "$live_entry" | jq -r '.summary // ""')
             fi
             local crit=0
             (( urgency == 2 )) && crit=1
@@ -132,7 +129,7 @@ handle_pick() {
     # NOTE: an app literally named "Dismiss all unread" would route here too.
     # Acceptable edge case — the literal pseudo-action wins (intentional).
     if [[ $pick == "Dismiss all unread" ]]; then
-        makoctl dismiss --all 2>/dev/null || true
+        mako_dismiss_all
         return 0
     fi
     # An entry: extract HH:MM and app · summary to find the id in live map.
@@ -164,8 +161,11 @@ handle_pick() {
         fi
     done <<< "$live_map"
     if [[ -n $id ]]; then
-        makoctl invoke -n "$id" 2>/dev/null || true
-        makoctl dismiss -n "$id" 2>/dev/null || true
+        # Fire the app's default action if declared; close the notif either
+        # way (mako_invoke already closes on success; dismiss covers the
+        # no-default-action case).
+        mako_invoke "$id" default >/dev/null 2>&1 || true
+        mako_dismiss "$id" >/dev/null 2>&1 || true
     fi
     # Historical pick (no live id match): no-op (rofi closes).
 }
