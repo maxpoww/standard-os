@@ -181,7 +181,7 @@ in {
       notifRofiBin
       notifRofiProfilesBin
       notifMenuBin       # new: rofi notif selector with View action
-      notifOsDaemonBin   # new (POC): Standard-OS native notif daemon
+      notifOsDaemonBin   # Standard-OS native notif daemon (Rust)
     ];
 
     # ── P3 profiles materialization ──────────────────────────────────────
