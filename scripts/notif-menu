@@ -162,9 +162,9 @@ populate_l2_live() {
     local l1_idx="$1"
     local id="${id_at[$l1_idx]}" ts="${ts_at[$l1_idx]}"
     local app="${app_at[$l1_idx]}" summary="${summary_at[$l1_idx]}"
-    local body="${body_at[$l1_idx]}" urg="${urgency_at[$l1_idx]}"
     L2_APP="$app"; L2_SUMMARY="$summary"
-    L2_ID="$id"; L2_TS="$ts"; L2_BODY="$body"; L2_URG="$urg"
+    L2_ID="$id"; L2_TS="$ts"
+    L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
     L2_KIND="live"
 
     reset_index
@@ -260,7 +260,9 @@ do_view() {
         mako_dismiss "$id" || true
         return 0
     fi
-    # Step 2 — no default; recursion guard for our own fallback notifs.
+    # Step 2 — recursion guard for our own fallback notifs (step 4 posts
+    # with -a notif-menu; without this guard, View on that notif would
+    # loop through step 3, find no window, and post another fallback).
     if [[ "$app" == "notif-menu" ]]; then
         mako_dismiss "$id" || true
         return 0
@@ -272,8 +274,8 @@ do_view() {
     fi
     # Step 4 — nothing to do; surface honest feedback. notif-menu app-name
     # marks it so step 2 short-circuits if the user picks View on it.
-    notify-send -a "notif-menu" -u low \
-        "View couldn't open '$app'" \
+    local msg="View couldn't open '$app'"
+    notify-send -a "notif-menu" -u low -- "$msg" \
         "no default action and no matching window" 2>/dev/null || true
     return 1
 }
