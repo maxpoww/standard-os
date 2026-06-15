@@ -120,7 +120,7 @@ populate_l1() {
             ' <<<"$line" 2>/dev/null) || continue
             [[ -z $row ]] && continue
             IFS=$'\t' read -r id urg ts app summary body <<<"$row"
-            if [[ -n $live_map ]] && grep -qE "^${id}"$'\t' <<<"$live_map"; then
+            if [[ -n $live_map ]] && grep -qF "${id}"$'\t' <<<"$live_map"; then
                 continue
             fi
             hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\n'
@@ -170,7 +170,7 @@ populate_l2_live() {
     local idx=0
 
     # Re-query mako to detect "live → vanished" between L1 pick and now.
-    if ! mako_list_live | grep -qE "^${id}"$'\t'; then
+    if ! mako_list_live | grep -qF "${id}"$'\t'; then
         put_row $idx "header"
         fmt_l1_header "no longer live — history actions only"; printf '\n'
         idx=$((idx+1))
