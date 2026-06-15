@@ -25,6 +25,15 @@ source "$LIB_DIR/notif-hypr.sh"
 JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
 JOURNAL_READ_N="${NOTIF_JOURNAL_READ_N:-200}"
 
+# Set NOTIF_MENU_DEBUG=1 to append a single-session diagnostic log to
+# /tmp/notif-menu-debug.log. Captures View dispatch path + hyprctl
+# focuswindow exit codes. Off in production.
+_dbg() {
+    [[ -z "${NOTIF_MENU_DEBUG:-}" ]] && return 0
+    printf '%s %s\n' "$(date +%H:%M:%S.%N | cut -c1-12)" "$*" \
+        >> /tmp/notif-menu-debug.log
+}
+
 # ── Index arrays — populated by populate_l1, consumed by dispatch ────────
 # Indexed by 0-based row index as rofi sees it (-format i).
 declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at source_window_at
@@ -263,29 +272,51 @@ do_invoke_app_action() {
 
 do_view() {
     local id="$1" app="$2"
-    # Step 1 — if the app declared a default action, that's the right verb.
+    _dbg "do_view id=$id app=$app L2_KIND=${L2_KIND:-} src='${L2_SOURCE_WINDOW:-}' summary='${L2_SUMMARY:-}'"
+
+    # Step 1 — invoke the app's default action if it declared one. Many
+    # apps don't actually listen for ActionInvoked (or do something other
+    # than focus their window), so this is best-effort. Step 3 always
+    # runs too so the user gets a visible focus change regardless.
+    local action_fired=0
     if mako_has_default_action "$id"; then
+        _dbg "do_view step1: default action present → mako_invoke (compose with step 3)"
         mako_invoke "$id" default || true
-        mako_dismiss "$id" || true
-        return 0
+        action_fired=1
     fi
+
     # Step 2 — recursion guard for our own fallback notifs (step 4 posts
     # with -a notif-menu; without this guard, View on that notif would
     # loop through step 3, find no window, and post another fallback).
     if [[ "$app" == "notif-menu" ]]; then
+        _dbg "do_view step2: recursion guard (app=notif-menu)"
         mako_dismiss "$id" || true
         return 0
     fi
+
     # Step 3 — focus an existing Hyprland window by app class. Pass the
     # summary+body for descendant-process scoring AND the source_window
     # (captured by notif-daemon at arrival) so multi-window apps like
     # multiple kitty terminals focus the exact window the notif came from.
+    # Runs even when step 1 fired, since most apps don't focus themselves
+    # on ActionInvoked — composing is harmless when they do.
+    _dbg "do_view step3: calling hypr_focus_by_class"
+    local focused=0
     if hypr_focus_by_class "$app" "${L2_SUMMARY:-}" "${L2_BODY:-}" "${L2_SOURCE_WINDOW:-}"; then
+        focused=1
+    fi
+    _dbg "do_view step3: focused=$focused action_fired=$action_fired"
+
+    # If either step 1 fired the app's default action or step 3 focused a
+    # window, dismiss the notif and we're done.
+    if (( action_fired || focused )); then
         mako_dismiss "$id" || true
         return 0
     fi
-    # Step 4 — nothing to do; surface honest feedback. notif-menu app-name
-    # marks it so step 2 short-circuits if the user picks View on it.
+
+    # Step 4 — neither path produced anything. Surface honest feedback
+    # and leave the notif alive so the user can try a different action.
+    _dbg "do_view step4: nothing fired → fallback notify-send"
     local msg="View couldn't open '$app'"
     notify-send -a "notif-menu" -u low -- "$msg" \
         "no default action and no matching window" 2>/dev/null || true

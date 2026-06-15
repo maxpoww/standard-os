@@ -25,6 +25,8 @@ hypr_focus_by_class() {
     local body="${3:-}"
     local source_window="${4:-}"
 
+    declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class needle='$needle' src='$source_window'"
+
     # Get all matching clients as tab-separated address\tpid\tfocusHistoryID
     local clients
     clients=$(hyprctl -j clients 2>/dev/null \
@@ -34,16 +36,22 @@ hypr_focus_by_class() {
             2>/dev/null \
         | grep -v $'^\t')
 
-    [[ -z $clients ]] && return 1
+    if [[ -z $clients ]]; then
+        declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: no clients matching '$needle' → return 1"
+        return 1
+    fi
 
     local n_clients
     n_clients=$(printf '%s\n' "$clients" | grep -c '^')
+    declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: $n_clients candidate(s)"
 
     # Single match — focus it, done.
     if (( n_clients == 1 )); then
-        local addr
+        local addr rc
         addr=$(printf '%s' "$clients" | head -1 | cut -f1)
         hyprctl dispatch focuswindow "address:$addr" 2>/dev/null
+        rc=$?
+        declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: single-match dispatch addr=$addr rc=$rc"
         return 0
     fi
 
@@ -95,8 +103,13 @@ hypr_focus_by_class() {
         best_addr=$(printf '%s' "$at_max" | sort -t$'\t' -k3,3n | head -1 | cut -f1)
     fi
 
-    [[ -z $best_addr ]] && return 1
+    if [[ -z $best_addr ]]; then
+        declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: multi-match but no winner → return 1"
+        return 1
+    fi
     hyprctl dispatch focuswindow "address:$best_addr" 2>/dev/null
+    local rc=$?
+    declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: multi-match dispatch addr=$best_addr rc=$rc"
     return 0
 }
 

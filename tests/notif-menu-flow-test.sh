@@ -83,18 +83,22 @@ main
 check "[t2: mako_invoke 42 reply called]" grep -qF 'mako_invoke 42 reply' "$CALL_LOG"
 check "[t2: mako_dismiss 42 called after invoke]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
-# ── Test 3: View with default action ─────────────────────────────────────
+# ── Test 3: View with default action — composes step 1 + step 3 ─────────
 # Same L1 layout. L2 row 0 is View. Pick L1 idx 3 → L2 idx 0.
-# Mocked mako_has_default_action returns 0 so do_view step 1 fires.
+# Mocked mako_has_default_action returns 0 so do_view step 1 fires;
+# step 3 ALSO runs (compose) so the user gets a visible focus even when
+# the app doesn't listen for ActionInvoked.
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
 MAKO_ACTIONS_PAYLOAD=$'default\tOpen\n'
 mako_has_default_action() { return 0; }
+hypr_focus_by_class() { printf 'hypr_focus_by_class %s\n' "$*" >> "$CALL_LOG"; return 0; }
 printf '3\n0\n' > "$ROFI_QUEUE"
 main
 check "[t3: mako_invoke 42 default called]" grep -qF 'mako_invoke 42 default' "$CALL_LOG"
-check "[t3: mako_dismiss 42 called after default invoke]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
-check "[t3: hyprctl NOT called]" ! grep -qF 'hyprctl' "$CALL_LOG"
+check "[t3: hypr_focus_by_class also called (compose)]" \
+    grep -qF 'hypr_focus_by_class Slack' "$CALL_LOG"
+check "[t3: mako_dismiss 42 called once both steps ran]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
 # ── Test 4: View without default but matching Hyprland window ────────────
 # Mocked mako_has_default_action returns 1, hypr_focus_by_class returns 0.
@@ -122,6 +126,23 @@ check "[t5: notify-send fallback fired with -a notif-menu]" \
     grep -qF 'notify-send -a notif-menu' "$CALL_LOG"
 check "[t5: original mako_dismiss NOT called (fallback returns 1)]" \
     ! grep -qF 'mako_dismiss 42' "$CALL_LOG"
+
+# ── Test 5b: Step 1 fired but step 3 missed — still dismiss, NO fallback ─
+# App declared a default action (so step 1 fires mako_invoke), but no
+# matching Hyprland window exists for step 3. Compose semantics: the
+# notif still gets dismissed (the action ran) and the step-4 fallback
+# does NOT fire (since action_fired=1).
+: > "$CALL_LOG"
+MAKO_LIVE_PAYLOAD=$'42\t1\n'
+MAKO_ACTIONS_PAYLOAD=$'default\tOpen\n'
+mako_has_default_action() { return 0; }
+hypr_focus_by_class() { return 1; }
+notify-send() { printf 'notify-send %s\n' "$*" >> "$CALL_LOG"; }
+printf '3\n0\n' > "$ROFI_QUEUE"
+main
+check "[t5b: mako_invoke 42 default called]" grep -qF 'mako_invoke 42 default' "$CALL_LOG"
+check "[t5b: mako_dismiss 42 called (action_fired=1)]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
+check "[t5b: NO step-4 fallback notify-send]" ! grep -qF 'notify-send -a notif-menu' "$CALL_LOG"
 
 # ── Test 6: View on a fallback notif (recursion guard) ──────────────────
 # Journal seeds app="notif-menu". do_view step 2 short-circuits before step 4.
