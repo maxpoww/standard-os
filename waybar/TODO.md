@@ -47,15 +47,6 @@ for the maintenance contract.
 
 ## NEXT
 
-- **notif-menu: View on history row no-ops** — discovered 2026-06-15 during
-  notif-os-daemon live verify. First View on a live notif worked (focused
-  the source kitty via the stored `source_window` address). After the notif
-  moved to history (correctly), pressing View on the history row produced
-  no focus change. Address-based focus should still resolve since we
-  journal `source_window` at arrival, and `hypr_focus_by_address` is the
-  same code path. Likely the history-L2 View dispatcher reads from a
-  different field (or doesn't call address resolution at all). Inspect
-  `scripts/notif-menu` history dispatcher + `scripts/lib/notif-hypr.sh`.
 - **Brightness module** — `XF86MonBrightnessUp/Down`, transient only (no
   permanent state). Tests the "transient with no permanent home" half of
   pillar 6.
@@ -86,6 +77,34 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-15** — **notif-menu: do_view composes step 1 + step 3.**
+  Original investigation: after notif-os-daemon shipped, View on a LIVE
+  notif with an app-declared `default` action appeared to no-op (notif
+  vanished, no visible focus change) while View on the same notif moved
+  to history worked correctly. Root cause: the old `do_view` early-
+  returned after firing the app's default action (`mako_invoke ... default`),
+  trusting the app to focus its own window via the `ActionInvoked`
+  signal. Many apps (notify-send CLI, Claude Code, etc.) don't react to
+  ActionInvoked at all, so the notif was dismissed silently with no
+  focus change. New flow: step 1 fires the action if declared, step 3
+  ALWAYS runs (`hypr_focus_by_class`), and dismissal is gated on
+  `action_fired OR focused`. Step 4 fallback only fires when neither
+  produced an effect.
+  Also ships a gated `_dbg` logger triggered by `NOTIF_MENU_DEBUG=1`
+  that writes to `/tmp/notif-menu-debug.log` — paid for itself
+  diagnosing this bug, zero cost when unset, kept as permanent infra.
+  Tests grew from 18 to 21 (t3 updated to assert the compose, t5b added
+  for the "step 1 fired, step 3 missed" case).
+  **Hint:** the compose is harmless when the app DOES focus itself via
+  ActionInvoked — step 3's focuswindow on the same window is a visual
+  no-op. Slack/Firefox style apps that switch to the right channel/tab
+  on `default` get both behaviors: their app-specific action fires AND
+  hypr_focus_by_class focuses their window.
+  **Hint:** the original report described history-View as no-op and
+  live-View as working. Diagnostic logging revealed the opposite — live-
+  View was firing only step 1 (silently dismissing) while history-View
+  was firing step 3 (visibly focusing). The fix unified them.
 
 - **2026-06-15** — **notif-os-daemon (Rust): Standard-OS native notification daemon.**
   Replaces mako as the `org.freedesktop.Notifications` D-Bus owner. Pure Rust
