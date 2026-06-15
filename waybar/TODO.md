@@ -78,6 +78,41 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-14** — **notif-menu: rofi selector with per-notif action surfacing.**
+  New alternative to `notif-rofi` shipped as `/etc/nixos/home/scripts/notif-menu`.
+  Two-level rofi flow: L1 lists Actions block + Unread + History sections; picking
+  a notif opens L2 with app-declared actions (default hoisted), Copy summary,
+  Copy body (suppressed when empty), Snooze 10m/1h (via `systemd-run --user
+  --on-active=… --collect notify-send`), Dismiss, ← Back. History L2: Copy +
+  Remove-from-history + Back. Stale-id (notif vanished between L1 and L2)
+  falls back to history actions with a no-op header. New libs:
+  `scripts/lib/notif-mako.sh` (busctl/makoctl adapter, handles both mako 1.10's
+  object actions payload and legacy array form), `scripts/lib/notif-menu-format.sh`
+  (pure plain-text formatters — no NUL/icon metadata, simpler than the old
+  notif-rofi-format). `notif-journal.sh` gained `journal_remove` (id+ts keyed).
+  Bar untouched: `custom/notif-bell` keeps calling the old `notif-rofi`; the
+  new menu is launched manually for now.
+  **Hint:** rofi pick→metadata uses `-format i` (index) plus parallel bash
+  associative arrays keyed by row index (`kind_at`, `id_at`, `ts_at`, etc.)
+  populated during `populate_l1` / `populate_l2_*`. Avoids the text-parse-back
+  fragility the old `notif-rofi` paid for in `handle_pick`.
+  **Hint:** `mako_list_actions` defensively type-switches on `actions.data`
+  (object vs array) to handle mako 1.10's `a{ss}` rendering quirk that was
+  documented in TODO.md line 826.
+  **Hint:** `Back` is implemented as `exec "$(readlink -f "$0")"` — full
+  re-launch is the cheapest correct re-render and resets all index arrays
+  for free. Symlink-safe via `readlink -f`.
+  **Hint:** Tests mock `rofi` / `mako_*` / `wl-copy` / `systemd-run` via
+  bash function overrides. No live daemons required to run any of the four
+  test scripts.
+  **Hint:** Row staging uses `populate_l1 > "$NOTIF_MENU_TMP/l1"` redirection
+  (NOT `$()` capture) so the parallel index arrays mutated inside populate_*
+  persist into the parent shell where the dispatchers read them. Same pattern
+  for L2 staging.
+  **Hint:** `main()` registers `trap RETURN` unconditionally but only registers
+  `trap EXIT` when `${BASH_SOURCE[0]} == $0` (direct invocation). This stops
+  main from clobbering test sandboxes when called as a sourced function.
+
 - **Empty-ws caches: TASK window pill + ws-current decoupled** — 2026-06-14
   Switching to an empty workspace painted the TASK center pill with the
   CSV of occupied ws IDs (e.g. "3,9" — the *ws-list-in-use*, exactly
