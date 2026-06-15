@@ -7,6 +7,7 @@
 
 mod store;
 mod journal;
+mod hypr;
 
 use anyhow::Result;
 
