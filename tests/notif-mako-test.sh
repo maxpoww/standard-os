@@ -89,6 +89,22 @@ check "[mako_dismiss calls makoctl dismiss -n 42]" test -n "$(grep -F 'makoctl d
 mako_dismiss_all
 check "[mako_dismiss_all calls makoctl dismiss --all]" test -n "$(grep -F 'makoctl dismiss --all' "$MAKOCTL_LOG")"
 
+# ── mako_has_default_action ──────────────────────────────────────────────
+# Object payload containing default → returns 0
+BUSCTL_PAYLOAD='{"data":[[{"id":{"data":42},"actions":{"data":{"default":"Open","reply":"Reply"}}}]]}'
+mako_has_default_action 42
+check "[has_default object: returns 0]" test $? -eq 0
+
+# Object payload without default → returns 1
+BUSCTL_PAYLOAD='{"data":[[{"id":{"data":42},"actions":{"data":{"reply":"Reply"}}}]]}'
+mako_has_default_action 42
+check "[has_default object missing default: returns 1]" test $? -eq 1
+
+# Empty actions → returns 1
+BUSCTL_PAYLOAD='{"data":[[{"id":{"data":42},"actions":{"data":{}}}]]}'
+mako_has_default_action 42
+check "[has_default empty: returns 1]" test $? -eq 1
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"

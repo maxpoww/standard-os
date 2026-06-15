@@ -40,3 +40,10 @@ mako_list_actions() {
 mako_invoke()      { makoctl invoke -n "$1" "$2" 2>/dev/null; }
 mako_dismiss()     { makoctl dismiss -n "$1" 2>/dev/null; }
 mako_dismiss_all() { makoctl dismiss --all 2>/dev/null; }
+
+# mako_has_default_action ID — returns 0 if the notif declared a `default`
+# action key, 1 otherwise. Anchored grep avoids matching custom keys that
+# happen to contain the literal string "default" mid-key.
+mako_has_default_action() {
+    mako_list_actions "$1" | grep -q $'^default\t'
+}
