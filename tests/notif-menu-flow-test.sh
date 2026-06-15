@@ -149,14 +149,14 @@ notify-send() { :; }
 # ── Test 7: History row → Remove from history ───────────────────────────
 # L1 row order with no live + 1 history entry:
 #   0 Actions header, 1 dismiss_all, 2 History header, 3 history (id=99)
-# History L2 unchanged: 0 copy_summary, 1 copy_body, 2 remove_history,
-#   3 noop sep, 4 back. Pick L1 idx 3 then L2 idx 2.
+# History L2 with View at top: 0 view, 1 copy_summary, 2 copy_body,
+#   3 remove_history, 4 noop sep, 5 back. Pick L1 idx 3 then L2 idx 3.
 : > "$CALL_LOG"
 : > "$JOURNAL"
 journal_append "$JOURNAL" "2026-06-14T11:00:00-03:00" 99 "TestApp" "old notif" "old body" 1
 MAKO_LIVE_PAYLOAD=""
 MAKO_ACTIONS_PAYLOAD=""
-printf '3\n2\n' > "$ROFI_QUEUE"
+printf '3\n3\n' > "$ROFI_QUEUE"
 main
 check "[t7: journal line removed]" ! grep -qF '"id":99' "$JOURNAL"
 
@@ -172,9 +172,9 @@ check "[t8: Esc at L1 produces no side-effect calls]" test -z "$non_rofi_calls"
 # ── Test 9: Vanished fallback (live → gone between L1 and L2) ───────────
 # populate_l1's mako_list_live first call returns id=42. populate_l2_live's
 # re-query (second call) returns empty — fallback to history-only L2.
-# Vanished-fallback L2 row order (body non-empty from journal):
-#   0 header "── no longer live ──", 1 copy_summary, 2 copy_body,
-#   3 remove_history, 4 noop sep, 5 back. Pick L2 idx 3.
+# Vanished-fallback L2 row order with View at top (body non-empty from journal):
+#   0 header "── no longer live ──", 1 view, 2 copy_summary, 3 copy_body,
+#   4 remove_history, 5 noop sep, 6 back. Pick L2 idx 4 (remove_history).
 : > "$CALL_LOG"
 : > "$JOURNAL"
 journal_append "$JOURNAL" "2026-06-14T12:00:00-03:00" 42 "Slack" "Hi" "body text" 1
@@ -189,7 +189,7 @@ mako_list_live() {
     fi
 }
 MAKO_ACTIONS_PAYLOAD=""
-printf '3\n3\n' > "$ROFI_QUEUE"
+printf '3\n4\n' > "$ROFI_QUEUE"
 main
 check "[t9: no mako_invoke during vanished fallback]" ! grep -qF 'mako_invoke' "$CALL_LOG"
 check "[t9: journal entry removed via remove_history]" ! grep -qF '"id":42' "$JOURNAL"

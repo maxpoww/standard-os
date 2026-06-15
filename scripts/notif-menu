@@ -230,6 +230,11 @@ populate_l2_history() {
 # live→vanished fallback inside populate_l2_live).
 _populate_l2_history_tail() {
     local idx="$1"
+    # View — the notif is gone from mako but the app's window may still be
+    # alive. do_view step 1 silently no-ops (no default action), step 3
+    # focuses the app's window if found, step 4 surfaces honest fallback.
+    put_row $idx "view"; printf 'View\n'
+    idx=$((idx+1))
     put_row $idx "copy_summary"; printf 'Copy summary\n'
     idx=$((idx+1))
     if [[ -n ${L2_BODY:-} ]]; then
