@@ -106,7 +106,7 @@ impl Notifications {
     /// Emitted when a notif is closed. Reason: 1=expired, 2=dismissed by user,
     /// 3=closed by CloseNotification, 4=undefined.
     #[zbus(signal)]
-    async fn notification_closed(
+    pub async fn notification_closed(
         emitter: &SignalEmitter<'_>,
         id: u32,
         reason: u32,
@@ -114,7 +114,7 @@ impl Notifications {
 
     /// Emitted when the user (or our InvokeAction extension) triggers an action.
     #[zbus(signal)]
-    async fn action_invoked(
+    pub async fn action_invoked(
         emitter: &SignalEmitter<'_>,
         id: u32,
         action_key: String,

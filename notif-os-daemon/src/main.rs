@@ -8,10 +8,12 @@
 mod hypr;
 mod journal;
 mod notifications;
+mod notifos;
 mod store;
 
 use anyhow::Result;
 use notifications::Notifications;
+use notifos::NotifOs;
 use store::Store;
 
 #[tokio::main]
@@ -23,6 +25,10 @@ async fn main() -> Result<()> {
             "/org/freedesktop/Notifications",
             Notifications { store: store.clone() },
         )?
+        .serve_at(
+            "/org/standardos/NotifOS",
+            NotifOs { store: store.clone() },
+        )?
         .build()
         .await?;
 
@@ -33,6 +39,13 @@ async fn main() -> Result<()> {
         "notif-os-daemon: ready on org.freedesktop.Notifications + org.standardos.NotifOS"
     );
 
-    std::future::pending::<()>().await;
+    // Park until SIGINT or SIGTERM. systemd-user sends SIGTERM on stop, so
+    // tokio::signal::ctrl_c alone (which only catches SIGINT) wouldn't let
+    // systemctl --user stop notif-os-daemon shut down cleanly.
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+    tokio::select! {
+        _ = tokio::signal::ctrl_c() => {},
+        _ = sigterm.recv() => {},
+    }
     Ok(())
 }
