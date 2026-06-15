@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # notif-daemon — OPTIONS notification-center spine.
 #
-# Subscribes to org.freedesktop.Notifications + fr.emersion.mako via
-# dbus-monitor, queries mako via makoctl for authoritative state, and writes
-# two atomic cache files that the custom/notif waybar pills render:
+# Subscribes to org.freedesktop.Notifications via dbus-monitor, queries
+# the Rust notif-os-daemon (org.standardos.NotifOS) for authoritative
+# state, and writes two atomic cache files that the custom/notif waybar
+# pills render:
 #   /tmp/waybar-cache/notif-bell     — bell parent pill (state + transient face)
 #   /tmp/waybar-cache/notif-profile  — profile child pill (hover-revealed)
 #
@@ -350,8 +351,8 @@ render_profile_for_state() {
 # One action child pill. Pure function.
 #
 # Args:
-#   $1 key   — mako action key (passed to `makoctl invoke -n <id> <key>`)
-#   $2 label — display text (mako's action label)
+#   $1 key   — action key (passed to org.standardos.NotifOS.InvokeAction)
+#   $2 label — display text (the action label declared by the app)
 #
 # The `key` field is a project-internal extension; waybar ignores it but
 # notif-click reads it to know which action to invoke.
@@ -508,36 +509,41 @@ LAST_ACTION_2_RENDERED=""
 LAST_ACTION_3_RENDERED=""
 USR2_PENDING=0
 
-# ─── mako D-Bus interrogation ──────────────────────────────────────────────
+# ─── notif-os-daemon D-Bus interrogation ───────────────────────────────────
+# Function name kept as `query_mako_state` to avoid touching every call site;
+# it talks to org.standardos.NotifOS now, not mako. Rename in a future pass.
 query_mako_state() {
-    local json
-    json=$(busctl --user --json=short call \
-        org.freedesktop.Notifications /fr/emersion/Mako \
-        fr.emersion.Mako ListNotifications 2>/dev/null) || json=""
-    if [[ -z $json || $json == "null" ]]; then
+    # Queries org.standardos.NotifOS.ListNotifications, which returns a JSON
+    # STRING (not D-Bus structs) shaped as a flat array of notif objects:
+    #   [{id, app, summary, body, urgency, actions:[[k,l],...], sender_pid,
+    #     source_window, ts}, ...]
+    # busctl wraps the string in `s "..."` with inner quotes escaped — we
+    # strip the leading `s "` (jq's .data[0]) and unescape via jq -r.
+    local arr
+    arr=$(busctl --user --json=short call \
+        org.standardos.NotifOS /org/standardos/NotifOS \
+        org.standardos.NotifOS ListNotifications 2>/dev/null \
+        | jq -r '.data[0]? // "[]"' 2>/dev/null) || arr=""
+    if [[ -z $arr || $arr == "null" || $arr == "[]" ]]; then
         UNREAD_COUNT=0; CRITICAL_COUNT=0; UNREAD_IDS=""
         NEWEST_ID=0; NEWEST_URG=1
         NEWEST_APP=""; NEWEST_SUMMARY=""; NEWEST_BODY=""
         NEWEST_ACTIONS_JSON='[]'
         return
     fi
-    UNREAD_COUNT=$(printf '%s' "$json" | jq -r '.data[0] | length // 0' 2>/dev/null) || UNREAD_COUNT=0
-    CRITICAL_COUNT=$(printf '%s' "$json" | jq -r '[.data[0][]? | select(.urgency.data == 2)] | length' 2>/dev/null) || CRITICAL_COUNT=0
-    UNREAD_IDS=$(printf '%s' "$json" | jq -r '[.data[0][]?.id.data] | join(" ")' 2>/dev/null) || UNREAD_IDS=""
-    NEWEST_ID=$(printf '%s' "$json" | jq -r '[.data[0][]?.id.data] | max // 0' 2>/dev/null) || NEWEST_ID=0
-    NEWEST_URG=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].urgency.data // 1" 2>/dev/null) || NEWEST_URG=1
-    NEWEST_APP=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].\"app-name\".data // \"\"" 2>/dev/null) || NEWEST_APP=""
-    NEWEST_SUMMARY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].summary.data // \"\"" 2>/dev/null) || NEWEST_SUMMARY=""
-    NEWEST_BODY=$(printf '%s' "$json" | jq -r "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].body.data // \"\"" 2>/dev/null) || NEWEST_BODY=""
-    # P2: capture the actions array for the NEWEST_ID notification. mako
-    # emits actions as a {key: label} dict (D-Bus type a{ss}). We convert
-    # to a flat [key, label, key, label, ...] array so the parsing loop in
-    # on_arrival can iterate pairwise without caring about the source shape.
-    NEWEST_ACTIONS_JSON=$(printf '%s' "$json" | jq -c \
-        "[.data[0][]? | select(.id.data == $NEWEST_ID)][0].actions.data
-         | if type == \"object\" then (to_entries | map([.key, .value]) | flatten)
-           elif type == \"array\" then .
-           else [] end" \
+    UNREAD_COUNT=$(printf '%s' "$arr" | jq -r 'length' 2>/dev/null) || UNREAD_COUNT=0
+    CRITICAL_COUNT=$(printf '%s' "$arr" | jq -r '[.[] | select(.urgency == 2)] | length' 2>/dev/null) || CRITICAL_COUNT=0
+    UNREAD_IDS=$(printf '%s' "$arr" | jq -r '[.[].id] | join(" ")' 2>/dev/null) || UNREAD_IDS=""
+    NEWEST_ID=$(printf '%s' "$arr" | jq -r '[.[].id] | max // 0' 2>/dev/null) || NEWEST_ID=0
+    NEWEST_URG=$(printf '%s' "$arr" | jq -r --argjson id "$NEWEST_ID" '[.[] | select(.id == $id)][0].urgency // 1' 2>/dev/null) || NEWEST_URG=1
+    NEWEST_APP=$(printf '%s' "$arr" | jq -r --argjson id "$NEWEST_ID" '[.[] | select(.id == $id)][0].app // ""' 2>/dev/null) || NEWEST_APP=""
+    NEWEST_SUMMARY=$(printf '%s' "$arr" | jq -r --argjson id "$NEWEST_ID" '[.[] | select(.id == $id)][0].summary // ""' 2>/dev/null) || NEWEST_SUMMARY=""
+    NEWEST_BODY=$(printf '%s' "$arr" | jq -r --argjson id "$NEWEST_ID" '[.[] | select(.id == $id)][0].body // ""' 2>/dev/null) || NEWEST_BODY=""
+    # notif-os-daemon returns actions as [[key,label], ...] (array of pairs).
+    # Flatten to [key, label, key, label, ...] so the existing pairwise loop
+    # in on_arrival reads each cell with .[$i] / .[$i+1].
+    NEWEST_ACTIONS_JSON=$(printf '%s' "$arr" | jq -c --argjson id "$NEWEST_ID" \
+        '[.[] | select(.id == $id)][0].actions // [] | flatten' \
         2>/dev/null) || NEWEST_ACTIONS_JSON='[]'
     [[ -z $NEWEST_ACTIONS_JSON || $NEWEST_ACTIONS_JSON == "null" ]] && NEWEST_ACTIONS_JSON='[]'
 }
@@ -636,11 +642,15 @@ check_transient_timer() {
     fi
     if (( elapsed >= limit )); then
         # If we were in the OTP-copied hold, dismiss the notification AS the
-        # transient collapses (mako's Dismissed signal then triggers a fresh
-        # on_dbus_event → query_mako_state → emit; the bell returns to rest
-        # carrying whatever pin color the remaining unread state implies).
+        # transient collapses (notif-os-daemon emits NotificationClosed,
+        # which triggers a fresh on_dbus_event → query_mako_state → emit;
+        # the bell returns to rest carrying whatever pin color the remaining
+        # unread state implies).
         if (( TRANSIENT_OTP_COPIED == 1 )) && (( TRANSIENT_ID > 0 )); then
-            makoctl dismiss -n "$TRANSIENT_ID" 2>/dev/null || true
+            busctl --user call \
+                org.freedesktop.Notifications /org/freedesktop/Notifications \
+                org.freedesktop.Notifications CloseNotification "u" "$TRANSIENT_ID" \
+                2>/dev/null || true
         fi
         clear_transient
         return 0
@@ -719,25 +729,21 @@ emit() {
 
 # ─── D-Bus event handler ───────────────────────────────────────────────────
 on_dbus_event() {
-    # Small settle delay so mako has ingested the Notify before we query.
+    # Small settle delay before we query notif-os-daemon. dbus-monitor sees
+    # method-call traffic; the daemon stores synchronously inside Notify so
+    # in practice the store is already updated, but 50 ms absorbs any
+    # tokio scheduling slop without being user-perceptible.
     sleep 0.05
     local prev_top_id="$LAST_KNOWN_TOP_ID"
     query_mako_state
     if (( NEWEST_ID > prev_top_id )); then
         on_arrival
-        # Capture the active Hyprland window address — that's the most reliable
-        # signal for "where did this notif come from" when the sender is a CLI
-        # (notify-send from a kitty) and mako drops the sender-pid hint.
-        local src_win
-        src_win=$(hyprctl -j activewindow 2>/dev/null | jq -r '.address // ""' 2>/dev/null || true)
-        # Journal append for every arrival (even when no transient was rendered:
-        # low-urgency and DND-suppressed-normal still want history).
-        journal_append "$JOURNAL_PATH" "$(date -Iseconds)" \
-            "$NEWEST_ID" "$NEWEST_APP" "$NEWEST_SUMMARY" "$NEWEST_BODY" "$NEWEST_URG" \
-            "$src_win"
-        journal_prune "$JOURNAL_PATH" "$JOURNAL_LIMIT"
+        # Journal append + prune + source_window capture happen inside
+        # notif-os-daemon (Rust) at Notify time. We used to duplicate them
+        # here from before the cutover; now the daemon is the sole writer.
     fi
-    # Journal: mark anything dismissed since last query.
+    # Journal: mark anything dismissed since last query. The Rust daemon
+    # never writes dismissed_at, so this responsibility stays in bash.
     local id
     for id in $LAST_UNREAD_IDS; do
         if ! grep -qE "(^| )$id( |$)" <<< "$UNREAD_IDS"; then
@@ -783,8 +789,7 @@ trap cleanup EXIT INT TERM
 
 # ─── Main loop ─────────────────────────────────────────────────────────────
 exec {DBUS_FD}< <(dbus-monitor --session \
-    "interface='org.freedesktop.Notifications'" \
-    "interface='fr.emersion.mako'" 2>/dev/null)
+    "interface='org.freedesktop.Notifications'" 2>/dev/null)
 
 resolve_and_load_profile
 query_mako_state

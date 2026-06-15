@@ -260,15 +260,36 @@ in {
       history=0
     '') cfg.silencedApps;
 
+    # ── notif-os-daemon: the Rust D-Bus owner ────────────────────────────
+    # Owns org.freedesktop.Notifications + org.standardos.NotifOS. Must come
+    # up before notif-daemon (bash) — bash queries us via busctl. Starting
+    # early also wins the bus-name race against mako's D-Bus auto-activation:
+    # whichever service grabs the name first keeps it, so as long as we're
+    # running by the time the first app calls Notify, mako stays inert.
+    systemd.user.services.notif-os-daemon = {
+      Unit = {
+        Description = "Standard-OS native notification daemon (Rust)";
+        PartOf = [ "graphical-session.target" ];
+        After = [ "graphical-session.target" ];
+      };
+      Install.WantedBy = [ "graphical-session.target" ];
+      Service = {
+        Type = "simple";
+        ExecStart = "${notifOsDaemonBin}/bin/notif-os-daemon";
+        Restart = "always";
+        RestartSec = 1;
+      };
+    };
+
     # ── notif-daemon: the spine's main loop ──────────────────────────────
     systemd.user.services.notif-daemon = {
       Unit = {
-        Description = "OPTIONS notification center daemon — mako → cache → waybar";
+        Description = "OPTIONS notification center daemon — notif-os-daemon → cache → waybar";
         PartOf = [ "graphical-session.target" ];
-        # mako is D-Bus-activated, not systemd-managed (see comment above)
-        # — so we don't list it in After. The daemon's query_mako_state
-        # handles the case where mako isn't running yet (empty list).
-        After = [ "graphical-session.target" ];
+        # Must wait for the Rust daemon to own the bus name; we query it
+        # via org.standardos.NotifOS.ListNotifications.
+        After = [ "graphical-session.target" "notif-os-daemon.service" ];
+        Requires = [ "notif-os-daemon.service" ];
       };
       Install.WantedBy = [ "graphical-session.target" ];
       Service = {

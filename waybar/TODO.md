@@ -78,6 +78,36 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **notif-os-daemon: live cutover, mako inert.**
+  notif-os-daemon (Rust) is now the live `org.freedesktop.Notifications`
+  owner. New `systemd.user.services.notif-os-daemon` unit starts it at
+  graphical-session; `notif-daemon.service` (bash) now declares
+  `After`/`Requires` on it. `query_mako_state` in the bash daemon was
+  rewritten to call `org.standardos.NotifOS.ListNotifications` and parse
+  the flat shape `[{id, app, summary, body, urgency, actions:[[k,l],...]}]`
+  — no more mako `.data[0][]` / `.id.data` wrap. `dbus-monitor` no longer
+  filters on `fr.emersion.mako`. Journal writes deduplicated: the Rust
+  daemon writes on Notify, so the bash `journal_append`+`journal_prune`+
+  `src_win` block in `on_dbus_event` was removed; `journal_mark_dismissed`
+  stays in bash because the Rust daemon doesn't currently write
+  `dismissed_at`. The OTP-copied dismiss path was switched from
+  `makoctl dismiss -n` to a direct `busctl ... CloseNotification` call.
+  Live-verified: normal + critical + actions all render the correct pill
+  state; InvokeAction returns `b true` and removes the notif. mako stays
+  installed but inert (Rust grabs the bus name first).
+  **Hint:** `notif-os.sh` adapter already routed every notif-menu call to
+  `org.standardos.NotifOS` — only the bash daemon's `query_mako_state`
+  was the holdout. That made the cutover a single file + one nix block.
+  **Hint:** the `query_mako_state` function name was kept (per the same
+  precedent in `notif-os.sh`'s `mako_*` helpers) to avoid touching every
+  call site this session. Rename in a future sweep.
+  **Hint:** mako removal — drop from `home.packages`, delete the
+  `xdg.configFile."mako/config"` block (lines ~206–260 of
+  `notif-center.nix`), and rewrite the `silencedApps` mkOption discovery
+  example — is the next session's work. The package is currently dead
+  weight in PATH; the writeable mako config never gets read because mako
+  doesn't run.
+
 - **2026-06-15** — **notif-menu: do_view composes step 1 + step 3.**
   Original investigation: after notif-os-daemon shipped, View on a LIVE
   notif with an app-declared `default` action appeared to no-op (notif
