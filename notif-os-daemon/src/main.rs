@@ -5,18 +5,27 @@
 //! window at every Notify call. Writes every arrival to the project's
 //! JSONL journal at ~/.local/share/standard-os/notif-history.jsonl.
 
-mod store;
-mod journal;
 mod hypr;
+mod journal;
+mod notifications;
+mod store;
 
 use anyhow::Result;
+use notifications::Notifications;
+use store::Store;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let conn = zbus::connection::Builder::session()?.build().await?;
+    let store = Store::new();
 
-    // Acquire both bus names. If another notif daemon is already serving the
-    // freedesktop name, this errors fast — exit so the user knows to stop it.
+    let conn = zbus::connection::Builder::session()?
+        .serve_at(
+            "/org/freedesktop/Notifications",
+            Notifications { store: store.clone() },
+        )?
+        .build()
+        .await?;
+
     conn.request_name("org.freedesktop.Notifications").await?;
     conn.request_name("org.standardos.NotifOS").await?;
 
@@ -24,7 +33,6 @@ async fn main() -> Result<()> {
         "notif-os-daemon: ready on org.freedesktop.Notifications + org.standardos.NotifOS"
     );
 
-    // Park forever — the connection's tokio task does the actual work.
     std::future::pending::<()>().await;
     Ok(())
 }
