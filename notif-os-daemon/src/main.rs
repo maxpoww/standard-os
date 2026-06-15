@@ -5,6 +5,8 @@
 //! window at every Notify call. Writes every arrival to the project's
 //! JSONL journal at ~/.local/share/standard-os/notif-history.jsonl.
 
+mod store;
+
 use anyhow::Result;
 
 #[tokio::main]
