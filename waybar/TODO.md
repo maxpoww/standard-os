@@ -47,6 +47,15 @@ for the maintenance contract.
 
 ## NEXT
 
+- **notif-menu: View on history row no-ops** — discovered 2026-06-15 during
+  notif-os-daemon live verify. First View on a live notif worked (focused
+  the source kitty via the stored `source_window` address). After the notif
+  moved to history (correctly), pressing View on the history row produced
+  no focus change. Address-based focus should still resolve since we
+  journal `source_window` at arrival, and `hypr_focus_by_address` is the
+  same code path. Likely the history-L2 View dispatcher reads from a
+  different field (or doesn't call address resolution at all). Inspect
+  `scripts/notif-menu` history dispatcher + `scripts/lib/notif-hypr.sh`.
 - **Brightness module** — `XF86MonBrightnessUp/Down`, transient only (no
   permanent state). Tests the "transient with no permanent home" half of
   pillar 6.
@@ -77,6 +86,43 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-15** — **notif-os-daemon (Rust): Standard-OS native notification daemon.**
+  Replaces mako as the `org.freedesktop.Notifications` D-Bus owner. Pure Rust
+  binary built with zbus 5 + tokio; no Python runtime, no library quirks.
+  Implements the freedesktop spec (Notify, CloseNotification, GetCapabilities,
+  GetServerInformation, NotificationClosed, ActionInvoked) plus our
+  `org.standardos.NotifOS` extension (ListNotifications returning full JSON,
+  InvokeAction working for ANY id, Count). Every Notify captures the active
+  Hyprland window address — notif-menu's View action focuses the exact source
+  window for interactively-fired notify-send. Same on-disk JSONL journal as
+  notif-journal.sh, so notif-menu's populate_l1 reads the new daemon's writes
+  without any adapter change. Live-verified end-to-end: notify-send → journal
+  entry with source_window → notif-menu View focuses the kitty.
+  **Hint:** the daemon owns BOTH bus names — org.freedesktop.Notifications
+  (so apps' notify-send goes through it) AND org.standardos.NotifOS (so
+  notif-menu can call our richer API). Both registered in the connection
+  builder's serve_at chain in src/main.rs.
+  **Hint:** notif-menu's notif-os.sh adapter is unchanged from the Python
+  POC iteration — same function names, same busctl call shapes, same JSON
+  parsing. The daemon's interface contract was preserved on purpose.
+  **Hint:** sender_pid is captured as 0 in v0 (the Notify method body doesn't
+  yet plumb the D-Bus MessageHeader's sender field through). source_window
+  is the load-bearing field; sender_pid is a future iteration.
+  **Hint:** park mechanism is `tokio::select!` on SIGINT + SIGTERM, not
+  `pending::<()>().await`. systemd-user sends SIGTERM on `systemctl --user
+  stop`; SIGINT-only would leave the daemon ignoring systemd shutdown.
+  **Hint:** to clean-restart during dev, BOTH the systemd-user `notif-daemon`
+  unit AND the transient `dbus-:1.2-org.freedesktop.Notifications@N.service`
+  must be stopped, otherwise mako auto-reactivates via D-Bus session
+  activation the moment our daemon exits. The transient unit's number (`N`)
+  shifts each session; find it with `systemctl --user list-units 'dbus-*Notifications*'`.
+  **Hint:** ts format uses `%:z` (colon-tz) to match bash `date -Iseconds`;
+  `%z` would give `-0300` and visually diverge from the bash-written entries.
+  **Hint:** `invoke_action` removes from the store BEFORE emitting
+  ActionInvoked + NotificationClosed, so a concurrent CloseNotification
+  can't race it into emitting NotificationClosed twice for the same id.
+  `close_notification` already used the same pattern.
 
 - **2026-06-14** — **notif-menu: View action + tight L2 menu.**
   Replaced the v1 Copy/Snooze L2 with `View / Dismiss / Back`. `View`
