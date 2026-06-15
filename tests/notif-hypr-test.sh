@@ -137,6 +137,48 @@ hypr_focus_by_class "kitty" "Claude Code" ""
 check "[descendant scoring tie: dispatched 0xK2 (lower fhid wins)]" \
     grep -qF 'dispatch focuswindow address:0xK2' "$HYPRCTL_LOG"
 
+# ── source_window: when descendant scoring ties, pick the source window ──
+# Three kitties, no scoring data (summary "test" body "body" all filtered
+# because "test"/"body" are ≤4 alphanumeric AND don't appear in any
+# subtree). All score 0. Source_window points at 0xK2 — that wins despite
+# 0xK1 having lowest focusHistoryID.
+HYPRCTL_CLIENTS_JSON='[
+    {"address":"0xK1","class":"kitty","pid":100,"focusHistoryID":0},
+    {"address":"0xK2","class":"kitty","pid":200,"focusHistoryID":1},
+    {"address":"0xK3","class":"kitty","pid":300,"focusHistoryID":2}
+]'
+PID_SUBTREE=([100]='zsh' [200]='zsh' [300]='zsh')
+: > "$HYPRCTL_LOG"
+hypr_focus_by_class "kitty" "interactive test" "body" "0xK2"
+check "[source_window: tied → pick the source-window candidate (0xK2)]" \
+    grep -qF 'dispatch focuswindow address:0xK2' "$HYPRCTL_LOG"
+
+# ── source_window is overridden by a higher descendant score ────────────
+# 0xK3 has "claude" in subtree (score=1), 0xK1 is the source_window. 0xK3 wins.
+HYPRCTL_CLIENTS_JSON='[
+    {"address":"0xK1","class":"kitty","pid":100,"focusHistoryID":0},
+    {"address":"0xK3","class":"kitty","pid":300,"focusHistoryID":2}
+]'
+PID_SUBTREE=([100]='zsh' [300]='zsh
+claude --foo')
+: > "$HYPRCTL_LOG"
+hypr_focus_by_class "kitty" "Claude Code" "" "0xK1"
+check "[source_window: descendant score wins over source_window]" \
+    grep -qF 'dispatch focuswindow address:0xK3' "$HYPRCTL_LOG"
+
+# ── source_window pointing at a non-candidate address is ignored ────────
+HYPRCTL_CLIENTS_JSON='[
+    {"address":"0xK1","class":"kitty","pid":100,"focusHistoryID":2},
+    {"address":"0xK2","class":"kitty","pid":200,"focusHistoryID":0}
+]'
+PID_SUBTREE=([100]='zsh' [200]='zsh')
+: > "$HYPRCTL_LOG"
+hypr_focus_by_class "kitty" "test" "body" "0xDEADBEEF"
+check "[source_window: stale address ignored, fhid tiebreak picks 0xK2]" \
+    grep -qF 'dispatch focuswindow address:0xK2' "$HYPRCTL_LOG"
+
+PID_SUBTREE=()
+
 # ── short words (≤3 chars) are filtered out of scoring ──────────────────
 # Summary is "an OS" — both words are ≤3 chars, filtered out, score=0 for all.
 # Falls back to focusHistoryID tiebreak.

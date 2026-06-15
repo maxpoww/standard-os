@@ -33,18 +33,22 @@ json_escape_into() {
     printf -v "$__var" '%s' "$s"
 }
 
-# journal_append PATH TS ID APP SUMMARY BODY URGENCY
+# journal_append PATH TS ID APP SUMMARY BODY URGENCY [SOURCE_WINDOW]
 # Atomically appends one JSON line. Creates the file if missing.
+# SOURCE_WINDOW is the Hyprland address (or empty) of the window that was
+# active at notif arrival — used by notif-menu's View action to focus the
+# exact source kitty/window even when descendant-scoring can't disambiguate.
 journal_append() {
-    local path="$1" id="$3" urgency="$7"
-    local ts app summary body
+    local path="$1" id="$3" urgency="$7" source_window="${8:-}"
+    local ts app summary body src
     json_escape_into ts "$2"
     json_escape_into app "$4"
     json_escape_into summary "$5"
     json_escape_into body "$6"
+    json_escape_into src "$source_window"
     local line
-    line=$(printf '{"ts":"%s","id":%s,"app":"%s","summary":"%s","body":"%s","urgency":%s,"dismissed_at":""}\n' \
-        "$ts" "$id" "$app" "$summary" "$body" "$urgency")
+    line=$(printf '{"ts":"%s","id":%s,"app":"%s","summary":"%s","body":"%s","urgency":%s,"dismissed_at":"","source_window":"%s"}\n' \
+        "$ts" "$id" "$app" "$summary" "$body" "$urgency" "$src")
     mkdir -p "$(dirname "$path")"
     # Append is atomic per line for files opened O_APPEND on local fs; we still
     # use a serialized write (single >>) rather than multiple sub-writes.

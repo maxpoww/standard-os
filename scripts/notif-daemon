@@ -725,10 +725,16 @@ on_dbus_event() {
     query_mako_state
     if (( NEWEST_ID > prev_top_id )); then
         on_arrival
+        # Capture the active Hyprland window address — that's the most reliable
+        # signal for "where did this notif come from" when the sender is a CLI
+        # (notify-send from a kitty) and mako drops the sender-pid hint.
+        local src_win
+        src_win=$(hyprctl -j activewindow 2>/dev/null | jq -r '.address // ""' 2>/dev/null || true)
         # Journal append for every arrival (even when no transient was rendered:
         # low-urgency and DND-suppressed-normal still want history).
         journal_append "$JOURNAL_PATH" "$(date -Iseconds)" \
-            "$NEWEST_ID" "$NEWEST_APP" "$NEWEST_SUMMARY" "$NEWEST_BODY" "$NEWEST_URG"
+            "$NEWEST_ID" "$NEWEST_APP" "$NEWEST_SUMMARY" "$NEWEST_BODY" "$NEWEST_URG" \
+            "$src_win"
         journal_prune "$JOURNAL_PATH" "$JOURNAL_LIMIT"
     fi
     # Journal: mark anything dismissed since last query.

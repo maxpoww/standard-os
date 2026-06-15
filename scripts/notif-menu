@@ -27,18 +27,18 @@ JOURNAL_READ_N="${NOTIF_JOURNAL_READ_N:-200}"
 
 # ── Index arrays — populated by populate_l1, consumed by dispatch ────────
 # Indexed by 0-based row index as rofi sees it (-format i).
-declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at
+declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at source_window_at
 
 reset_index() {
     kind_at=(); id_at=(); ts_at=(); app_at=()
-    summary_at=(); body_at=(); urgency_at=()
+    summary_at=(); body_at=(); urgency_at=(); source_window_at=()
 }
 
-# put_row IDX KIND [ID TS APP SUMMARY BODY URGENCY]
+# put_row IDX KIND [ID TS APP SUMMARY BODY URGENCY SOURCE_WINDOW]
 # Populates the metadata arrays. Missing trailing args become empty strings.
 put_row() {
     local idx="$1" kind="$2" id="${3:-}" ts="${4:-}" app="${5:-}" \
-          summary="${6:-}" body="${7:-}" urgency="${8:-}"
+          summary="${6:-}" body="${7:-}" urgency="${8:-}" source_window="${9:-}"
     kind_at[$idx]="$kind"
     id_at[$idx]="$id"
     ts_at[$idx]="$ts"
@@ -46,6 +46,7 @@ put_row() {
     summary_at[$idx]="$summary"
     body_at[$idx]="$body"
     urgency_at[$idx]="$urgency"
+    source_window_at[$idx]="$source_window"
 }
 
 # fetch_live_meta ID → "app\tsummary\tbody\tts" via busctl. Used when a live
@@ -87,24 +88,25 @@ populate_l1() {
         fmt_l1_header "Unread ($unread_count)"; printf '\n'
         idx=$((idx+1))
 
-        local id urg ts app summary body fields
+        local id urg ts app summary body src fields
         while IFS=$'\t' read -r id urg; do
             [[ -z $id ]] && continue
             # Look in journal first — newest entry with that id wins (matches the
             # live arrival; head -1 below picks the most recent).
             fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
-                select(.id == $id) | [.ts, .app, .summary, .body] | @tsv
+                select(.id == $id) | [.ts, .app, .summary, .body, (.source_window // "")] | @tsv
             ' 2>/dev/null | head -1)
             if [[ -n $fields ]]; then
-                IFS=$'\t' read -r ts app summary body <<<"$fields"
+                IFS=$'\t' read -r ts app summary body src <<<"$fields"
             else
-                # Journal miss → busctl fetch.
+                # Journal miss → busctl fetch. No source_window available.
                 fields=$(fetch_live_meta "$id")
                 IFS=$'\t' read -r app summary body ts <<<"$fields"
+                src=""
             fi
             local crit=0
             (( urg == 2 )) && crit=1
-            put_row $idx "unread" "$id" "$ts" "$app" "$summary" "$body" "$urg"
+            put_row $idx "unread" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src"
             fmt_l1_row "$ts" "$app" "$summary" 1 "$crit"; printf '\n'
             idx=$((idx+1))
         done <<<"$live_map"
@@ -113,19 +115,19 @@ populate_l1() {
     # ── History (journal entries whose id is NOT in the live set) ────────
     local hist_buf="" hist_count=0
     if [[ -s $JOURNAL ]]; then
-        local line id urg ts app summary body
+        local line id urg ts app summary body src
         while IFS= read -r line; do
             [[ -z $line ]] && continue
             local row
             row=$(jq -r '
-                [.id, .urgency, .ts, .app, .summary, .body] | @tsv
+                [.id, .urgency, .ts, .app, .summary, .body, (.source_window // "")] | @tsv
             ' <<<"$line" 2>/dev/null) || continue
             [[ -z $row ]] && continue
-            IFS=$'\t' read -r id urg ts app summary body <<<"$row"
+            IFS=$'\t' read -r id urg ts app summary body src <<<"$row"
             if [[ -n $live_map ]] && grep -qF "${id}"$'\t' <<<"$live_map"; then
                 continue
             fi
-            hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\n'
+            hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\t'"$src"$'\n'
             hist_count=$((hist_count+1))
         done < <(journal_read "$JOURNAL" "$JOURNAL_READ_N")
     fi
@@ -135,10 +137,10 @@ populate_l1() {
         fmt_l1_header "History ($hist_count)"; printf '\n'
         idx=$((idx+1))
 
-        local id urg ts app summary body
-        while IFS=$'\t' read -r id urg ts app summary body; do
+        local id urg ts app summary body src
+        while IFS=$'\t' read -r id urg ts app summary body src; do
             [[ -z $id ]] && continue
-            put_row $idx "history" "$id" "$ts" "$app" "$summary" "$body" "$urg"
+            put_row $idx "history" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src"
             fmt_l1_row "$ts" "$app" "$summary" 0 0; printf '\n'
             idx=$((idx+1))
         done <<<"$hist_buf"
@@ -165,6 +167,7 @@ populate_l2_live() {
     L2_APP="$app"; L2_SUMMARY="$summary"
     L2_ID="$id"; L2_TS="$ts"
     L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
+    L2_SOURCE_WINDOW="${source_window_at[$l1_idx]:-}"
     L2_KIND="live"
 
     reset_index
@@ -218,6 +221,7 @@ populate_l2_history() {
     L2_APP="${app_at[$l1_idx]}"; L2_SUMMARY="${summary_at[$l1_idx]}"
     L2_ID="${id_at[$l1_idx]}"; L2_TS="${ts_at[$l1_idx]}"
     L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
+    L2_SOURCE_WINDOW="${source_window_at[$l1_idx]:-}"
     L2_KIND="history"
 
     reset_index
@@ -273,9 +277,10 @@ do_view() {
         return 0
     fi
     # Step 3 — focus an existing Hyprland window by app class. Pass the
-    # summary+body so multi-window apps (e.g. multiple kitty terminals)
-    # can be disambiguated by descendant-process cmdlines.
-    if hypr_focus_by_class "$app" "${L2_SUMMARY:-}" "${L2_BODY:-}"; then
+    # summary+body for descendant-process scoring AND the source_window
+    # (captured by notif-daemon at arrival) so multi-window apps like
+    # multiple kitty terminals focus the exact window the notif came from.
+    if hypr_focus_by_class "$app" "${L2_SUMMARY:-}" "${L2_BODY:-}" "${L2_SOURCE_WINDOW:-}"; then
         mako_dismiss "$id" || true
         return 0
     fi

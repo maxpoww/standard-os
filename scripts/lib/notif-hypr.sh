@@ -3,24 +3,27 @@
 # All hyprctl calls in the menu codebase go through here so tests can
 # mock by overriding `hyprctl` as a bash function before sourcing.
 
-# hypr_focus_by_class CLASS [SUMMARY] [BODY]
+# hypr_focus_by_class CLASS [SUMMARY] [BODY] [SOURCE_WINDOW]
 # Lowercases CLASS, finds Hyprland windows whose class (lowercased) contains
-# it as a substring, then disambiguates among multiple matches by scoring
-# each candidate's descendant-process cmdlines against the notif's
-# SUMMARY+BODY words (lowercase, length > 3, alphanumeric). Highest score
-# wins; ties broken by focusHistoryID (lower = more recently focused). On
-# hit, dispatches `focuswindow address:<addr>` (Hyprland switches workspace
-# automatically). Returns 0 on hit, 1 on miss / hyprctl error / malformed
-# JSON. Stderr from all hyprctl calls is suppressed.
+# it as a substring, then disambiguates among multiple matches with this
+# precedence (highest priority first):
 #
-# The descendant-cmdline scoring is what makes "Claude in one of three
-# kitty windows" focus the right kitty: only one kitty has `claude` in its
-# subtree, so the "claude" word from the notif summary scores 1 there and
-# 0 elsewhere.
+#   1. Highest descendant-cmdline word-match score against SUMMARY+BODY
+#      (lowercase, length > 3, alphanumeric). Catches "Claude is in one
+#      of three kittys" via the `claude` word in the subtree cmdlines.
+#   2. If still tied AND SOURCE_WINDOW matches a tied candidate's address,
+#      pick that. Catches "you ran notify-send from THIS kitty" — the
+#      notif-daemon captures hyprctl activewindow at arrival.
+#   3. focusHistoryID (lower = more recently focused).
+#
+# On hit dispatches `focuswindow address:<addr>` (Hyprland switches
+# workspace automatically). Returns 0 on hit, 1 on miss / hyprctl error /
+# malformed JSON. Stderr from all hyprctl calls is suppressed.
 hypr_focus_by_class() {
     local needle="${1,,}"
     local summary="${2:-}"
     local body="${3:-}"
+    local source_window="${4:-}"
 
     # Get all matching clients as tab-separated address\tpid\tfocusHistoryID
     local clients
@@ -53,13 +56,12 @@ hypr_focus_by_class() {
         | awk 'length > 3' \
         | sort -u)
 
-    local best_addr=""
-    local best_score=-1
-    local best_focus_hid=999999
+    # Two-pass: first compute scores per candidate, then resolve ties with
+    # source_window before falling back to focusHistoryID.
+    local scored=""   # lines of "addr\tscore\tfhid"
     local addr pid fhid tree score word
     while IFS=$'\t' read -r addr pid fhid; do
         [[ -z $addr ]] && continue
-        # Collect all descendant cmdlines, lowercased.
         tree=$(_pid_subtree_cmdlines "$pid" | tr '[:upper:]' '[:lower:]')
         score=0
         if [[ -n $words ]]; then
@@ -70,13 +72,28 @@ hypr_focus_by_class() {
                 fi
             done <<<"$words"
         fi
-        # Better if higher score, OR same score AND smaller focusHistoryID.
-        if (( score > best_score )) || (( score == best_score && fhid < best_focus_hid )); then
-            best_addr="$addr"
-            best_score=$score
-            best_focus_hid=$fhid
-        fi
+        scored+="$addr"$'\t'"$score"$'\t'"$fhid"$'\n'
     done <<<"$clients"
+
+    # Find max score.
+    local max_score
+    max_score=$(printf '%s' "$scored" | awk -F'\t' 'NF==3 { if ($2 > m) m = $2 } END { print m+0 }')
+
+    # Filter to candidates at max score.
+    local at_max
+    at_max=$(printf '%s' "$scored" | awk -F'\t' -v m="$max_score" 'NF==3 && $2 == m')
+
+    local best_addr=""
+    # Tier 2: source_window match among tied candidates.
+    if [[ -n $source_window ]]; then
+        if grep -qF $'\t' <<<"$source_window"; then : ; fi   # noop, defensive
+        best_addr=$(awk -F'\t' -v sw="$source_window" '$1 == sw { print $1; exit }' <<<"$at_max")
+    fi
+
+    # Tier 3: lowest focusHistoryID among tied candidates.
+    if [[ -z $best_addr ]]; then
+        best_addr=$(printf '%s' "$at_max" | sort -t$'\t' -k3,3n | head -1 | cut -f1)
+    fi
 
     [[ -z $best_addr ]] && return 1
     hyprctl dispatch focuswindow "address:$best_addr" 2>/dev/null
