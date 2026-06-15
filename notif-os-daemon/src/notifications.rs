@@ -64,8 +64,12 @@ impl Notifications {
         rec_with_id.id = id;
 
         let path = journal::default_path();
-        let _ = journal::append(&path, &rec_with_id);
-        let _ = journal::prune(&path, journal::default_limit());
+        if let Err(e) = journal::append(&path, &rec_with_id) {
+            eprintln!("notif-os-daemon: journal append failed: {e}");
+        }
+        if let Err(e) = journal::prune(&path, journal::default_limit()) {
+            eprintln!("notif-os-daemon: journal prune failed: {e}");
+        }
 
         id
     }
