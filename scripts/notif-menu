@@ -13,8 +13,8 @@ HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 LIB_DIR="${NOTIF_LIB_DIR:-$HERE/lib}"
 [[ -d $LIB_DIR ]] || { printf 'notif-menu: lib dir not found: %s\n' "$LIB_DIR" >&2; exit 1; }
 
-# shellcheck source=lib/notif-mako.sh
-source "$LIB_DIR/notif-mako.sh"
+# shellcheck source=lib/notif-os.sh
+source "$LIB_DIR/notif-os.sh"
 # shellcheck source=lib/notif-journal.sh
 source "$LIB_DIR/notif-journal.sh"
 # shellcheck source=lib/notif-menu-format.sh
