@@ -1,8 +1,7 @@
 # notif-os.sh — adapter for notif-os-daemon (Standard-OS native notif daemon).
 #
-# Replaces the previous lib/notif-mako.sh. All notification access in the
-# menu codebase routes through here so tests can mock busctl as a bash
-# function before sourcing.
+# All notification access in the menu codebase routes through here so
+# tests can mock busctl as a bash function before sourcing.
 #
 # Function names keep the `mako_` prefix for now to avoid touching every
 # call site — they actually talk to org.standardos.NotifOS, not mako.

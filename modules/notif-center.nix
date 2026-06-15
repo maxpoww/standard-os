@@ -61,7 +61,6 @@ let
     # notif-menu's libs — added when notif-menu started shipping.
     cp ${../scripts/lib/notif-menu-format.sh}    $out/lib/notif-menu-format.sh
     cp ${../scripts/lib/notif-hypr.sh}           $out/lib/notif-hypr.sh
-    cp ${../scripts/lib/notif-mako.sh}           $out/lib/notif-mako.sh
     cp ${../scripts/lib/notif-os.sh}             $out/lib/notif-os.sh
   '';
 
