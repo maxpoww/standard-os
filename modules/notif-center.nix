@@ -74,14 +74,15 @@ let
     exec ${pkgs.bash}/bin/bash ${src} "$@"
   '';
 
-  # Wrap the Python notif-os-daemon. Python deps (dbus-next) are picked
-  # from python3.withPackages so the daemon's `import dbus_next` resolves
-  # without touching the user's pip / venv.
-  notifOsDaemonPython = pkgs.python3.withPackages (ps: [ ps.dbus-next ]);
-  notifOsDaemonBin = pkgs.writeShellScriptBin "notif-os-daemon" ''
-    export PATH=${binPath}:$PATH
-    exec ${notifOsDaemonPython}/bin/python3 ${../scripts/notif-os-daemon} "$@"
-  '';
+  # Rust notif-os-daemon: builds the static binary via rustPlatform.
+  notifOsDaemonBin = pkgs.rustPlatform.buildRustPackage {
+    pname = "notif-os-daemon";
+    version = "0.1.0";
+    src = ../notif-os-daemon;
+    cargoLock.lockFile = ../notif-os-daemon/Cargo.lock;
+    # No runtime deps inside the binary; hyprctl is resolved via PATH at runtime.
+    meta.description = "Standard-OS native notification daemon (Rust)";
+  };
 
   notifDaemonBin       = mkScript "notif-daemon"        ./../scripts/notif-daemon;
   notifClickBin        = mkScript "notif-click"         ./../scripts/notif-click;
@@ -180,7 +181,7 @@ in {
       notifRofiBin
       notifRofiProfilesBin
       notifMenuBin       # new: rofi notif selector with View action
-      notifOsDaemonBin   # new (POC): Standard-OS native notif daemon
+      notifOsDaemonBin   # Standard-OS native notif daemon (Rust)
     ];
 
     # ── P3 profiles materialization ──────────────────────────────────────
