@@ -6,6 +6,7 @@
 //! JSONL journal at ~/.local/share/standard-os/notif-history.jsonl.
 
 mod store;
+mod journal;
 
 use anyhow::Result;
 
