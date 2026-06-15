@@ -243,3 +243,118 @@ _populate_l2_history_tail() {
     idx=$((idx+1))
     put_row $idx "back"; fmt_l2_back; printf '\n'
 }
+
+# ── Action implementations (the actual side effects) ─────────────────────
+do_invoke_app_action() {
+    local id="$1" key="$2"
+    mako_invoke "$id" "$key" || true
+    mako_dismiss "$id" || true
+}
+
+do_copy() {
+    printf '%s' "$1" | wl-copy
+}
+
+do_snooze() {
+    local id="$1" app="$2" urg="$3" summary="$4" body="$5" when="$6"
+    systemd-run --user --on-active="$when" --collect \
+        notify-send -a "$app" -u "$urg" -- "$summary" "$body" >/dev/null 2>&1 || true
+    mako_dismiss "$id" || true
+}
+
+do_remove_from_history() {
+    journal_remove "$JOURNAL" "$1" "$2"
+}
+
+do_relaunch() {
+    exec "$(readlink -f "$0")"
+}
+
+# ── Rofi wrapper (function so tests can mock it) ─────────────────────────
+run_rofi() {
+    local prompt="$1"
+    rofi -no-config -dmenu -i -p "$prompt" -no-custom -format i \
+        -theme-str '
+            configuration { font: "meslo-ng 13"; }
+            window { width: 50%; }
+            element-text { padding: 4px 10px; }
+        ' 2>/dev/null
+}
+
+# ── Tempdir (set by main; used by main + dispatch_l1 to stage rows) ─────
+# CRITICAL: populate_l1 / populate_l2_* must NOT be invoked via $(...)
+# capture because they mutate global arrays (kind_at, id_at, etc.) that
+# the dispatchers read. Subshell capture loses those mutations. Instead,
+# we redirect their stdout to a file in the parent shell (redirection
+# alone doesn't subshell), then pipe the file into rofi.
+NOTIF_MENU_TMP=""
+
+# ── L2 dispatch ──────────────────────────────────────────────────────────
+dispatch_l2() {
+    local idx="$1"
+    local kind="${kind_at[$idx]:-}"
+    case "$kind" in
+        app_action)
+            do_invoke_app_action "$L2_ID" "${l2_action_key[$idx]}"
+            ;;
+        copy_summary)   do_copy "$L2_SUMMARY" ;;
+        copy_body)      do_copy "$L2_BODY" ;;
+        snooze_10m)     do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "10min" ;;
+        snooze_1h)      do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "1h" ;;
+        dismiss)        mako_dismiss "$L2_ID" || true ;;
+        remove_history) do_remove_from_history "$L2_ID" "$L2_TS" ;;
+        back)           do_relaunch ;;
+        ""|header|noop) : ;;   # no-op
+    esac
+}
+
+# ── L1 dispatch ──────────────────────────────────────────────────────────
+dispatch_l1() {
+    local idx="$1"
+    local kind="${kind_at[$idx]:-}"
+    case "$kind" in
+        dismiss_all)
+            mako_dismiss_all || true
+            ;;
+        unread)
+            populate_l2_live "$idx" > "$NOTIF_MENU_TMP/l2"
+            local prompt; prompt=$(_l2_prompt)
+            local l2_idx
+            l2_idx=$(run_rofi "$prompt" < "$NOTIF_MENU_TMP/l2") || return 0
+            dispatch_l2 "$l2_idx"
+            ;;
+        history)
+            populate_l2_history "$idx" > "$NOTIF_MENU_TMP/l2"
+            local prompt; prompt=$(_l2_prompt)
+            local l2_idx
+            l2_idx=$(run_rofi "$prompt" < "$NOTIF_MENU_TMP/l2") || return 0
+            dispatch_l2 "$l2_idx"
+            ;;
+        ""|header|noop) : ;;
+    esac
+}
+
+# Composes the L2 rofi prompt: "<App> · <summary truncated to 60 chars>".
+_l2_prompt() {
+    local s="$L2_SUMMARY"
+    if (( ${#s} > 60 )); then s="${s:0:60}…"; fi
+    if [[ -n $s ]]; then printf '%s · %s' "$L2_APP" "$s"
+    else                 printf '%s' "$L2_APP"; fi
+}
+
+# ── Main ────────────────────────────────────────────────────────────────
+main() {
+    NOTIF_MENU_TMP=$(mktemp -d)
+    # EXIT covers normal-exit and signals; RETURN covers function-return from
+    # tests that call main directly (so tempdirs don't leak across iterations).
+    trap 'rm -rf "$NOTIF_MENU_TMP"' EXIT RETURN
+    populate_l1 > "$NOTIF_MENU_TMP/l1"
+    local l1_idx
+    l1_idx=$(run_rofi "notifications" < "$NOTIF_MENU_TMP/l1") || return 0
+    dispatch_l1 "$l1_idx"
+}
+
+# Only run main when executed directly (not when sourced for tests).
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main
+fi
