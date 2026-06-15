@@ -19,6 +19,8 @@ source "$LIB_DIR/notif-mako.sh"
 source "$LIB_DIR/notif-journal.sh"
 # shellcheck source=lib/notif-menu-format.sh
 source "$LIB_DIR/notif-menu-format.sh"
+# shellcheck source=lib/notif-hypr.sh
+source "$LIB_DIR/notif-hypr.sh"
 
 JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
 JOURNAL_READ_N="${NOTIF_JOURNAL_READ_N:-200}"
@@ -179,37 +181,34 @@ populate_l2_live() {
         return
     fi
 
-    # App actions (default hoisted first by mako_list_actions).
+    # View row — always first. do_view dispatches to mako's default
+    # action when declared, otherwise hyprctl focuses the app window.
+    put_row $idx "view"
+    printf 'View\n'
+    idx=$((idx+1))
+
+    # App actions OTHER than 'default' — View covers default.
     local k label
     while IFS=$'\t' read -r k label; do
         [[ -z $k ]] && continue
+        [[ "$k" == "default" ]] && continue
         put_row $idx "app_action"
         l2_action_key[$idx]="$k"
         printf '%s\n' "$label"
         idx=$((idx+1))
     done < <(mako_list_actions "$id")
 
-    # Separator
+    # Separator + Dismiss + separator + Back.
     put_row $idx "noop"
     fmt_l2_separator; printf '\n'
     idx=$((idx+1))
 
-    # Generic actions
-    put_row $idx "copy_summary"; printf 'Copy summary\n'
-    idx=$((idx+1))
-    if [[ -n $body ]]; then
-        put_row $idx "copy_body"; printf 'Copy body\n'
-        idx=$((idx+1))
-    fi
-    put_row $idx "snooze_10m"; printf 'Snooze 10 minutes\n'
-    idx=$((idx+1))
-    put_row $idx "snooze_1h"; printf 'Snooze 1 hour\n'
-    idx=$((idx+1))
     put_row $idx "dismiss"; printf 'Dismiss\n'
     idx=$((idx+1))
 
     put_row $idx "noop"; fmt_l2_separator; printf '\n'
     idx=$((idx+1))
+
     put_row $idx "back"; fmt_l2_back; printf '\n'
 }
 
@@ -253,28 +252,34 @@ do_invoke_app_action() {
     mako_dismiss "$id" || true
 }
 
+do_view() {
+    local id="$1" app="$2"
+    # Step 1 — if the app declared a default action, that's the right verb.
+    if mako_has_default_action "$id"; then
+        mako_invoke "$id" default || true
+        mako_dismiss "$id" || true
+        return 0
+    fi
+    # Step 2 — no default; recursion guard for our own fallback notifs.
+    if [[ "$app" == "notif-menu" ]]; then
+        mako_dismiss "$id" || true
+        return 0
+    fi
+    # Step 3 — focus an existing Hyprland window by app class.
+    if hypr_focus_by_class "$app"; then
+        mako_dismiss "$id" || true
+        return 0
+    fi
+    # Step 4 — nothing to do; surface honest feedback. notif-menu app-name
+    # marks it so step 2 short-circuits if the user picks View on it.
+    notify-send -a "notif-menu" -u low \
+        "View couldn't open '$app'" \
+        "no default action and no matching window" 2>/dev/null || true
+    return 1
+}
+
 do_dismiss() {
     mako_dismiss "$1" || true
-}
-
-do_copy() {
-    # printf '%s' to avoid appending a newline — critical for OTP codes and URLs.
-    printf '%s' "$1" | wl-copy
-}
-
-do_snooze() {
-    local id="$1" app="$2" urg="$3" summary="$4" body="$5" when="$6"
-    # mako emits urgency as 0/1/2 (low/normal/critical), but notify-send expects
-    # the symbolic name. Translate.
-    local urg_str
-    case "$urg" in
-        0) urg_str=low ;;
-        2) urg_str=critical ;;
-        *) urg_str=normal ;;
-    esac
-    systemd-run --user --on-active="$when" --collect \
-        notify-send -a "$app" -u "$urg_str" -- "$summary" "$body" >/dev/null 2>&1 || true
-    mako_dismiss "$id" || true
 }
 
 do_remove_from_history() {
@@ -311,13 +316,12 @@ dispatch_l2() {
     local idx="$1"
     local kind="${kind_at[$idx]:-}"
     case "$kind" in
+        view)
+            do_view "$L2_ID" "$L2_APP"
+            ;;
         app_action)
             do_invoke_app_action "$L2_ID" "${l2_action_key[$idx]:-}"
             ;;
-        copy_summary)   do_copy "$L2_SUMMARY" ;;
-        copy_body)      do_copy "$L2_BODY" ;;
-        snooze_10m)     do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "10min" ;;
-        snooze_1h)      do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "1h" ;;
         dismiss)        do_dismiss "$L2_ID" ;;
         remove_history) do_remove_from_history "$L2_ID" "$L2_TS" ;;
         back)           do_relaunch ;;
