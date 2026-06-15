@@ -272,8 +272,10 @@ do_view() {
         mako_dismiss "$id" || true
         return 0
     fi
-    # Step 3 — focus an existing Hyprland window by app class.
-    if hypr_focus_by_class "$app"; then
+    # Step 3 — focus an existing Hyprland window by app class. Pass the
+    # summary+body so multi-window apps (e.g. multiple kitty terminals)
+    # can be disambiguated by descendant-process cmdlines.
+    if hypr_focus_by_class "$app" "${L2_SUMMARY:-}" "${L2_BODY:-}"; then
         mako_dismiss "$id" || true
         return 0
     fi
