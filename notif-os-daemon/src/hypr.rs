@@ -26,9 +26,10 @@ pub fn active_window_address() -> String {
         .to_string()
 }
 
-/// Same as `active_window_address` but bounded by a short timeout so a hung
-/// hyprctl doesn't block the Notify hot path. Spawns the subprocess with
-/// kill-on-drop and gives up after 500ms.
+/// Same as `active_window_address` but bounded by a 500ms timeout so a hung
+/// hyprctl doesn't block the Notify hot path. Runs the sync function in
+/// `spawn_blocking`; on timeout we return the empty string and the blocking
+/// thread runs to natural completion (no kill-on-drop on `std::process`).
 pub async fn active_window_address_async() -> String {
     let fut = tokio::task::spawn_blocking(active_window_address);
     match tokio::time::timeout(Duration::from_millis(500), fut).await {
