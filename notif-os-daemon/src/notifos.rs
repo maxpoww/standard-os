@@ -10,7 +10,7 @@
 use crate::notifications::Notifications;
 use crate::store::Store;
 use serde::Serialize;
-use zbus::{interface, object_server::Interface};
+use zbus::interface;
 
 pub struct NotifOs {
     pub store: Store,
@@ -57,15 +57,16 @@ impl NotifOs {
     }
 
     /// Fire ActionInvoked(id, action_key) on the freedesktop interface, then
-    /// remove the notif and emit NotificationClosed(id, 2). Returns false if
-    /// the id isn't present.
+    /// emit NotificationClosed(id, 2). Returns false if the id isn't present.
+    /// Removes from the store FIRST so a concurrent CloseNotification can't
+    /// race us into emitting NotificationClosed twice for the same id.
     async fn invoke_action(
         &self,
         #[zbus(object_server)] server: &zbus::ObjectServer,
         id: u32,
         action_key: String,
     ) -> zbus::fdo::Result<bool> {
-        if !self.store.contains(id) {
+        if !self.store.remove(id) {
             return Ok(false);
         }
         // Get the freedesktop interface so we can fire its signals.
@@ -75,7 +76,6 @@ impl NotifOs {
         let emitter = iface_ref.signal_emitter();
         // ActionInvoked first (so a listener sees the action before close).
         Notifications::action_invoked(emitter, id, action_key).await?;
-        self.store.remove(id);
         // Reason 2 = dismissed by user.
         Notifications::notification_closed(emitter, id, 2).await?;
         Ok(true)
@@ -86,11 +86,3 @@ impl NotifOs {
     }
 }
 
-// Confirm that Notifications implements Interface (used in the
-// object_server.interface::<_, Notifications>() call above). The import of
-// Interface at the top of the file keeps clippy quiet; this marker ensures
-// the bound is referenced so the compiler won't warn about an unused import.
-#[allow(dead_code)]
-fn _interface_marker() {
-    let _: fn() -> zbus::names::InterfaceName<'static> = Notifications::name;
-}

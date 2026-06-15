@@ -75,10 +75,6 @@ impl Store {
     pub fn count(&self) -> u32 {
         u32::try_from(self.inner.lock().unwrap().notifs.len()).unwrap_or(u32::MAX)
     }
-
-    pub fn contains(&self, id: u32) -> bool {
-        self.inner.lock().unwrap().notifs.contains_key(&id)
-    }
 }
 
 #[cfg(test)]
