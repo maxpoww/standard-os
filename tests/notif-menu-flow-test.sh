@@ -132,6 +132,8 @@ check "[t4: systemd-run called with --on-active=10min]" \
     grep -qF -- '--on-active=10min' "$CALL_LOG"
 check "[t4: systemd-run called with --collect]" \
     grep -qF -- '--collect' "$CALL_LOG"
+check "[t4: systemd-run uses symbolic urgency 'normal']" \
+    grep -qF -- '-u normal' "$CALL_LOG"
 check "[t4: mako_dismiss 42 called after snooze]" \
     grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
@@ -167,6 +169,50 @@ main || true   # main returns 0 on Esc today; || true defends if that ever chang
 # beyond the one "rofi prompt=" line:
 non_rofi_calls=$(grep -vF 'rofi prompt=' "$CALL_LOG" || true)
 check "[t6: Esc at L1 produces no side-effect calls]" test -z "$non_rofi_calls"
+
+# ── Test 7: live → vanished fallback when notif disappears between L1 and L2 ──
+# populate_l1 runs first and sees mako_list_live return id=42 (live). Then L2
+# opens and populate_l2_live re-queries mako, which now returns empty —
+# triggering the history-fallback path with the no-op header and history-only
+# actions. The picked "Remove from history" action deletes the journal entry.
+: > "$CALL_LOG"
+: > "$JOURNAL"
+journal_append "$JOURNAL" "2026-06-14T11:30:00-03:00" 42 "Slack" "Hi" "body text" 1
+
+# Use a file-based counter because mako_list_live is always called from
+# subshells (command substitution / pipe), so an in-memory variable counter
+# would never propagate back to the parent.
+printf '0' > "$SANDBOX/t7_calls"
+mako_list_live() {
+    local n
+    n=$(cat "$SANDBOX/t7_calls")
+    printf '%d' $((n+1)) > "$SANDBOX/t7_calls"
+    if (( n == 0 )); then
+        printf '42\t1\n'   # first call (populate_l1): notif is live
+    else
+        return 0           # subsequent calls (populate_l2_live): vanished
+    fi
+}
+MAKO_ACTIONS_PAYLOAD=""
+
+# L1 idx 3 = the unread (Slack) row.
+# Vanish-fallback L2 row order (body non-empty):
+#   0 header "── no longer live — history actions only ──"
+#   1 copy_summary
+#   2 copy_body
+#   3 remove_history    ← pick this
+#   4 noop separator
+#   5 back
+printf '3\n3\n' > "$ROFI_QUEUE"
+main
+
+check "[t7: no mako_invoke fired during vanished fallback]" \
+    ! grep -qF 'mako_invoke' "$CALL_LOG"
+check "[t7: journal_remove side effect on vanished + remove_history]" \
+    ! grep -qF '"id":42' "$JOURNAL"
+
+# Restore the default mako_list_live mock for any future tests
+mako_list_live() { printf '%s' "$MAKO_LIVE_PAYLOAD"; }
 
 echo
 if [[ $fail -gt 0 ]]; then

@@ -264,8 +264,16 @@ do_copy() {
 
 do_snooze() {
     local id="$1" app="$2" urg="$3" summary="$4" body="$5" when="$6"
+    # mako emits urgency as 0/1/2 (low/normal/critical), but notify-send expects
+    # the symbolic name. Translate.
+    local urg_str
+    case "$urg" in
+        0) urg_str=low ;;
+        2) urg_str=critical ;;
+        *) urg_str=normal ;;
+    esac
     systemd-run --user --on-active="$when" --collect \
-        notify-send -a "$app" -u "$urg" -- "$summary" "$body" >/dev/null 2>&1 || true
+        notify-send -a "$app" -u "$urg_str" -- "$summary" "$body" >/dev/null 2>&1 || true
     mako_dismiss "$id" || true
 }
 
@@ -304,7 +312,7 @@ dispatch_l2() {
     local kind="${kind_at[$idx]:-}"
     case "$kind" in
         app_action)
-            do_invoke_app_action "$L2_ID" "${l2_action_key[$idx]}"
+            do_invoke_app_action "$L2_ID" "${l2_action_key[$idx]:-}"
             ;;
         copy_summary)   do_copy "$L2_SUMMARY" ;;
         copy_body)      do_copy "$L2_BODY" ;;
