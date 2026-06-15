@@ -78,6 +78,41 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-14** — **notif-menu: View action + tight L2 menu.**
+  Replaced the v1 Copy/Snooze L2 with `View / Dismiss / Back`. `View`
+  takes the user to the source of the notification: invokes mako's
+  default action when the app declared one (Firefox focuses the tab,
+  Telegram focuses the chat, Slack focuses the channel), falls back to
+  `hyprctl dispatch focuswindow class:<app>` when there's no default,
+  and surfaces an honest `notify-send` fallback when nothing matches.
+  New lib `scripts/lib/notif-hypr.sh` encapsulates every `hyprctl`
+  call so tests can mock it. `notif-mako.sh` gains
+  `mako_has_default_action` (anchored-grep on `mako_list_actions`).
+  Reply ruled out (universal `wtype`-into-focused-window approach was
+  too fragile). Mute deferred to a follow-up. Vanished-fallback and
+  true-history L2 menus are unchanged (Copy / Remove / Back).
+  **Hint:** The `default` action key is HIDDEN from the L2 row list
+  when View is shown — View invokes it. Apps that declared
+  non-default actions (e.g. `archive\tArchive`) still surface those
+  rows below View.
+  **Hint:** `do_view`'s step 2 (recursion guard) short-circuits when
+  `app == "notif-menu"`. The step 4 fallback fires notify-send with
+  `-a notif-menu` so picking View on a fallback notif hits step 2
+  and just dismisses — no cascading loop.
+  **Hint:** Hyprland class matching is case-insensitive substring
+  (lowercase needle, lowercase haystack class, `contains`). Covers
+  Firefox → firefox / firefox-developer-edition. Misses
+  "Telegram Desktop" → org.telegram.desktop — but Telegram declares
+  a default action so step 1 catches it. Per-app override map can
+  be added later if real-world misses accumulate.
+  **Hint:** `focuswindow address:<addr>` follows the target's
+  workspace automatically (per Hyprland docs). Cross-workspace
+  navigation is intentional.
+  **Hint:** Cold-launching the app when no window matches is OUT of
+  scope for v2. If a notif arrived from an app, the app was running
+  at notif time. If the app exited between the notif and the user's
+  View pick, step 4's fallback honestly says nothing's there.
+
 - **2026-06-14** — **notif-menu: rofi selector with per-notif action surfacing.**
   New alternative to `notif-rofi` shipped as `/etc/nixos/home/scripts/notif-menu`.
   Two-level rofi flow: L1 lists Actions block + Unread + History sections; picking
