@@ -90,6 +90,20 @@ HYPRCTL_CLIENTS_JSON='not json'
 hypr_focus_by_class "Firefox"
 check "[malformed JSON: returns 1]" test $? -eq 1
 
+# ── match but no address field → returns 1, no dispatch ─────────────────
+HYPRCTL_CLIENTS_JSON='[{"class":"firefox"}]'
+: > "$HYPRCTL_LOG"
+hypr_focus_by_class "Firefox"
+check "[match but no address: returns 1]" test $? -eq 1
+check "[match but no address: no dispatch logged]" test ! -s "$HYPRCTL_LOG"
+
+# ── empty hyprctl output (zero-byte) → returns 1 cleanly ────────────────
+HYPRCTL_CLIENTS_JSON=''
+: > "$HYPRCTL_LOG"
+hypr_focus_by_class "Firefox"
+check "[empty hyprctl output: returns 1]" test $? -eq 1
+check "[empty hyprctl output: no dispatch logged]" test ! -s "$HYPRCTL_LOG"
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"

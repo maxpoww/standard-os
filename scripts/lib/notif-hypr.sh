@@ -8,14 +8,14 @@
 # (lowercased) contains it as a substring. On hit, dispatches
 # `focuswindow address:<addr>` (Hyprland switches workspace automatically
 # if the target is elsewhere). Returns 0 on hit, 1 on miss / hyprctl
-# error / malformed JSON.
+# error / malformed JSON. Stderr from all hyprctl calls is suppressed.
 hypr_focus_by_class() {
     local needle="${1,,}"   # lowercase
     local addr
     addr=$(hyprctl -j clients 2>/dev/null \
         | jq -r --arg n "$needle" '
             .[]? | select((.class // "" | ascii_downcase) | contains($n))
-                 | .address' 2>/dev/null \
+                 | (.address // "")' 2>/dev/null \
         | head -1)
     [[ -z $addr ]] && return 1
     hyprctl dispatch focuswindow "address:$addr" 2>/dev/null
