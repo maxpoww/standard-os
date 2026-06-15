@@ -110,7 +110,7 @@ class FreedesktopNotifications(ServiceInterface):
     # ── Standard methods ────────────────────────────────────────────────
 
     @method()
-    async def Notify(  # noqa: N802 — spec name
+    def Notify(  # noqa: N802 — spec name
         self,
         app_name: "s",  # type: ignore[name-defined]
         replaces_id: "u",  # type: ignore[name-defined]
@@ -127,8 +127,8 @@ class FreedesktopNotifications(ServiceInterface):
             nid = self._next_id
             self._next_id += 1
 
-        # Resolve sender PID via the D-Bus daemon's GetConnectionUnixProcessID.
-        sender_pid = await self.store.resolve_sender_pid(self._last_sender())
+        # sender_pid intentionally 0 for the POC — see Store.last_sender notes.
+        sender_pid = 0
 
         # urgency hint is a byte (y)
         urgency = 1
@@ -181,7 +181,7 @@ class FreedesktopNotifications(ServiceInterface):
         return nid
 
     @method()
-    async def CloseNotification(self, id: "u") -> None:  # type: ignore[name-defined] # noqa: N802
+    def CloseNotification(self, id: "u") -> None:  # type: ignore[name-defined] # noqa: N802
         if id in self.store.notifs:
             del self.store.notifs[id]
             # Reason: 3 = closed by a call to CloseNotification.
@@ -193,7 +193,8 @@ class FreedesktopNotifications(ServiceInterface):
 
     @method()
     def GetServerInformation(self) -> "ssss":  # type: ignore[name-defined] # noqa: N802
-        return ("notif-os-daemon", "Standard-OS", "0.1.0", "1.2")
+        # dbus-next requires multi-return as a list, not a tuple.
+        return ["notif-os-daemon", "Standard-OS", "0.1.0", "1.2"]
 
     # ── Standard signals ────────────────────────────────────────────────
 
@@ -205,13 +206,7 @@ class FreedesktopNotifications(ServiceInterface):
     def ActionInvoked(self, id: "u", action_key: "s") -> "us":  # type: ignore[name-defined] # noqa: N802
         return [id, action_key]
 
-    # ── Internal helpers ────────────────────────────────────────────────
-
-    def _last_sender(self) -> str:
-        """Best-effort: extract the sender unique name from the most recent
-        message. dbus-next stores it on the underlying message object during
-        method dispatch — we read it via the daemon's stash."""
-        return self.store.last_sender or ""
+    # Internal helpers removed — POC defers PID resolution.
 
 
 class StandardOSExt(ServiceInterface):
@@ -274,17 +269,24 @@ class Store:
         self.bus = bus
         self.last_sender = ""
 
-    async def resolve_sender_pid(self, sender: str) -> int:
-        """Calls org.freedesktop.DBus.GetConnectionUnixProcessID."""
+    def resolve_sender_pid_sync(self, sender: str) -> int:
+        """Calls org.freedesktop.DBus.GetConnectionUnixProcessID via subprocess
+        busctl. Sync wrapper used by sync method handlers."""
         if not sender:
             return 0
         try:
-            introspection = await self.bus.introspect("org.freedesktop.DBus", "/org/freedesktop/DBus")
-            obj = self.bus.get_proxy_object("org.freedesktop.DBus", "/org/freedesktop/DBus", introspection)
-            iface = obj.get_interface("org.freedesktop.DBus")
-            pid = await iface.call_get_connection_unix_process_id(sender)
-            return int(pid)
-        except Exception:
+            out = subprocess.run(
+                [
+                    "busctl", "--user", "--json=short", "call",
+                    "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus", "GetConnectionUnixProcessID",
+                    "s", sender,
+                ],
+                capture_output=True, text=True, timeout=0.5,
+            )
+            data = json.loads(out.stdout or "{}")
+            return int(data.get("data", [0])[0]) if data.get("data") else 0
+        except (subprocess.SubprocessError, json.JSONDecodeError, OSError, ValueError):
             return 0
 
 
@@ -295,20 +297,10 @@ async def main() -> int:
     fd_iface = FreedesktopNotifications(store)
     ext_iface = StandardOSExt(store, fd_iface)
 
-    # Patch dbus-next to stash the sender name on every method call so the
-    # Notify handler can resolve PID. dbus-next doesn't expose sender directly
-    # on the ServiceInterface; we hook into its dispatch via a thin proxy.
-    original = bus._process_message  # type: ignore[attr-defined]
-
-    def patched_process(msg):
-        try:
-            if msg and getattr(msg, "sender", None):
-                store.last_sender = msg.sender
-        except Exception:
-            pass
-        return original(msg)
-
-    bus._process_message = patched_process  # type: ignore[attr-defined]
+    # Sender PID resolution deferred to a future iteration — dbus-next 0.2.3
+    # doesn't expose sender on ServiceInterface and intercepting via
+    # _process_message turned out to be fragile. For the POC we record
+    # source_window (which is the actually-useful field anyway).
 
     bus.export("/org/freedesktop/Notifications", fd_iface)
     bus.export("/org/standardos/NotifOS", ext_iface)
