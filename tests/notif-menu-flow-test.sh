@@ -64,154 +64,138 @@ check() {
 }
 
 # ── Test 1: L1 → "Dismiss all unread" ────────────────────────────────────
-: > "$CALL_LOG"; printf '1\n' > "$ROFI_QUEUE"   # idx 1 = "Dismiss all unread"
+: > "$CALL_LOG"; printf '1\n' > "$ROFI_QUEUE"
 MAKO_LIVE_PAYLOAD=""
 main
 check "[t1: mako_dismiss_all called]" grep -qF 'mako_dismiss_all' "$CALL_LOG"
 
-# ── Test 2: L1 unread → L2 app action ────────────────────────────────────
+# ── Test 2: L1 unread → L2 non-default app action ────────────────────────
+# L1 row order: 0 Actions header, 1 dismiss_all, 2 Unread header, 3 unread
+# L2 row order with default+reply actions: 0 view (default hidden),
+#   1 app_action Reply, 2 noop sep, 3 dismiss, 4 noop sep, 5 back.
+# Pick L1 idx 3 then L2 idx 1 (Reply).
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
 MAKO_ACTIONS_PAYLOAD=$'default\tOpen\nreply\tReply\n'
-# Seed journal so populate_l1 has metadata for id=42
 journal_append "$JOURNAL" "2026-06-14T10:00:00-03:00" 42 "Slack" "Hi" "body text" 1
-# Row order from populate_l1:
-#   0 header "── Actions ──"
-#   1 dismiss_all
-#   2 header "── Unread (1) ──"
-#   3 unread (id=42, Slack)
-# So pick idx 3 in L1, then in L2 pick idx 1 ("Reply"):
-#   L2 row order from populate_l2_live with 2 actions:
-#     0 app_action "Open"  (default hoisted)
-#     1 app_action "Reply"
-#     2 noop (separator)
-#     3 copy_summary
-#     4 copy_body
-#     5 snooze_10m
-#     6 snooze_1h
-#     7 dismiss
-#     8 noop (separator)
-#     9 back
 printf '3\n1\n' > "$ROFI_QUEUE"
 main
 check "[t2: mako_invoke 42 reply called]" grep -qF 'mako_invoke 42 reply' "$CALL_LOG"
 check "[t2: mako_dismiss 42 called after invoke]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
-# ── Test 3: L2 Copy summary copies the exact bytes ───────────────────────
-# Depends on Test 2's journal_append (id=42) so populate_l2_live reads
-# body="body text" from the journal and emits the `copy_body` row at idx 2.
+# ── Test 3: View with default action ─────────────────────────────────────
+# Same L1 layout. L2 row 0 is View. Pick L1 idx 3 → L2 idx 0.
+# Mocked mako_has_default_action returns 0 so do_view step 1 fires.
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
-MAKO_ACTIONS_PAYLOAD=""   # no app actions → L2 starts at separator+copy block
-printf '3\n1\n' > "$ROFI_QUEUE"
-# L2 with no app actions (body="body text" still in journal, so copy_body present):
-#   0 noop separator
-#   1 copy_summary     ← pick this
-#   2 copy_body
-#   3 snooze_10m
-#   4 snooze_1h
-#   5 dismiss
-#   6 noop separator
-#   7 back
+MAKO_ACTIONS_PAYLOAD=$'default\tOpen\n'
+mako_has_default_action() { return 0; }
+printf '3\n0\n' > "$ROFI_QUEUE"
 main
-check "[t3: wl-copy called]" grep -qF 'wl-copy' "$CALL_LOG"
-check "[t3: copied bytes equal summary exactly (no trailing newline)]" \
-    test "$(cat "$SANDBOX/last_copy")" = "Hi"
-check "[t3: copied byte length = strlen(summary)]" \
-    test "$(wc -c < "$SANDBOX/last_copy")" -eq 2
+check "[t3: mako_invoke 42 default called]" grep -qF 'mako_invoke 42 default' "$CALL_LOG"
+check "[t3: mako_dismiss 42 called after default invoke]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
+check "[t3: hyprctl NOT called]" ! grep -qF 'hyprctl' "$CALL_LOG"
 
-# ── Test 4: Snooze 10 minutes → systemd-run + dismiss ────────────────────
-# Same journal dependency as Test 3: body is non-empty so the L2 row at
-# idx 3 is snooze_10m (would shift to idx 2 if body were empty).
+# ── Test 4: View without default but matching Hyprland window ────────────
+# Mocked mako_has_default_action returns 1, hypr_focus_by_class returns 0.
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
 MAKO_ACTIONS_PAYLOAD=""
-printf '3\n3\n' > "$ROFI_QUEUE"   # L1 idx 3 (Slack), L2 idx 3 = snooze_10m
+mako_has_default_action() { return 1; }
+hypr_focus_by_class() { printf 'hypr_focus_by_class %s\n' "$*" >> "$CALL_LOG"; return 0; }
+printf '3\n0\n' > "$ROFI_QUEUE"
 main
-check "[t4: systemd-run called with --on-active=10min]" \
-    grep -qF -- '--on-active=10min' "$CALL_LOG"
-check "[t4: systemd-run called with --collect]" \
-    grep -qF -- '--collect' "$CALL_LOG"
-check "[t4: systemd-run uses symbolic urgency 'normal']" \
-    grep -qF -- '-u normal' "$CALL_LOG"
-check "[t4: mako_dismiss 42 called after snooze]" \
-    grep -qF 'mako_dismiss 42' "$CALL_LOG"
+check "[t4: hypr_focus_by_class called with app name]" grep -qF 'hypr_focus_by_class Slack' "$CALL_LOG"
+check "[t4: mako_dismiss 42 called after focus]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
+check "[t4: mako_invoke NOT called]" ! grep -qF 'mako_invoke' "$CALL_LOG"
 
-# ── Test 5: History row → L2 has no Dismiss/Snooze ──────────────────────
-: > "$CALL_LOG"
-MAKO_LIVE_PAYLOAD=""   # nothing live
-MAKO_ACTIONS_PAYLOAD=""
-# Journal still has id=42; with no live notifs, that becomes a history row.
-# Row order:
-#   0 header Actions
-#   1 dismiss_all
-#   2 header "History (1)"
-#   3 history (id=42)
-# L2 history rows (body="body text" non-empty, so copy_body present):
-#   0 copy_summary
-#   1 copy_body
-#   2 remove_history     ← pick
-#   3 noop separator
-#   4 back
-printf '3\n2\n' > "$ROFI_QUEUE"
-main
-check "[t5: journal line removed]" ! grep -qF '"id":42' "$JOURNAL"
-
-# ── Test 6: Esc at L1 → no side effects ──────────────────────────────────
+# ── Test 5: View with nothing matching (fallback notify-send) ────────────
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
-# Seed journal metadata for id=42 so populate_l1 can render the unread row
-# without falling back to the unmocked fetch_live_meta → _mako_busctl_list path.
-journal_append "$JOURNAL" "2026-06-14T11:00:00-03:00" 42 "Slack" "Hi again" "" 1
-printf 'ESC\n' > "$ROFI_QUEUE"
-main || true   # main returns 0 on Esc today; || true defends if that ever changes to non-zero
-# After Esc no mako_* / wl-copy / systemd-run lines should have been logged
-# beyond the one "rofi prompt=" line:
-non_rofi_calls=$(grep -vF 'rofi prompt=' "$CALL_LOG" || true)
-check "[t6: Esc at L1 produces no side-effect calls]" test -z "$non_rofi_calls"
+MAKO_ACTIONS_PAYLOAD=""
+mako_has_default_action() { return 1; }
+hypr_focus_by_class() { return 1; }
+notify-send() { printf 'notify-send %s\n' "$*" >> "$CALL_LOG"; }
+printf '3\n0\n' > "$ROFI_QUEUE"
+main
+check "[t5: notify-send fallback fired with -a notif-menu]" \
+    grep -qF 'notify-send -a notif-menu' "$CALL_LOG"
+check "[t5: original mako_dismiss NOT called (fallback returns 1)]" \
+    ! grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
-# ── Test 7: live → vanished fallback when notif disappears between L1 and L2 ──
-# populate_l1 runs first and sees mako_list_live return id=42 (live). Then L2
-# opens and populate_l2_live re-queries mako, which now returns empty —
-# triggering the history-fallback path with the no-op header and history-only
-# actions. The picked "Remove from history" action deletes the journal entry.
+# ── Test 6: View on a fallback notif (recursion guard) ──────────────────
+# Journal seeds app="notif-menu". do_view step 2 short-circuits before step 4.
 : > "$CALL_LOG"
 : > "$JOURNAL"
-journal_append "$JOURNAL" "2026-06-14T11:30:00-03:00" 42 "Slack" "Hi" "body text" 1
+journal_append "$JOURNAL" "2026-06-14T10:30:00-03:00" 99 "notif-menu" "View couldn't open" "no default action" 0
+MAKO_LIVE_PAYLOAD=$'99\t0\n'
+MAKO_ACTIONS_PAYLOAD=""
+mako_has_default_action() { return 1; }
+hypr_focus_by_class() { printf 'hypr_focus_by_class %s\n' "$*" >> "$CALL_LOG"; return 0; }
+notify-send() { printf 'notify-send %s\n' "$*" >> "$CALL_LOG"; }
+printf '3\n0\n' > "$ROFI_QUEUE"
+main
+check "[t6: mako_dismiss 99 called (recursion guard ok)]" grep -qF 'mako_dismiss 99' "$CALL_LOG"
+check "[t6: hypr_focus_by_class NOT called (step 2 short-circuited)]" \
+    ! grep -qF 'hypr_focus_by_class' "$CALL_LOG"
+check "[t6: notify-send NOT called (no cascading fallback)]" \
+    ! grep -qF 'notify-send' "$CALL_LOG"
 
-# Use a file-based counter because mako_list_live is always called from
-# subshells (command substitution / pipe), so an in-memory variable counter
-# would never propagate back to the parent.
-printf '0' > "$SANDBOX/t7_calls"
+# Restore default mocks for subsequent tests
+mako_has_default_action() { mako_list_actions "$1" | grep -q '^default	'; }
+hypr_focus_by_class() { return 1; }
+notify-send() { :; }
+
+# ── Test 7: History row → Remove from history ───────────────────────────
+# L1 row order with no live + 1 history entry:
+#   0 Actions header, 1 dismiss_all, 2 History header, 3 history (id=99)
+# History L2 unchanged: 0 copy_summary, 1 copy_body, 2 remove_history,
+#   3 noop sep, 4 back. Pick L1 idx 3 then L2 idx 2.
+: > "$CALL_LOG"
+: > "$JOURNAL"
+journal_append "$JOURNAL" "2026-06-14T11:00:00-03:00" 99 "TestApp" "old notif" "old body" 1
+MAKO_LIVE_PAYLOAD=""
+MAKO_ACTIONS_PAYLOAD=""
+printf '3\n2\n' > "$ROFI_QUEUE"
+main
+check "[t7: journal line removed]" ! grep -qF '"id":99' "$JOURNAL"
+
+# ── Test 8: Esc at L1 → no side effects ─────────────────────────────────
+: > "$CALL_LOG"
+MAKO_LIVE_PAYLOAD=$'42\t1\n'
+journal_append "$JOURNAL" "2026-06-14T11:30:00-03:00" 42 "Slack" "Hi again" "" 1
+printf 'ESC\n' > "$ROFI_QUEUE"
+main || true
+non_rofi_calls=$(grep -vF 'rofi prompt=' "$CALL_LOG" || true)
+check "[t8: Esc at L1 produces no side-effect calls]" test -z "$non_rofi_calls"
+
+# ── Test 9: Vanished fallback (live → gone between L1 and L2) ───────────
+# populate_l1's mako_list_live first call returns id=42. populate_l2_live's
+# re-query (second call) returns empty — fallback to history-only L2.
+# Vanished-fallback L2 row order (body non-empty from journal):
+#   0 header "── no longer live ──", 1 copy_summary, 2 copy_body,
+#   3 remove_history, 4 noop sep, 5 back. Pick L2 idx 3.
+: > "$CALL_LOG"
+: > "$JOURNAL"
+journal_append "$JOURNAL" "2026-06-14T12:00:00-03:00" 42 "Slack" "Hi" "body text" 1
+mako_list_live_calls=$(mktemp)
+echo 0 > "$mako_list_live_calls"
 mako_list_live() {
-    local n
-    n=$(cat "$SANDBOX/t7_calls")
-    printf '%d' $((n+1)) > "$SANDBOX/t7_calls"
-    if (( n == 0 )); then
-        printf '42\t1\n'   # first call (populate_l1): notif is live
+    local n; n=$(<"$mako_list_live_calls"); n=$((n+1)); echo "$n" > "$mako_list_live_calls"
+    if (( n == 1 )); then
+        printf '42\t1\n'
     else
-        return 0           # subsequent calls (populate_l2_live): vanished
+        return 0
     fi
 }
 MAKO_ACTIONS_PAYLOAD=""
-
-# L1 idx 3 = the unread (Slack) row.
-# Vanish-fallback L2 row order (body non-empty):
-#   0 header "── no longer live — history actions only ──"
-#   1 copy_summary
-#   2 copy_body
-#   3 remove_history    ← pick this
-#   4 noop separator
-#   5 back
 printf '3\n3\n' > "$ROFI_QUEUE"
 main
+check "[t9: no mako_invoke during vanished fallback]" ! grep -qF 'mako_invoke' "$CALL_LOG"
+check "[t9: journal entry removed via remove_history]" ! grep -qF '"id":42' "$JOURNAL"
+rm -f "$mako_list_live_calls"
 
-check "[t7: no mako_invoke fired during vanished fallback]" \
-    ! grep -qF 'mako_invoke' "$CALL_LOG"
-check "[t7: journal_remove side effect on vanished + remove_history]" \
-    ! grep -qF '"id":42' "$JOURNAL"
-
-# Restore the default mako_list_live mock for any future tests
+# Restore default mako_list_live for any future tests
 mako_list_live() { printf '%s' "$MAKO_LIVE_PAYLOAD"; }
 
 echo
