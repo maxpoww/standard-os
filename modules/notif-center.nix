@@ -38,6 +38,7 @@ let
     gnugrep        # PCRE (grep -P) for detect_otp
     jq
     libcanberra-gtk3   # canberra-gtk-play for P3 sound subsystem
+    libnotify      # notify-send for the do_view step 4 fallback
     mako
     procps
     rofi
@@ -48,9 +49,8 @@ let
 
   binPath = lib.makeBinPath runtimeDeps;
 
-  # Materialize the lib dir (notif-journal.sh + notif-rofi-format.sh) into one
-  # /nix/store path. The wrapped scripts get NOTIF_LIB_DIR pointing here so
-  # they can `source "$NOTIF_LIB_DIR/notif-journal.sh"` etc. without depending
+  # Materialize the lib dir into one /nix/store path. The wrapped scripts
+  # get NOTIF_LIB_DIR pointing here so they can `source` without depending
   # on the source-tree layout.
   libDir = pkgs.runCommand "notif-libs" {} ''
     mkdir -p $out/lib
@@ -58,6 +58,11 @@ let
     cp ${../scripts/lib/notif-rofi-format.sh}    $out/lib/notif-rofi-format.sh
     cp ${../scripts/lib/notif-schedule.sh}       $out/lib/notif-schedule.sh
     cp ${../scripts/lib/notif-profile-format.sh} $out/lib/notif-profile-format.sh
+    # notif-menu's libs — added when notif-menu started shipping.
+    cp ${../scripts/lib/notif-menu-format.sh}    $out/lib/notif-menu-format.sh
+    cp ${../scripts/lib/notif-hypr.sh}           $out/lib/notif-hypr.sh
+    cp ${../scripts/lib/notif-mako.sh}           $out/lib/notif-mako.sh
+    cp ${../scripts/lib/notif-os.sh}             $out/lib/notif-os.sh
   '';
 
   # Wrap an external bash script as a /nix/store binary. PATH is curated
@@ -69,10 +74,20 @@ let
     exec ${pkgs.bash}/bin/bash ${src} "$@"
   '';
 
+  # Wrap the Python notif-os-daemon. Python deps (dbus-next) are picked
+  # from python3.withPackages so the daemon's `import dbus_next` resolves
+  # without touching the user's pip / venv.
+  notifOsDaemonPython = pkgs.python3.withPackages (ps: [ ps.dbus-next ]);
+  notifOsDaemonBin = pkgs.writeShellScriptBin "notif-os-daemon" ''
+    export PATH=${binPath}:$PATH
+    exec ${notifOsDaemonPython}/bin/python3 ${../scripts/notif-os-daemon} "$@"
+  '';
+
   notifDaemonBin       = mkScript "notif-daemon"        ./../scripts/notif-daemon;
   notifClickBin        = mkScript "notif-click"         ./../scripts/notif-click;
   notifRofiBin         = mkScript "notif-rofi"          ./../scripts/notif-rofi;
   notifRofiProfilesBin = mkScript "notif-rofi-profiles" ./../scripts/notif-rofi-profiles;
+  notifMenuBin         = mkScript "notif-menu"          ./../scripts/notif-menu;
 
 in {
   options.services.notifCenter = {
@@ -159,7 +174,14 @@ in {
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [ notifDaemonBin notifClickBin notifRofiBin notifRofiProfilesBin ];
+    home.packages = [
+      notifDaemonBin
+      notifClickBin
+      notifRofiBin
+      notifRofiProfilesBin
+      notifMenuBin       # new: rofi notif selector with View action
+      notifOsDaemonBin   # new (POC): Standard-OS native notif daemon
+    ];
 
     # ── P3 profiles materialization ──────────────────────────────────────
     # Daemon reads this JSON to resolve the active profile. The override
