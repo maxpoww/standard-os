@@ -282,6 +282,11 @@ do_dismiss() {
     mako_dismiss "$1" || true
 }
 
+do_copy() {
+    # printf '%s' to avoid appending a newline — critical for OTP codes and URLs.
+    printf '%s' "$1" | wl-copy
+}
+
 do_remove_from_history() {
     journal_remove "$JOURNAL" "$1" "$2"
 }
@@ -322,6 +327,8 @@ dispatch_l2() {
         app_action)
             do_invoke_app_action "$L2_ID" "${l2_action_key[$idx]:-}"
             ;;
+        copy_summary)   do_copy "$L2_SUMMARY" ;;
+        copy_body)      do_copy "$L2_BODY" ;;
         dismiss)        do_dismiss "$L2_ID" ;;
         remove_history) do_remove_from_history "$L2_ID" "$L2_TS" ;;
         back)           do_relaunch ;;
