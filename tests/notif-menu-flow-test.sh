@@ -142,7 +142,7 @@ check "[t6: notify-send NOT called (no cascading fallback)]" \
     ! grep -qF 'notify-send' "$CALL_LOG"
 
 # Restore default mocks for subsequent tests
-mako_has_default_action() { mako_list_actions "$1" | grep -q '^default	'; }
+mako_has_default_action() { mako_list_actions "$1" | grep -q $'^default\t'; }
 hypr_focus_by_class() { return 1; }
 notify-send() { :; }
 

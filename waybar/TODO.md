@@ -83,7 +83,7 @@ for the maintenance contract.
   takes the user to the source of the notification: invokes mako's
   default action when the app declared one (Firefox focuses the tab,
   Telegram focuses the chat, Slack focuses the channel), falls back to
-  `hyprctl dispatch focuswindow class:<app>` when there's no default,
+  `hyprctl dispatch focuswindow address:<addr>` when there's no default,
   and surfaces an honest `notify-send` fallback when nothing matches.
   New lib `scripts/lib/notif-hypr.sh` encapsulates every `hyprctl`
   call so tests can mock it. `notif-mako.sh` gains
