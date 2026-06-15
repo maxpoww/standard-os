@@ -354,9 +354,11 @@ _l2_prompt() {
 # ── Main ────────────────────────────────────────────────────────────────
 main() {
     NOTIF_MENU_TMP=$(mktemp -d)
-    # EXIT covers normal-exit and signals; RETURN covers function-return from
-    # tests that call main directly (so tempdirs don't leak across iterations).
-    trap 'rm -rf "$NOTIF_MENU_TMP"' EXIT RETURN
+    # RETURN fires on every main return (including from test invocations). EXIT
+    # is only needed when notif-menu runs as the entry point (signal cleanup);
+    # registering EXIT when sourced clobbers the caller's EXIT trap (test sandbox).
+    trap 'rm -rf "$NOTIF_MENU_TMP"' RETURN
+    [[ "${BASH_SOURCE[0]}" == "$0" ]] && trap 'rm -rf "$NOTIF_MENU_TMP"' EXIT
     populate_l1 > "$NOTIF_MENU_TMP/l1"
     local l1_idx
     l1_idx=$(run_rofi "notifications" < "$NOTIF_MENU_TMP/l1") || return 0

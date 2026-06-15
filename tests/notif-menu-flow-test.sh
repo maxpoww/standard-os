@@ -98,6 +98,8 @@ check "[t2: mako_invoke 42 reply called]" grep -qF 'mako_invoke 42 reply' "$CALL
 check "[t2: mako_dismiss 42 called after invoke]" grep -qF 'mako_dismiss 42' "$CALL_LOG"
 
 # ── Test 3: L2 Copy summary copies the exact bytes ───────────────────────
+# Depends on Test 2's journal_append (id=42) so populate_l2_live reads
+# body="body text" from the journal and emits the `copy_body` row at idx 2.
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
 MAKO_ACTIONS_PAYLOAD=""   # no app actions → L2 starts at separator+copy block
@@ -119,6 +121,8 @@ check "[t3: copied byte length = strlen(summary)]" \
     test "$(wc -c < "$SANDBOX/last_copy")" -eq 2
 
 # ── Test 4: Snooze 10 minutes → systemd-run + dismiss ────────────────────
+# Same journal dependency as Test 3: body is non-empty so the L2 row at
+# idx 3 is snooze_10m (would shift to idx 2 if body were empty).
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
 MAKO_ACTIONS_PAYLOAD=""
@@ -154,9 +158,11 @@ check "[t5: journal line removed]" ! grep -qF '"id":42' "$JOURNAL"
 # ── Test 6: Esc at L1 → no side effects ──────────────────────────────────
 : > "$CALL_LOG"
 MAKO_LIVE_PAYLOAD=$'42\t1\n'
+# Seed journal metadata for id=42 so populate_l1 can render the unread row
+# without falling back to the unmocked fetch_live_meta → _mako_busctl_list path.
 journal_append "$JOURNAL" "2026-06-14T11:00:00-03:00" 42 "Slack" "Hi again" "" 1
 printf 'ESC\n' > "$ROFI_QUEUE"
-main || true   # main exits 0 on Esc; defend against `set -e` if someone adds it
+main || true   # main returns 0 on Esc today; || true defends if that ever changes to non-zero
 # After Esc no mako_* / wl-copy / systemd-run lines should have been logged
 # beyond the one "rofi prompt=" line:
 non_rofi_calls=$(grep -vF 'rofi prompt=' "$CALL_LOG" || true)
