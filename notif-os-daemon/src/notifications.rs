@@ -44,7 +44,7 @@ impl Notifications {
             .collect();
 
         let source_window = hypr::active_window_address_async().await;
-        let ts = Local::now().format("%Y-%m-%dT%H:%M:%S%z").to_string();
+        let ts = Local::now().format("%Y-%m-%dT%H:%M:%S%:z").to_string();
 
         let rec = NotifRecord {
             id: 0, // overwritten by store.insert
