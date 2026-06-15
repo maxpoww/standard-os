@@ -245,13 +245,20 @@ _populate_l2_history_tail() {
 }
 
 # ── Action implementations (the actual side effects) ─────────────────────
+# Errors are suppressed (|| true): rofi is closed by the time these run and
+# there is no feedback channel — a loud failure would just become shell noise.
 do_invoke_app_action() {
     local id="$1" key="$2"
     mako_invoke "$id" "$key" || true
     mako_dismiss "$id" || true
 }
 
+do_dismiss() {
+    mako_dismiss "$1" || true
+}
+
 do_copy() {
+    # printf '%s' to avoid appending a newline — critical for OTP codes and URLs.
     printf '%s' "$1" | wl-copy
 }
 
@@ -267,6 +274,8 @@ do_remove_from_history() {
 }
 
 do_relaunch() {
+    # exec replaces this process — the EXIT trap won't fire, so $NOTIF_MENU_TMP
+    # is leaked. Acceptable: it's in /tmp (tmpfs) and cleaned on next reboot.
     exec "$(readlink -f "$0")"
 }
 
@@ -301,7 +310,7 @@ dispatch_l2() {
         copy_body)      do_copy "$L2_BODY" ;;
         snooze_10m)     do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "10min" ;;
         snooze_1h)      do_snooze "$L2_ID" "$L2_APP" "$L2_URG" "$L2_SUMMARY" "$L2_BODY" "1h" ;;
-        dismiss)        mako_dismiss "$L2_ID" || true ;;
+        dismiss)        do_dismiss "$L2_ID" ;;
         remove_history) do_remove_from_history "$L2_ID" "$L2_TS" ;;
         back)           do_relaunch ;;
         ""|header|noop) : ;;   # no-op
