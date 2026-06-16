@@ -24,6 +24,12 @@ pub struct NotifRecord {
     pub sender_pid: u32,
     pub source_window: String,
     pub ts: String,
+    /// `desktop-entry` freedesktop hint. "" when the source app didn't
+    /// set it. For Chrome PWAs this is the PWA's .desktop basename
+    /// (e.g. `chrome-cinhimbnkkaeohfgghhklpknlkffjgod-Default`) which
+    /// is also the Hyprland window class — letting View focus the
+    /// specific PWA rather than regular Chromium.
+    pub desktop_entry: String,
 }
 
 #[derive(Clone)]
@@ -93,6 +99,7 @@ mod tests {
             sender_pid: 0,
             source_window: String::new(),
             ts: "2026-06-15T00:00:00-03:00".into(),
+            desktop_entry: String::new(),
         }
     }
 
