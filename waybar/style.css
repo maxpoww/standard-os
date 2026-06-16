@@ -595,6 +595,20 @@ window#waybar #custom-notif-dismiss.empty {
     font-size: 0;
 }
 
+/* ── Bell pill — child mode (DND on) ────────────────────────────────────────
+   When DND is on, notif-daemon flips bell to opt-pill-child and DND to
+   opt-pill.  Bell remains modules[0] (the waybar group/drawer trigger) so it
+   stays visible at rest; it does not animate into the drawer.  The generic
+   .opt-pill-child rules give it the child surface + text colour, but we add
+   an explicit targeted rule so the child state is unambiguous and easy to
+   extend (e.g. hover-red for "click to resume" affordance in future tasks). */
+
+window#waybar #custom-notif-bell.opt-pill-child,
+window#waybar #custom-notif-dnd.opt-pill-child {
+    background: @opt-surface-child;
+    color: @opt-text-on-dark;
+}
+
 /* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
 /* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
    the usual `window#waybar .foo` ancestor convention does not apply here.
