@@ -365,6 +365,25 @@ render_action_for_state() {
         "$label_esc" "$(glass_theme)" "$label_esc" "$key_esc"
 }
 
+# ─── render_dnd_for_state — DND child pill ─────────────────────────────────
+# Pure function. Reads presence of DND_STATE_FILE; emits the bell-off glyph
+# with opt-breathe motion when ON, plain child surface when OFF. Icon stays
+# bell-slash in both states — state is shown via animation, not icon swap.
+render_dnd_for_state() {
+    local theme dnd_on classes tooltip
+    theme="$(glass_theme)"
+    [[ -e "$DND_STATE_FILE" ]] && dnd_on=1 || dnd_on=0
+    if (( dnd_on )); then
+        _classes_json classes "opt-pill-child" "$theme" "opt-breathe"
+        tooltip="DND on — click to resume notifications"
+    else
+        _classes_json classes "opt-pill-child" "$theme"
+        tooltip="Stop notifications"
+    fi
+    #  is the FA solid bell-slash glyph (already used in render_bell_for_state).
+    printf '{"text":"\xef\x87\xb7","class":%s,"tooltip":"%s"}' "$classes" "$tooltip"
+}
+
 # ─── _classes_json VAR <class>... ──────────────────────────────────────────
 # Builds a JSON array literal from positional class args, writes result to VAR
 # via printf -v (no subshell fork). Defensively escapes " and \ in each class
@@ -399,6 +418,8 @@ PROFILES_JSON="${NOTIF_PROFILES_JSON:-$HOME/.local/share/standard-os/notif-profi
 ACTIVE_PROFILE_FILE="${NOTIF_ACTIVE_PROFILE_FILE:-$HOME/.local/share/standard-os/notif-active-profile}"
 DEFAULT_PROFILE="${NOTIF_DEFAULT_PROFILE:-off}"
 CACHE_PROFILE="${NOTIF_CACHE_PROFILE:-/tmp/waybar-cache/notif-profile}"
+DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
+CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
 TRANSIENT_MS="${NOTIF_TRANSIENT_MS:-5000}"
 JOURNAL_PATH="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
@@ -500,6 +521,7 @@ TRANSIENT_TITLE=""
 TRANSIENT_BODY=""
 TRANSIENT_START=0
 LAST_BELL_RENDERED=""
+LAST_DND_RENDERED=""
 # P2 state
 TRANSIENT_OTP_CODE=""              # extracted OTP code (empty when no match)
 TRANSIENT_OTP_COPIED=0             # 1 during the 500ms post-click hold
@@ -717,8 +739,11 @@ emit() {
         "$TRANSIENT_OTP_CODE" "$TRANSIENT_OTP_COPIED")
     profile_json=$(render_profile_for_state "$ACTIVE_PROFILE" "$(profile_display_name "$ACTIVE_PROFILE")")
 
+    local dnd_json
+    dnd_json=$(render_dnd_for_state)
     local changed=0
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
+    write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
     write_if_changed "$CACHE_PROFILE" "$profile_json" LAST_PROFILE_RENDERED && changed=1
     emit_action_caches
     (( $? == 1 )) && changed=1
