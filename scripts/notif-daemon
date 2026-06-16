@@ -280,20 +280,18 @@ render_dismiss_for_state() {
 # DND on:            parent surface, bell-slash glyph, opt-breathe always,
 #                    opt-yes compose if unread (blue surface + breathing).
 render_dnd_for_state() {
-    # DND child pill. Always opt-pill-child (structural anchor stays bell).
-    # Glyph swaps based on DND state — bell-slash when off (click me to
-    # silence), bell when on (click me to read notifs). Click handler in
-    # notif-click cross-routes by DND state so the icon's affordance is
-    # honored. opt-breathe always present when DND is on, regardless of
-    # which glyph the pill currently shows.
+    # DND child pill. Always opt-pill-child, no state colors. The DND
+    # state is communicated entirely by the glyph swap — bell-slash when
+    # off (click me to silence), bell when on (click me to read). No
+    # breathing/pulse/color here: the only color in this pill cluster
+    # lives on the bell parent (opt-yes when there are unread notifs).
     local theme classes tooltip glyph
     theme="$(glass_theme)"
+    _classes_json classes "opt-pill-child" "$theme"
     if [[ -e "$DND_STATE_FILE" ]]; then
-        _classes_json classes "opt-pill-child" "$theme" "opt-breathe"
         tooltip="Open notifications"
         glyph='\xef\x83\xb3'   # FA bell (U+F0F3)
     else
-        _classes_json classes "opt-pill-child" "$theme"
         tooltip="Stop notifications"
         glyph='\xef\x87\xb7'   # FA solid bell-slash (U+F1F7)
     fi
@@ -487,7 +485,14 @@ on_arrival() {
             fi
         fi
     else
-        TRANSIENT_KIND=""
+        # DND on: wide-pill suppressed (no text, no OTP, no actions), but
+        # we still fire the one-shot opt-beat heartbeat on the bell so
+        # the user gets a silent visual ack that something arrived. The
+        # bell's beat path renders the rest face (bell-slash glyph in
+        # DND-on + state color from unread count) plus opt-beat motion.
+        TRANSIENT_KIND="beat"
+        TRANSIENT_ID="$NEWEST_ID"
+        TRANSIENT_START=$(date +%s%3N)
     fi
 
     if (( ! dnd_on )); then
