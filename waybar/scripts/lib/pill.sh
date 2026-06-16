@@ -26,6 +26,16 @@
 PILL_CACHE_DIR="${PILL_CACHE_DIR:-/tmp/waybar-cache}"
 PILL_GLASS_FILE="${PILL_GLASS_FILE:-/tmp/glass-mode}"
 
+# Per-pill geometry registry — used by rofi-anchor.sh to anchor popups
+# under their trigger pill. Each pill_write emits a small JSON record
+# to PILL_GEOM_DIR/<name>.json (one file per pill — avoids jq merging
+# in the hot loop). Width is estimated from text length; X is computed
+# later by the rofi anchor library walking sibling widths.
+PILL_GEOM_DIR="${PILL_GEOM_DIR:-/tmp/waybar-cache/pill-geom}"
+PILL_GEOM_HYPR_CTX="${PILL_GEOM_HYPR_CTX:-/tmp/waybar-cache/hypr-context.json}"
+PILL_PAD_X="${PILL_PAD_X:-8}"            # left+right padding combined (logical px)
+PILL_FONT_ADVANCE_PX="${PILL_FONT_ADVANCE_PX:-8}"  # avg glyph width at 13pt bar font
+
 # Read /tmp/glass-mode. Default "dark" if the file is missing or unreadable —
 # this is the safe choice because dark text on a light wallpaper disappears
 # but white text on dark is always visible. The glass-text-daemon writes
@@ -61,6 +71,47 @@ pill_json_escape() {
     s="${s//\"/\\\"}"
     s="${s//$'\n'/ }"
     printf '%s' "$s"
+}
+
+# Estimate visual width of a pill in logical screen pixels.
+# Returns PILL_PAD_X + (char_count * PILL_FONT_ADVANCE_PX).
+# Used by the geometry registry to predict where each pill sits, so
+# rofi popups can be anchored under their trigger. Error budget ~±10px.
+pill_estimate_width() {
+    local text="${1:-}"
+    local n=${#text}
+    printf '%d' $(( PILL_PAD_X + n * PILL_FONT_ADVANCE_PX ))
+}
+
+# Resolve the focused monitor's name from hypr-context.json. Returns
+# empty if hypr-context is missing or unparseable — callers fall back
+# to "".
+pill_geom_focused_monitor() {
+    local ctx
+    [ -r "$PILL_GEOM_HYPR_CTX" ] || { printf ''; return; }
+    ctx=$(cat "$PILL_GEOM_HYPR_CTX" 2>/dev/null) || { printf ''; return; }
+    # Extract "monitor_focused":"<name>" without a jq fork.
+    # Pattern: matches the literal key + value, captures the name.
+    if [[ $ctx =~ \"monitor_focused\":\"([^\"]+)\" ]]; then
+        printf '%s' "${BASH_REMATCH[1]}"
+    fi
+}
+
+# Emit a per-pill geometry record. One file per pill — avoids jq merging
+# in the pill_write hot path. Atomic via tmp+mv. Caller passes the
+# already-estimated width (0 for .empty pills); monitor is the focused
+# monitor's name, defaulting to whatever hypr-context publishes.
+pill_emit_geom() {
+    local name="$1"
+    local w="$2"
+    local monitor="${3:-}"
+    [ -z "$monitor" ] && monitor=$(pill_geom_focused_monitor)
+    mkdir -p "$PILL_GEOM_DIR"
+    local f="$PILL_GEOM_DIR/$name.json"
+    local content; content=$(printf '{"w":%d,"monitor":"%s"}' "$w" "$monitor")
+    local prev=""; [ -r "$f" ] && prev=$(cat "$f" 2>/dev/null)
+    [ "$content" = "$prev" ] && return 0
+    printf '%s' "$content" > "$f.tmp" && mv -f "$f.tmp" "$f"
 }
 
 # Emit a single JSON object to stdout (no trailing newline — waybar reads
@@ -119,9 +170,25 @@ pill_write() {
     local name="$1"; shift
     mkdir -p "$PILL_CACHE_DIR"
     local cache="$PILL_CACHE_DIR/$name"
+    local text="${1:-}"
+    local classes_str="${2:-}"
     local content prev=""
     content="$(pill_emit "$@")"
     [ -r "$cache" ] && prev="$(cat "$cache" 2>/dev/null)"
+
+    # Geometry registry: width=0 when the pill is .empty (collapsed,
+    # no visual footprint), otherwise estimated from text length.
+    # Emitted EVERY call (not gated by content dedup) so that a width
+    # change in another sibling can trigger this pill's geom refresh
+    # via the natural waybar tick cadence. pill_emit_geom is internally
+    # dedup'd so unchanged widths don't churn disk.
+    local geom_w=0
+    case " $classes_str " in
+        *" empty "*) geom_w=0 ;;
+        *)           geom_w=$(pill_estimate_width "$text") ;;
+    esac
+    pill_emit_geom "$name" "$geom_w"
+
     [ "$content" = "$prev" ] && return 0
     printf '%s' "$content" > "$cache.tmp" && mv -f "$cache.tmp" "$cache"
     pkill -RTMIN+10 waybar 2>/dev/null || true

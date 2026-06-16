@@ -78,6 +78,27 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-16** — **rofi unified with OPTIONS — bellwether ships on notif-menu.**
+  Three new shared artefacts: pill-geom registry in pill.sh (per-pill
+  files at /tmp/waybar-cache/pill-geom/), rofi-anchor.sh library
+  (rofi_anchor_for, rofi_theme_for_mode, rofi_launch), and
+  options-{base,light,dark}.rasi mirroring the waybar @opt-* palette.
+  notif-menu's inline `-no-config -theme-str` deleted; the bell popup
+  now opens under the bell pill, with light/dark following glass-mode.
+  Five remaining rofi surfaces (apps launcher, window switcher,
+  restore-minimized, reboot-prompt, notif-rofi legacy) follow as
+  separate streams.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-16-waybar-rofi-integration-design.md`.
+  **Hint:** plan at `docs/superpowers/plans/2026-06-16-waybar-rofi-integration.md`.
+  **Hint:** pill-geom is written by pill.sh::pill_write on every emit;
+  one JSON file per pill avoids jq merge in the hot loop.
+  **Hint:** rofi-anchor.sh's zone layout list is currently SYSTEM-only
+  (encodes notif-widepill → notif-dnd → notif-bell). Other zones will
+  be added as their pills need rofi popups.
+  **Hint:** action-row marker is `fmt_l1_action` in
+  notif-menu-format.sh: emits `<b>▸ LABEL</b>` (Pango-bold + chevron);
+  rofi rendered with `-markup-rows`.
+
 - **2026-06-16** — **View focuses Chrome PWAs correctly via desktop-entry hint.**
   Chrome PWAs (WhatsApp Web, YouTube Music, etc.) declare a distinct
   Hyprland window class per app (`chrome-<hash>-Default`). The same

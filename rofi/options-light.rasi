@@ -1,0 +1,16 @@
+/* options-light.rasi — light glass mode palette. Token values mirror
+   the @define-color block in waybar/style.css for light mode.
+   Surfaces are identical to dark mode (neutral gray glass — the
+   alpha composites differently against a light wallpaper, providing
+   sufficient contrast without separate surface values).
+   Text uses opt-text-on-light = rgba(0,0,0,0.85). */
+
+* {
+    opt-surface-parent: rgba(128, 128, 128, 0.30);
+    opt-surface-child:  rgba(170, 170, 170, 0.30);
+    opt-hover-bright:   rgba(255, 255, 255, 0.30);
+    opt-text:           rgba(  0,   0,   0, 0.85);
+    opt-text-dim:       rgba(  0,   0,   0, 0.55);
+}
+
+@import "options-base.rasi"

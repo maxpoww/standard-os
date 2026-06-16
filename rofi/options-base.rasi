@@ -1,0 +1,107 @@
+/*
+ * options-base.rasi — shared shape and surface rules for every rofi
+ * surface in OPTIONS. The light and dark theme files @import this and
+ * set @opt-surface-parent / @opt-surface-child / @opt-text constants.
+ *
+ * Soul rule: rofi IS a wide pill from the OPTIONS family.
+ * - Window: parent surface, rounded, NO hard border (Rule 3).
+ * - Selected row: white film 0.30 alpha (universal bright-hover).
+ * - Action rows (verbs): child surface, rounded, action verb in text.
+ * - Notif rows (records): transparent rest, icon + text.
+ * - Section headers: smaller font, dim, non-selectable.
+ *
+ * Color tokens are defined in options-dark.rasi / options-light.rasi
+ * and mirror the @define-color block in waybar/style.css exactly:
+ *   opt-surface-parent  rgba(128, 128, 128, 0.30)  — universal neutral glass
+ *   opt-surface-child   rgba(170, 170, 170, 0.30)  — universal brighter glass
+ *   opt-hover-bright    rgba(255, 255, 255, 0.30)  — universal white film
+ *   opt-text            rgba(255, 255, 255, 1.00)  — dark: opt-text-on-dark
+ *                       rgba(  0,   0,   0, 0.85)  — light: opt-text-on-light
+ *   opt-text-dim        dark: 55% alpha white / light: 55% alpha black
+ */
+
+configuration {
+    font: "MesloLGS NF 13";
+    show-icons: true;
+    me-select-entry: "MouseSecondary";
+    me-accept-entry: "MousePrimary";
+    hover-select: true;
+    click-to-exit: true;
+}
+
+* {
+    background-color: transparent;
+    text-color:       @opt-text;
+    border:           0px;            /* Rule 3: no hard borders */
+}
+
+/* Window — the wide pill container. Position is overridden by the
+   launcher's -theme-str (x-offset/y-offset/location/anchor). */
+window {
+    width:            480px;
+    padding:          6px;
+    background-color: @opt-surface-parent;
+    border-radius:    14px;
+}
+
+mainbox {
+    padding: 0;
+    spacing: 4px;
+    children: ["listview"];
+}
+
+listview {
+    spacing:      2px;
+    scrollbar:    false;
+    fixed-height: 0;
+    lines:        12;
+}
+
+/* Row, default — transparent at rest; hover film provides selection. */
+element {
+    padding:       4px 10px;
+    border-radius: 10px;
+    cursor:        pointer;
+}
+
+element-text {
+    background-color: transparent;
+    text-color:       inherit;
+    highlight:        inherit;
+}
+
+element-icon {
+    padding: 0 6px 0 0;
+    size:    1.6em;
+}
+
+/* Universal bright-hover — selected row gets a white 0.30 alpha film
+   over whatever surface is beneath. Matches waybar's .opt-pill:hover
+   which applies inset 0 0 0 999px @opt-hover-bright via box-shadow. */
+element selected.normal,
+element selected.active,
+element selected.urgent {
+    background-color: @opt-hover-bright;
+    text-color:       @opt-text;
+}
+
+/* Action rows — emitted by format_rofi_action with a leading \x02
+   sentinel. rofi treats them as `active` rows; we give them the child
+   surface so they read as action pills. */
+element normal.active {
+    background-color: @opt-surface-child;
+    border-radius:    10px;
+}
+
+/* Section headers — emitted with the existing dim-non-selectable
+   format. rofi treats them as `urgent` rows; we make them small + dim
+   and non-clickable visually. */
+element normal.urgent {
+    background-color: transparent;
+    text-color:       @opt-text-dim;
+    padding:          2px 10px 0;
+    cursor:           default;
+}
+element normal.urgent element-text {
+    text-color: @opt-text-dim;
+}

@@ -45,3 +45,13 @@ fmt_l2_separator() {
 fmt_l2_back() {
     printf '← Back'
 }
+
+# fmt_l1_action LABEL — emits an L1 row for an action (verb-style
+# button like "Dismiss all unread", "Clear history"). Rendered by
+# rofi with -markup-rows true: Pango bold + leading chevron glyph
+# makes it read as an action distinct from plain notification rows.
+# Pairs with the populate_l1 caller (see notif-menu — Task 10).
+fmt_l1_action() {
+    local label="$1"
+    printf '<b>▸ %s</b>' "$label"
+}

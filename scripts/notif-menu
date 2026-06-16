@@ -21,6 +21,8 @@ source "$LIB_DIR/notif-journal.sh"
 source "$LIB_DIR/notif-menu-format.sh"
 # shellcheck source=lib/notif-hypr.sh
 source "$LIB_DIR/notif-hypr.sh"
+# shellcheck source=lib/rofi-anchor.sh
+source /etc/nixos/home/scripts/lib/rofi-anchor.sh
 
 JOURNAL="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
 JOURNAL_READ_N="${NOTIF_JOURNAL_READ_N:-200}"
@@ -86,7 +88,7 @@ populate_l1() {
     idx=$((idx+1))
 
     put_row $idx "dismiss_all"
-    printf 'Dismiss all unread\n'
+    fmt_l1_action "Dismiss all unread"; printf '\n'
     idx=$((idx+1))
 
     # ── Live unread ──────────────────────────────────────────────────────
@@ -387,25 +389,19 @@ do_relaunch() {
 }
 
 # ── Rofi wrapper (function so tests can mock it) ─────────────────────────
+# Sourced at top of file once — see "shellcheck source" block below.
+# rofi_anchor_for/rofi_theme_for_mode handle anchor + theme; this
+# function only owns the run-time prompt and stdin pipe. -markup-rows
+# is required for fmt_l1_action's Pango-bold action rows to render.
 run_rofi() {
     local prompt="$1"
-    # Single-click accepts. Rofi 2.0.0 defaults are
-    #   me-select-entry = MousePrimary
-    #   me-accept-entry = MouseDPrimary   (double click)
-    # so the user needs two clicks to commit. We want left-click to commit
-    # directly — but binding `MousePrimary` to BOTH select and accept fires
-    # rofi's "Binding MousePrimary is already bound" error popup at startup
-    # (each mouse event can only own one action). So we move select to
-    # MouseSecondary (right click — harmless, no destructive action behind
-    # a right click in this menu) and reclaim MousePrimary for accept.
-    rofi -no-config -dmenu -i -p "$prompt" -no-custom -format i \
+    local theme; theme=$(rofi_theme_for_mode)
+    local anchor; anchor=$(rofi_anchor_for notif-bell)
+    rofi -theme "$theme" $anchor -dmenu -i -p "$prompt" -no-custom -format i \
+        -markup-rows \
         -me-select-entry MouseSecondary \
         -me-accept-entry MousePrimary \
-        -theme-str '
-            configuration { font: "meslo-ng 13"; }
-            window { width: 50%; }
-            element-text { padding: 4px 10px; }
-        ' 2>/dev/null
+        2>/dev/null
 }
 
 # ── Tempdir (set by main; used by main + dispatch_l1 to stage rows) ─────

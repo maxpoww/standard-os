@@ -56,6 +56,14 @@ check "[l2 separator is '── ──']" test "$out" = "── ──"
 out=$(fmt_l2_back)
 check "[l2 back is '← Back']" test "$out" = "← Back"
 
+# fmt_l1_action LABEL — emits a Pango-marked action row that rofi
+# (with -markup-rows / pango-markup) renders bold with a leading
+# chevron glyph. Visual distinction from notification rows.
+out=$(fmt_l1_action "Dismiss all unread")
+check "[action row contains label]" test -n "$(echo "$out" | grep -F 'Dismiss all unread')"
+check "[action row has Pango bold markup]" test -n "$(echo "$out" | grep -F '<b>')"
+check "[action row has leading chevron glyph]" test -n "$(echo "$out" | grep -F '▸')"
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"
