@@ -86,6 +86,12 @@ notif_click_decide() {
                 printf 'open-rofi'
             fi
             ;;
+        dnd)
+            # Pure toggle — cache is ignored. The action runner below
+            # creates / removes ~/.local/share/standard-os/notif-dnd
+            # and signals the bash notif-daemon to re-emit the pill cache.
+            printf 'toggle-dnd'
+            ;;
         profile)
             # P3: always open the rofi profile picker. Cache content is
             # ignored — the picker shows the full list regardless of which

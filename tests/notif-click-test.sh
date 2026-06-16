@@ -89,17 +89,15 @@ assert_eq "$(notif_click_decide bell '{"text":""}')" "noop" \
 assert_eq "$(notif_click_decide bell 'not json')" "noop" \
     "bell on garbage → noop"
 
-# ─── profile subcommand (P3) ──────────────────────────────────────────────
-out=$(notif_click_decide profile '{"text":"Work","class":["opt-pill-child","dark","opt-yes"]}')
-assert_eq "$out" "open-profile-rofi" "[profile → open-profile-rofi]"
-
-# Even on empty cache, profile always opens rofi.
-out=$(notif_click_decide profile '')
-assert_eq "$out" "open-profile-rofi" "[profile (empty cache) → open-profile-rofi]"
-
-# Legacy `dnd` subcommand REMOVED; treated as unknown → noop.
-out=$(notif_click_decide dnd '{"text":"X"}')
-assert_eq "$out" "noop" "[dnd legacy removed → noop]"
+# ─── dnd subcommand ───────────────────────────────────────────────────────
+# DND toggle is content-agnostic — the cache is irrelevant; the decision
+# only depends on the subcommand. Always returns "toggle-dnd".
+assert_eq "$(notif_click_decide dnd "$EMPTY")" "toggle-dnd" \
+    "[dnd → toggle-dnd regardless of cache (empty)]"
+assert_eq "$(notif_click_decide dnd "$REST_GREEN")" "toggle-dnd" \
+    "[dnd → toggle-dnd regardless of cache (rest)]"
+assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
+    "[dnd → toggle-dnd with empty string cache]"
 
 # ─── unknown subcommand → noop ────────────────────────────────────────────
 assert_eq "$(notif_click_decide unknown '')" "noop" \
