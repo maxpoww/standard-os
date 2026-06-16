@@ -269,8 +269,12 @@ render_action_for_state() {
 # unread; otherwise emits the empty-class collapse pattern per Standard-OS's
 # no-op-options rule.
 render_dismiss_for_state() {
+    # Dismiss surfaces ONLY during the wide-pill transient window. Once
+    # the transient collapses (TRANSIENT_KIND clears), Dismiss collapses
+    # too — at-rest hover should show DND alone, not Dismiss. DND-on
+    # always suppresses (the wide-pill never renders in DND-on either).
     local theme classes
-    if [[ -e "$DND_STATE_FILE" ]] || (( UNREAD_COUNT == 0 )); then
+    if [[ -e "$DND_STATE_FILE" ]] || [[ -z "$TRANSIENT_KIND" ]]; then
         printf '{"text":"","class":["empty"]}'
         return 0
     fi
