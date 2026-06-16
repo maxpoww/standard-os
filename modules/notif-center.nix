@@ -56,8 +56,6 @@ let
     mkdir -p $out/lib
     cp ${../scripts/lib/notif-journal.sh}        $out/lib/notif-journal.sh
     cp ${../scripts/lib/notif-rofi-format.sh}    $out/lib/notif-rofi-format.sh
-    cp ${../scripts/lib/notif-schedule.sh}       $out/lib/notif-schedule.sh
-    cp ${../scripts/lib/notif-profile-format.sh} $out/lib/notif-profile-format.sh
     # notif-menu's libs — added when notif-menu started shipping.
     cp ${../scripts/lib/notif-menu-format.sh}    $out/lib/notif-menu-format.sh
     cp ${../scripts/lib/notif-hypr.sh}           $out/lib/notif-hypr.sh
@@ -86,7 +84,6 @@ let
   notifDaemonBin       = mkScript "notif-daemon"        ./../scripts/notif-daemon;
   notifClickBin        = mkScript "notif-click"         ./../scripts/notif-click;
   notifRofiBin         = mkScript "notif-rofi"          ./../scripts/notif-rofi;
-  notifRofiProfilesBin = mkScript "notif-rofi-profiles" ./../scripts/notif-rofi-profiles;
   notifMenuBin         = mkScript "notif-menu"          ./../scripts/notif-menu;
 
 in {
@@ -138,39 +135,6 @@ in {
       '';
     };
 
-    profiles = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.submodule {
-        options = {
-          silenceMode = lib.mkOption {
-            type = lib.types.enum [ "none" "transient" "all-but-critical-silent" "non-allowed" "all" ];
-            default = "none";
-          };
-          criticalPulse = lib.mkOption { type = lib.types.bool; default = true; };
-          criticalSound = lib.mkOption { type = lib.types.bool; default = true; };
-          allowedApps   = lib.mkOption { type = lib.types.listOf lib.types.str; default = []; };
-          schedule      = lib.mkOption { type = lib.types.nullOr lib.types.str; default = null; };
-          display       = lib.mkOption { type = lib.types.nullOr lib.types.str; default = null; };
-        };
-      });
-      default = {
-        off    = { silenceMode = "none"; };
-        dnd    = { silenceMode = "transient"; };
-        sleep  = { silenceMode = "all-but-critical-silent"; criticalPulse = false; criticalSound = false; schedule = "22:00-08:00 *"; };
-        work   = { silenceMode = "non-allowed"; schedule = "09:00-17:00 Mon-Fri"; };
-        gaming = { silenceMode = "all"; };
-        media  = { silenceMode = "all-but-critical-silent"; criticalPulse = false; criticalSound = false; };
-      };
-    };
-
-    defaultProfile = lib.mkOption {
-      type = lib.types.str;
-      default = "off";
-    };
-
-    soundTheme = lib.mkOption {
-      type = lib.types.str;
-      default = "freedesktop";
-    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -178,17 +142,9 @@ in {
       notifDaemonBin
       notifClickBin
       notifRofiBin
-      notifRofiProfilesBin
       notifMenuBin       # new: rofi notif selector with View action
       notifOsDaemonBin   # Standard-OS native notif daemon (Rust)
     ];
-
-    # ── P3 profiles materialization ──────────────────────────────────────
-    # Daemon reads this JSON to resolve the active profile. The override
-    # file (~/.local/share/standard-os/notif-active-profile) lives in the
-    # same dir but is written by notif-rofi-profiles at runtime.
-    home.file.".local/share/standard-os/notif-profiles.json".text =
-      builtins.toJSON cfg.profiles;
 
     # ── mako: capture / history / DND backbone — popups OFF ──────────────
     # mako ships a D-Bus auto-activation service (fr.emersion.mako.service)
@@ -303,7 +259,6 @@ in {
           "NOTIF_SIGNAL=${toString cfg.waybarSignal}"
           "NOTIF_TRANSIENT_MS=${toString cfg.transientMs}"
           "NOTIF_JOURNAL_LIMIT=${toString cfg.journalLimit}"
-          "NOTIF_DEFAULT_PROFILE=${cfg.defaultProfile}"
         ];
       };
     };
