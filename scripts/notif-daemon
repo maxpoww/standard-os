@@ -603,48 +603,57 @@ on_arrival() {
         resolve_and_load_profile
     fi
 
-    # Decide transient kind via the pure helper.
-    local kind
-    kind=$(transient_kind_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_PULSE" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
-    TRANSIENT_KIND="$kind"
+    local dnd_on=0
+    [[ -e "$DND_STATE_FILE" ]] && dnd_on=1
 
-    # OTP + actions only matter when there's a transient.
-    if [[ -n $TRANSIENT_KIND ]]; then
-        TRANSIENT_ID="$NEWEST_ID"
-        TRANSIENT_APP="$NEWEST_APP"
-        TRANSIENT_TITLE="$NEWEST_SUMMARY"
-        TRANSIENT_BODY="$NEWEST_BODY"
-        TRANSIENT_START=$(date +%s%3N)
-        TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
-        TRANSIENT_OTP_COPIED=0
+    if (( ! dnd_on )); then
+        # Decide transient kind via the pure helper.
+        local kind
+        kind=$(transient_kind_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_PULSE" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+        TRANSIENT_KIND="$kind"
 
-        # Parse actions (same as P2).
-        TRANSIENT_ACTIONS=()
-        if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
-            local pair_count=0
-            local arr_len
-            arr_len=$(jq -r 'length' <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || arr_len=0
-            local i=0
-            while (( i + 1 < arr_len && pair_count < 3 )); do
-                local key_i label_i
-                key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
-                label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
-                TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
-                pair_count=$((pair_count + 1))
-                i=$((i + 2))
-            done
+        # OTP + actions only matter when there's a transient.
+        if [[ -n $TRANSIENT_KIND ]]; then
+            TRANSIENT_ID="$NEWEST_ID"
+            TRANSIENT_APP="$NEWEST_APP"
+            TRANSIENT_TITLE="$NEWEST_SUMMARY"
+            TRANSIENT_BODY="$NEWEST_BODY"
+            TRANSIENT_START=$(date +%s%3N)
+            TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
+            TRANSIENT_OTP_COPIED=0
+
+            # Parse actions (same as P2).
+            TRANSIENT_ACTIONS=()
+            if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
+                local pair_count=0
+                local arr_len
+                arr_len=$(jq -r 'length' <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || arr_len=0
+                local i=0
+                while (( i + 1 < arr_len && pair_count < 3 )); do
+                    local key_i label_i
+                    key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
+                    label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
+                    TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
+                    pair_count=$((pair_count + 1))
+                    i=$((i + 2))
+                done
+            fi
         fi
+    else
+        TRANSIENT_KIND=""
     fi
 
-    # Sound playback, rate-limited at 500ms.
-    local sound_id
-    sound_id=$(sound_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_SOUND" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
-    if [[ -n $sound_id ]]; then
-        local now_ms
-        now_ms=$(date +%s%3N)
-        if (( now_ms - LAST_SOUND_AT >= 500 )); then
-            canberra-gtk-play -i "$sound_id" 2>/dev/null & disown
-            LAST_SOUND_AT="$now_ms"
+    if (( ! dnd_on )); then
+        # Sound playback, rate-limited at 500ms.
+        local sound_id
+        sound_id=$(sound_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_SOUND" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+        if [[ -n $sound_id ]]; then
+            local now_ms
+            now_ms=$(date +%s%3N)
+            if (( now_ms - LAST_SOUND_AT >= 500 )); then
+                canberra-gtk-play -i "$sound_id" 2>/dev/null & disown
+                LAST_SOUND_AT="$now_ms"
+            fi
         fi
     fi
 }
@@ -823,14 +832,11 @@ LAST_UNREAD_IDS="$UNREAD_IDS"
 emit
 
 while true; do
-    # Drain any USR1 that may have been queued (notif-rofi-profiles path)
-    # while we were NOT blocked on read (e.g. inside drain_dbus_burst).
+    # Drain any USR1 that may have been queued while we were NOT blocked on
+    # read (e.g. inside drain_dbus_burst). Now used for DND toggle re-emit.
     if (( USR1_PENDING )); then
         USR1_PENDING=0
-        # Settle: notif-rofi-profiles writes the override file then signals,
-        # but file-system sync isn't guaranteed before signal delivery.
-        sleep 0.05
-        resolve_and_load_profile
+        sleep 0.05   # filesystem sync window — same reason as before
         emit
     fi
     # Drain the OTP-clicked rendezvous. SIGUSR2 from notif-click sets
@@ -885,10 +891,7 @@ while true; do
         on_dbus_event
     elif (( USR1_PENDING )); then
         USR1_PENDING=0
-        # Settle: notif-rofi-profiles writes the override file then signals,
-        # but file-system sync isn't guaranteed before signal delivery.
-        sleep 0.05
-        resolve_and_load_profile
+        sleep 0.05   # filesystem sync window — same reason as before
         emit
     elif (( rc == 1 )); then
         # Genuine EOF on the dbus-monitor pipe — exit so systemd respawns us.
