@@ -78,6 +78,35 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-16** — **bell ↔ DND pill swap + Dismiss(X) child.**
+  Parent identity = DND state. DND off → bell is parent (`opt-pill`,
+  `opt-yes` if unread), DND is hover-revealed child. DND on → DND is parent
+  (`opt-pill` + `opt-breathe` always + `opt-yes` compose if unread),
+  bell becomes child-styled (`opt-pill-child` + "Resume notifications"
+  tooltip). The swap is a side effect of the DND toggle — no separate
+  state file.
+  Bell-click while DND is on routes to the DND toggle via a runner-level
+  action rewrite (`$action=bell → dnd`), not a new decision branch. The
+  pure decision function stays filesystem-free.
+  New third pill: Dismiss(X). Joined `group/notif` between DND and bell.
+  Visible when bell is parent AND unread > 0. Click fires
+  `mako_dismiss_all`. Collapses to `["empty"]` via the no-op-options rule
+  whenever DND is on OR unread == 0.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-16-pill-swap-and-dismiss-design.md`.
+  **Hint:** plan at `docs/superpowers/plans/2026-06-16-pill-swap-and-dismiss.md`.
+  **Hint:** waybar's `group/notif` makes `modules[0]` (bell) the always-
+  visible anchor — the bell cannot literally hide when DND is on. Visual
+  asymmetry is intentional: bell stays anchored with child styling
+  (smaller, child-surface color), DND becomes a forced-visible breathing
+  pill in the drawer position. Functional swap (state, click target,
+  color) works; physical-anchor identity stays with bell per waybar's
+  architecture.
+  **Hint:** the daemon must be restarted (not just SIGUSR1'd) to pick
+  up new render-function code — `nixos-rebuild switch` updates the
+  store binary but doesn't restart the systemd-user notif-daemon.service.
+  Use `systemctl --user restart notif-daemon` after switch when
+  iterating on the daemon source.
+
 - **2026-06-16** — **profile machinery purged → single DND toggle pill.**
   Replaced six profiles (off/dnd/sleep/work/gaming/media), the
   notif-rofi-profiles picker, lib/notif-profile-format.sh, lib/notif-schedule.sh,
