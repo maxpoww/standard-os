@@ -638,7 +638,7 @@
     // the only mechanism waybar gives us to signal "user is on this
     // pill" to the daemon — the daemon reads the mtime in
     // check_transient_timer and refreshes the 5 s window when fresh.
-    "tooltip-format-cmd": "touch /tmp/notif-widepill-hover; echo 'View notification'",
+    "tooltip-format-cmd": "echo 'View notification'",
     "on-click": "notif-click widepill"
   },
   "custom/notif-dnd": {
