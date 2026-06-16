@@ -229,4 +229,18 @@ case "$decision" in
     dismiss-all)
         mako_dismiss_all
         ;;
+    toggle-dnd)
+        # Single state file: presence ↔ DND ON. Empty body is fine;
+        # presence is the signal (same convention the old notif-active-
+        # profile file used). SIGUSR1 wakes the daemon's main loop so
+        # the DND pill cache + tooltip flip without a notif arriving.
+        DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
+        mkdir -p "$(dirname "$DND_STATE_FILE")"
+        if [[ -e $DND_STATE_FILE ]]; then
+            rm -f "$DND_STATE_FILE"
+        else
+            : > "$DND_STATE_FILE"
+        fi
+        systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
+        ;;
 esac
