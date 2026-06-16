@@ -3,6 +3,28 @@
 # All hyprctl calls in the menu codebase go through here so tests can
 # mock by overriding `hyprctl` as a bash function before sourcing.
 
+# _hypr_focus_addr ADDR
+# Focus an addressable Hyprland window. If the window is currently
+# parked on a special workspace (Standard-OS's win-minimize sends
+# windows to `special` via `movetoworkspacesilent special`), first
+# move it back to the active workspace so a follow-up `focuswindow`
+# actually surfaces it. Returns 0 on dispatch success.
+_hypr_focus_addr() {
+    local addr="$1"
+    [[ -z $addr ]] && return 1
+    local ws_name
+    ws_name=$(hyprctl -j clients 2>/dev/null \
+        | jq -r --arg a "$addr" '.[] | select(.address == $a) | .workspace.name // ""' \
+        2>/dev/null)
+    if [[ $ws_name == special* ]]; then
+        local active_ws
+        active_ws=$(hyprctl -j activeworkspace 2>/dev/null | jq -r '.id // 1' 2>/dev/null)
+        [[ -z $active_ws ]] && active_ws=1
+        hyprctl dispatch movetoworkspace "${active_ws},address:$addr" 2>/dev/null
+    fi
+    hyprctl dispatch focuswindow "address:$addr" 2>/dev/null
+}
+
 # hypr_focus_by_class CLASS [SUMMARY] [BODY] [SOURCE_WINDOW]
 # Lowercases CLASS, finds Hyprland windows whose class (lowercased) contains
 # it as a substring, then disambiguates among multiple matches with this
@@ -49,7 +71,7 @@ hypr_focus_by_class() {
     if (( n_clients == 1 )); then
         local addr rc
         addr=$(printf '%s' "$clients" | head -1 | cut -f1)
-        hyprctl dispatch focuswindow "address:$addr" 2>/dev/null
+        _hypr_focus_addr "$addr"
         rc=$?
         declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: single-match dispatch addr=$addr rc=$rc"
         return 0
@@ -107,7 +129,7 @@ hypr_focus_by_class() {
         declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: multi-match but no winner → return 1"
         return 1
     fi
-    hyprctl dispatch focuswindow "address:$best_addr" 2>/dev/null
+    _hypr_focus_addr "$best_addr"
     local rc=$?
     declare -F _dbg >/dev/null && _dbg "hypr_focus_by_class: multi-match dispatch addr=$best_addr rc=$rc"
     return 0
