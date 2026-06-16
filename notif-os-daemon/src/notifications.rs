@@ -37,6 +37,11 @@ impl Notifications {
             .and_then(|v| u8::try_from(v).ok())
             .unwrap_or(1);
 
+        let desktop_entry: String = hints
+            .get("desktop-entry")
+            .and_then(|v| <String>::try_from(v).ok())
+            .unwrap_or_default();
+
         // The actions array alternates [key0, label0, key1, label1, ...].
         let action_pairs: Vec<(String, String)> = actions
             .chunks_exact(2)
@@ -57,6 +62,7 @@ impl Notifications {
             sender_pid: 0, // populated when we add MessageHeader access (future task)
             source_window,
             ts,
+            desktop_entry,
         };
 
         let id = self.store.insert(replaces_id, rec.clone());
@@ -119,4 +125,53 @@ impl Notifications {
         id: u32,
         action_key: String,
     ) -> zbus::Result<()>;
+}
+
+#[cfg(test)]
+mod desktop_entry_tests {
+    use super::*;
+    use crate::store::Store;
+    use std::collections::HashMap;
+    use zbus::zvariant::Value;
+
+    async fn record_after_notify(hints: HashMap<String, Value<'_>>) -> crate::store::NotifRecord {
+        let store = Store::new();
+        let notif = Notifications { store: store.clone() };
+        let _id = notif.notify(
+            "test-app".into(),
+            0,
+            String::new(),
+            "summary".into(),
+            "body".into(),
+            vec![],
+            hints,
+            -1,
+        ).await;
+        store.list().into_iter().next().expect("one record")
+    }
+
+    #[tokio::test]
+    async fn notify_extracts_desktop_entry() {
+        let mut hints = HashMap::new();
+        hints.insert(
+            "desktop-entry".to_string(),
+            Value::from("chrome-abc-Default".to_string()),
+        );
+        let rec = record_after_notify(hints).await;
+        assert_eq!(rec.desktop_entry, "chrome-abc-Default");
+    }
+
+    #[tokio::test]
+    async fn notify_absent_desktop_entry_is_empty_string() {
+        let rec = record_after_notify(HashMap::new()).await;
+        assert_eq!(rec.desktop_entry, "");
+    }
+
+    #[tokio::test]
+    async fn notify_non_string_desktop_entry_is_empty_string() {
+        let mut hints = HashMap::new();
+        hints.insert("desktop-entry".to_string(), Value::from(42u32));
+        let rec = record_after_notify(hints).await;
+        assert_eq!(rec.desktop_entry, "");
+    }
 }

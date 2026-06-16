@@ -99,6 +99,7 @@ mod tests {
             sender_pid: 1234,
             source_window: "0xABC".into(),
             ts: "2026-06-15T10:00:00-03:00".into(),
+            desktop_entry: String::new(),
         }
     }
 
