@@ -57,6 +57,7 @@
   // by design; placing them first matches the attention hierarchy.
   "modules-right": [
     "tray",
+    "custom/notif-widepill",
     "group/notif",
     "group/group-2",
     "group/group-power",
@@ -610,6 +611,15 @@
     "signal": 12,
     "tooltip": true,
     "on-click": "notif-click bell"
+  },
+  "custom/notif-widepill": {
+    "exec": "cat /tmp/waybar-cache/notif-widepill 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click widepill"
   },
   "custom/notif-dnd": {
     "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",

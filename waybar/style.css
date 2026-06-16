@@ -595,6 +595,19 @@ window#waybar #custom-notif-dismiss.empty {
     font-size: 0;
 }
 
+/* ── Wide-pill — empty-collapse ─────────────────────────────────────────────
+   Wide-pill is its own top-level module to the LEFT of group/notif. When
+   no transient is active, the daemon emits class=["empty"]. Collapse to
+   zero presence so it doesn't reserve bar space at rest. font-size: 0 is
+   mandatory because the wide-pill carries Pango markup text that would
+   otherwise hold natural width at opacity 0. */
+window#waybar #custom-notif-widepill.empty {
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    font-size: 0;
+}
+
 /* ── DND state: glyph swap, no structural pill swap ──────────────────────────
    notif-daemon swaps the glyph on the bell pill and the DND child pill based
    on the DND state file: DND off → bell pill shows bell, DND child shows

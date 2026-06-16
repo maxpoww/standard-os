@@ -98,6 +98,13 @@ notif_click_decide() {
             # 'invoke' on rest face); we reuse it here.
             printf 'dismiss-all'
             ;;
+        widepill)
+            # Wide-pill click during the 5 s transient → full View semantics
+            # (default action, focus source window, smart dismiss, honest
+            # fallback). Reuses the existing invoke-and-dismiss runner case
+            # which already execs notif-menu view-latest.
+            printf 'invoke-and-dismiss'
+            ;;
         action)
             # Action click: cache must carry a non-empty `key` field.
             local key
@@ -178,11 +185,15 @@ if [[ -e "$_DND_FILE" ]]; then
             action="dnd"
             ;;
         dnd)
-            # Side effect: turn DND off so the icons swap back, then
-            # let the action runner handle the bell click (opens menu).
+            # Click bell-glyph on DND child while DND is on: turn DND off
+            # AND synthesize a wide-pill of the latest unread so the user
+            # sees what they missed. The rendezvous file flips the daemon's
+            # next emit into "synthesize transient from latest" mode (handled
+            # in on_user_signal's USR1 path).
             rm -f "$_DND_FILE"
+            : > /tmp/notif-show-latest
             systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
-            action="bell"
+            exit 0
             ;;
     esac
 fi

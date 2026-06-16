@@ -140,86 +140,24 @@ transient_kind_for_state() {
 #   $8 otp_code      — extracted OTP code string, or empty (P2)
 #   $9 otp_copied    — 0 or 1; appends ' · copied' to text when 1 (P2)
 render_bell_for_state() {
-    local unread="${1:-0}" critical="${2:-0}" silence_mode="${3:-none}"
-    local kind="${4:-}" app="${5:-}" title="${6:-}" body="${7:-}"
-    local otp_code="${8:-}" otp_copied="${9:-0}"
+    # Bell pill is now glyph-only: bell or bell-slash glyph, state color
+    # (opt-yes blue when unread, opt-pin-orange when critical), and a
+    # one-shot opt-beat motion when kind="beat" (silenced-ack on arrival
+    # during DND). The App · Title transient face moved out to its own
+    # pill — see render_widepill_for_state.
+    local unread="${1:-0}" critical="${2:-0}" kind="${3:-}"
 
-    # Glyph: FA bell (U+F0F3 \xef\x83\xb3) when DND off, FA solid bell-slash
-    # (U+F1F7 \xef\x87\xb7) when DND on. Click follows the icon — see
-    # notif-click's DND cross-route gate: bell-slash glyph (whichever pill
-    # carries it) toggles DND; bell glyph opens notif-menu / view-latest.
+    # Glyph: FA bell (U+F0F3) when DND off, FA bell-slash (U+F1F7) when on.
     local bell
     if [[ -e "$DND_STATE_FILE" ]]; then
         bell=$'\xef\x87\xb7'
-    elif [[ $silence_mode == "none" ]]; then
-        bell=$'\xef\x83\xb3'
     else
-        bell=$'\xef\x87\xb7'
+        bell=$'\xef\x83\xb3'
     fi
 
     local -a classes=("opt-pill" "$(glass_theme)")
 
-    # Beat: short bell-arrival ack used when transient is silenced
-    # (Sleep/Work/Gaming/Media). Renders the rest face (bell glyph + unread
-    # state classes) plus opt-beat for the 450ms green-tint pulse animation.
-    # Distinct from the wide-pill kinds because the user hasn't asked to
-    # see content — they only want to know something arrived.
-    if [[ $kind == "beat" ]]; then
-        classes+=("opt-beat")
-        if (( unread > 0 )); then
-            if (( critical > 0 )); then
-                classes+=("opt-pin-orange")
-            else
-                classes+=("opt-yes")
-            fi
-        fi
-        local classes_json
-        _classes_json classes_json "${classes[@]}"
-        printf '{"text":"%s","class":%s,"tooltip":"Notifications","otp_code":""}' \
-            "$bell" "$classes_json"
-        return 0
-    fi
-
-    if [[ -n $kind ]]; then
-        case "$kind" in
-            critical)
-                classes+=("opt-no" "opt-pulse-orange")
-                ;;
-            normal|*)
-                ;;
-        esac
-        [[ -n $otp_code ]] && classes+=("opt-glow-green")
-        # NB: opt-pushed dropped from P3. Profile-active signal lives in the
-        # glyph swap above (none → bell, anything else → bell-slash).
-
-        local classes_json
-        _classes_json classes_json "${classes[@]}"
-
-        # Self-contained escaping: pango_escape BEFORE the <b>...</b> wrap so
-        # raw user-supplied text can't inject markup; then json_escape the
-        # composed text so the JSON itself stays valid.
-        local app_pango title_pango body_esc otp_code_esc
-        app_pango=$(pango_escape "$app")
-        title_pango=$(pango_escape "$title")
-        body_esc=$(json_escape "$body")
-        otp_code_esc=$(json_escape "$otp_code")
-
-        local app_esc title_esc text_body
-        app_esc=$(json_escape "$app_pango")
-        title_esc=$(json_escape "$title_pango")
-        text_body="<b>${app_esc}</b> · ${title_esc}"
-        if (( otp_copied == 1 )); then
-            text_body+=" · copied"
-        fi
-        printf '{"text":"%s","class":%s,"tooltip":"%s","otp_code":"%s"}' \
-            "$text_body" "$classes_json" "$body_esc" "$otp_code_esc"
-        return 0
-    fi
-
-    # Rest face: glyph + state color. Per the O_S palette pairing —
-    # blue = primary "active/healthy" state — an unread non-critical noti
-    # is "active/new" so the bell takes opt-yes (blue). Critical escalates
-    # to opt-pin-orange (the "needs attention" secondary).
+    # State color: blue when unread (non-critical), orange when critical.
     if (( unread > 0 )); then
         if (( critical > 0 )); then
             classes+=("opt-pin-orange")
@@ -227,12 +165,52 @@ render_bell_for_state() {
             classes+=("opt-yes")
         fi
     fi
-    # No opt-pushed on rest either.
+
+    # Beat motion: fires for both normal and DND-silenced arrivals as a
+    # 450 ms visual ack alongside whatever the widepill is also doing.
+    if [[ -n "$kind" ]]; then
+        classes+=("opt-beat")
+    fi
 
     local classes_json
     _classes_json classes_json "${classes[@]}"
-    printf '{"text":"%s","class":%s,"tooltip":"Notifications","otp_code":""}' \
+    printf '{"text":"%s","class":%s,"tooltip":"Notifications"}' \
         "$bell" "$classes_json"
+}
+
+# ─── render_widepill_for_state — the App · Title transient pill ─────────────
+# Standalone wide-pill module that surfaces during the 5 s transient window.
+# Empty (collapsed) when TRANSIENT_KIND is empty. Renders to the LEFT of
+# the bell pill so the user sees bell AND wide-pill together on arrival.
+render_widepill_for_state() {
+    local kind="${1:-}" app="${2:-}" title="${3:-}" body="${4:-}"
+    local otp_code="${5:-}" otp_copied="${6:-0}"
+    if [[ -z "$kind" || -z "$app" ]]; then
+        printf '{"text":"","class":["empty"]}'
+        return 0
+    fi
+    local -a classes=("opt-pill" "$(glass_theme)")
+    case "$kind" in
+        critical) classes+=("opt-no" "opt-pulse-orange") ;;
+    esac
+    [[ -n "$otp_code" ]] && classes+=("opt-glow-green")
+
+    local app_pango title_pango body_esc otp_code_esc
+    app_pango=$(pango_escape "$app")
+    title_pango=$(pango_escape "$title")
+    body_esc=$(json_escape "$body")
+    otp_code_esc=$(json_escape "$otp_code")
+    local app_esc title_esc text_body
+    app_esc=$(json_escape "$app_pango")
+    title_esc=$(json_escape "$title_pango")
+    text_body="<b>${app_esc}</b> · ${title_esc}"
+    if (( otp_copied == 1 )); then
+        text_body+=" · copied"
+    fi
+    local classes_json
+    _classes_json classes_json "${classes[@]}"
+    printf '{"text":"%s","class":%s,"tooltip":"%s","otp_code":"%s"}' \
+        "$text_body" "$classes_json" "$body_esc" "$otp_code_esc"
 }
 
 # ─── render_action_for_state (P2) ──────────────────────────────────────────
@@ -331,6 +309,7 @@ CACHE_BELL="${NOTIF_CACHE_BELL:-/tmp/waybar-cache/notif-bell}"
 DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
 CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
 CACHE_DISMISS="${NOTIF_CACHE_DISMISS:-/tmp/waybar-cache/notif-dismiss}"
+CACHE_WIDEPILL="${NOTIF_CACHE_WIDEPILL:-/tmp/waybar-cache/notif-widepill}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
 TRANSIENT_MS="${NOTIF_TRANSIENT_MS:-5000}"
 JOURNAL_PATH="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
@@ -374,6 +353,7 @@ TRANSIENT_START=0
 LAST_BELL_RENDERED=""
 LAST_DND_RENDERED=""
 LAST_DISMISS_RENDERED=""
+LAST_WIDEPILL_RENDERED=""
 # P2 state
 TRANSIENT_OTP_CODE=""              # extracted OTP code (empty when no match)
 TRANSIENT_OTP_COPIED=0             # 1 during the 500ms post-click hold
@@ -593,19 +573,19 @@ emit_action_caches() {
 
 emit() {
     query_mako_state
-    local bell_json
+    local bell_json widepill_json dnd_json dismiss_json
     bell_json=$(render_bell_for_state \
-        "$UNREAD_COUNT" "$CRITICAL_COUNT" "none" \
+        "$UNREAD_COUNT" "$CRITICAL_COUNT" "$TRANSIENT_KIND")
+    widepill_json=$(render_widepill_for_state \
         "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY" \
         "$TRANSIENT_OTP_CODE" "$TRANSIENT_OTP_COPIED")
-
-    local dnd_json
     dnd_json=$(render_dnd_for_state)
+    dismiss_json=$(render_dismiss_for_state)
+
     local changed=0
+    write_if_changed "$CACHE_WIDEPILL" "$widepill_json" LAST_WIDEPILL_RENDERED && changed=1
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
     write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
-    local dismiss_json
-    dismiss_json=$(render_dismiss_for_state)
     write_if_changed "$CACHE_DISMISS" "$dismiss_json" LAST_DISMISS_RENDERED && changed=1
     emit_action_caches
     (( $? == 1 )) && changed=1
@@ -670,6 +650,7 @@ cleanup() {
     printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
     printf '%s' '{"text":""}' > "${CACHE_DND}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DND}.tmp.$$" "$CACHE_DND" 2>/dev/null
     printf '%s' '{"text":""}' > "${CACHE_DISMISS}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DISMISS}.tmp.$$" "$CACHE_DISMISS" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_WIDEPILL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_WIDEPILL}.tmp.$$" "$CACHE_WIDEPILL" 2>/dev/null
     pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
     exec {DBUS_FD}<&- 2>/dev/null || true
 }
@@ -690,6 +671,25 @@ while true; do
     if (( USR1_PENDING )); then
         USR1_PENDING=0
         sleep 0.05   # filesystem sync window — same reason as before
+        # Rendezvous: notif-click drops /tmp/notif-show-latest when the
+        # user clicks bell-glyph while DND is on. Synthesize a transient
+        # from the newest unread so the wide-pill shows what they missed.
+        if [[ -f /tmp/notif-show-latest ]]; then
+            rm -f /tmp/notif-show-latest
+            query_mako_state
+            if (( NEWEST_ID > 0 )); then
+                TRANSIENT_KIND=$(transient_kind_for_state "$NEWEST_URG" "$NEWEST_APP")
+                if [[ -n $TRANSIENT_KIND ]]; then
+                    TRANSIENT_ID="$NEWEST_ID"
+                    TRANSIENT_APP="$NEWEST_APP"
+                    TRANSIENT_TITLE="$NEWEST_SUMMARY"
+                    TRANSIENT_BODY="$NEWEST_BODY"
+                    TRANSIENT_START=$(date +%s%3N)
+                    TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
+                    TRANSIENT_OTP_COPIED=0
+                fi
+            fi
+        fi
         emit
     fi
     # Drain the OTP-clicked rendezvous. SIGUSR2 from notif-click sets
