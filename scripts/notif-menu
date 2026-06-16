@@ -36,18 +36,19 @@ _dbg() {
 
 # ── Index arrays — populated by populate_l1, consumed by dispatch ────────
 # Indexed by 0-based row index as rofi sees it (-format i).
-declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at source_window_at
+declare -A kind_at id_at ts_at app_at summary_at body_at urgency_at source_window_at desktop_entry_at
 
 reset_index() {
     kind_at=(); id_at=(); ts_at=(); app_at=()
-    summary_at=(); body_at=(); urgency_at=(); source_window_at=()
+    summary_at=(); body_at=(); urgency_at=(); source_window_at=(); desktop_entry_at=()
 }
 
-# put_row IDX KIND [ID TS APP SUMMARY BODY URGENCY SOURCE_WINDOW]
+# put_row IDX KIND [ID TS APP SUMMARY BODY URGENCY SOURCE_WINDOW DESKTOP_ENTRY]
 # Populates the metadata arrays. Missing trailing args become empty strings.
 put_row() {
     local idx="$1" kind="$2" id="${3:-}" ts="${4:-}" app="${5:-}" \
-          summary="${6:-}" body="${7:-}" urgency="${8:-}" source_window="${9:-}"
+          summary="${6:-}" body="${7:-}" urgency="${8:-}" source_window="${9:-}" \
+          desktop_entry="${10:-}"
     kind_at[$idx]="$kind"
     id_at[$idx]="$id"
     ts_at[$idx]="$ts"
@@ -56,6 +57,7 @@ put_row() {
     body_at[$idx]="$body"
     urgency_at[$idx]="$urgency"
     source_window_at[$idx]="$source_window"
+    desktop_entry_at[$idx]="$desktop_entry"
 }
 
 # fetch_live_meta ID → "app\tsummary\tbody\tts" via busctl. Used when a live
@@ -97,25 +99,26 @@ populate_l1() {
         fmt_l1_header "Unread ($unread_count)"; printf '\n'
         idx=$((idx+1))
 
-        local id urg ts app summary body src fields
+        local id urg ts app summary body src de fields
         while IFS=$'\t' read -r id urg; do
             [[ -z $id ]] && continue
             # Look in journal first — newest entry with that id wins (matches the
             # live arrival; head -1 below picks the most recent).
             fields=$(tac "$JOURNAL" 2>/dev/null | jq -r --argjson id "$id" '
-                select(.id == $id) | [.ts, .app, .summary, .body, (.source_window // "")] | @tsv
+                select(.id == $id) | [.ts, .app, .summary, .body, (.source_window // ""), (.desktop_entry // "")] | @tsv
             ' 2>/dev/null | head -1)
             if [[ -n $fields ]]; then
-                IFS=$'\t' read -r ts app summary body src <<<"$fields"
+                IFS=$'\t' read -r ts app summary body src de <<<"$fields"
             else
                 # Journal miss → busctl fetch. No source_window available.
                 fields=$(fetch_live_meta "$id")
                 IFS=$'\t' read -r app summary body ts <<<"$fields"
                 src=""
+                de=""
             fi
             local crit=0
             (( urg == 2 )) && crit=1
-            put_row $idx "unread" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src"
+            put_row $idx "unread" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src" "$de"
             fmt_l1_row "$ts" "$app" "$summary" 1 "$crit"; printf '\n'
             idx=$((idx+1))
         done <<<"$live_map"
@@ -138,15 +141,15 @@ populate_l1() {
                 [[ -n $_lid ]] && live_id_set[$_lid]=1
             done <<<"$live_map"
         fi
-        local rows id urg ts app summary body src
+        local rows id urg ts app summary body src de
         rows=$(journal_read "$JOURNAL" "$JOURNAL_READ_N" \
             | jq -r -nR 'inputs | fromjson?
-                | [.id, .urgency, .ts, .app, .summary, .body, (.source_window // "")] | @tsv' \
+                | [.id, .urgency, .ts, .app, .summary, .body, (.source_window // ""), (.desktop_entry // "")] | @tsv' \
             2>/dev/null)
-        while IFS=$'\t' read -r id urg ts app summary body src; do
+        while IFS=$'\t' read -r id urg ts app summary body src de; do
             [[ -z $id ]] && continue
             [[ -n ${live_id_set[$id]:-} ]] && continue
-            hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\t'"$src"$'\n'
+            hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\t'"$src"$'\t'"$de"$'\n'
             hist_count=$((hist_count+1))
         done <<<"$rows"
     fi
@@ -156,10 +159,10 @@ populate_l1() {
         fmt_l1_header "History ($hist_count)"; printf '\n'
         idx=$((idx+1))
 
-        local id urg ts app summary body src
-        while IFS=$'\t' read -r id urg ts app summary body src; do
+        local id urg ts app summary body src de
+        while IFS=$'\t' read -r id urg ts app summary body src de; do
             [[ -z $id ]] && continue
-            put_row $idx "history" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src"
+            put_row $idx "history" "$id" "$ts" "$app" "$summary" "$body" "$urg" "$src" "$de"
             fmt_l1_row "$ts" "$app" "$summary" 0 0; printf '\n'
             idx=$((idx+1))
         done <<<"$hist_buf"
@@ -187,6 +190,7 @@ populate_l2_live() {
     L2_ID="$id"; L2_TS="$ts"
     L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
     L2_SOURCE_WINDOW="${source_window_at[$l1_idx]:-}"
+    L2_DESKTOP_ENTRY="${desktop_entry_at[$l1_idx]:-}"
     L2_KIND="live"
 
     reset_index
@@ -241,6 +245,7 @@ populate_l2_history() {
     L2_ID="${id_at[$l1_idx]}"; L2_TS="${ts_at[$l1_idx]}"
     L2_BODY="${body_at[$l1_idx]}"; L2_URG="${urgency_at[$l1_idx]}"
     L2_SOURCE_WINDOW="${source_window_at[$l1_idx]:-}"
+    L2_DESKTOP_ENTRY="${desktop_entry_at[$l1_idx]:-}"
     L2_KIND="history"
 
     reset_index
@@ -310,9 +315,13 @@ do_view() {
     # multiple kitty terminals focus the exact window the notif came from.
     # Runs even when step 1 fired, since most apps don't focus themselves
     # on ActionInvoked — composing is harmless when they do.
-    _dbg "do_view step3: calling hypr_focus_by_class"
+    # When desktop_entry is set (e.g. a PWA), prefer it as the class needle
+    # because it matches Hyprland's class for that window more precisely.
+    local needle="$app"
+    [[ -n "${L2_DESKTOP_ENTRY:-}" ]] && needle="$L2_DESKTOP_ENTRY"
+    _dbg "do_view step3: needle='$needle' (desktop_entry='${L2_DESKTOP_ENTRY:-}')"
     local focused=0
-    if hypr_focus_by_class "$app" "${L2_SUMMARY:-}" "${L2_BODY:-}" "${L2_SOURCE_WINDOW:-}"; then
+    if hypr_focus_by_class "$needle" "${L2_SUMMARY:-}" "${L2_BODY:-}" "${L2_SOURCE_WINDOW:-}"; then
         focused=1
     fi
     _dbg "do_view step3: focused=$focused action_fired=$action_fired"
@@ -356,6 +365,7 @@ view_latest() {
     L2_BODY=$(printf '%s' "$latest_json" | jq -r '.body')
     L2_URG=$(printf '%s' "$latest_json" | jq -r '.urgency')
     L2_SOURCE_WINDOW=$(printf '%s' "$latest_json" | jq -r '.source_window // ""')
+    L2_DESKTOP_ENTRY=$(printf '%s' "$latest_json" | jq -r '.desktop_entry // ""')
     L2_TS=$(printf '%s' "$latest_json" | jq -r '.ts // ""')
     L2_KIND="live"
     do_view "$id" "$app"
