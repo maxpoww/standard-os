@@ -166,9 +166,12 @@ render_bell_for_state() {
         fi
     fi
 
-    # Beat motion: fires for both normal and DND-silenced arrivals as a
-    # 450 ms visual ack alongside whatever the widepill is also doing.
-    if [[ -n "$kind" ]]; then
+    # Beat motion: ONLY when DND is silencing things and a notif arrives
+    # (kind="beat" — set by on_arrival's DND-on branch). The DND-off
+    # arrival path lets the wide-pill carry the user's attention; bell
+    # stays static (state color only) so the user's eye lands on the
+    # wide-pill's content.
+    if [[ "$kind" == "beat" ]]; then
         classes+=("opt-beat")
     fi
 
@@ -185,7 +188,9 @@ render_bell_for_state() {
 render_widepill_for_state() {
     local kind="${1:-}" app="${2:-}" title="${3:-}" body="${4:-}"
     local otp_code="${5:-}" otp_copied="${6:-0}"
-    if [[ -z "$kind" || -z "$app" ]]; then
+    # Beat is the silenced-ack (DND-on arrivals) — pure bell-side motion,
+    # never a wide-pill. Empty also collapses when kind/app missing.
+    if [[ "$kind" == "beat" || -z "$kind" || -z "$app" ]]; then
         printf '{"text":"","class":["empty"]}'
         return 0
     fi
@@ -470,9 +475,17 @@ on_arrival() {
         # the user gets a silent visual ack that something arrived. The
         # bell's beat path renders the rest face (bell-slash glyph in
         # DND-on + state color from unread count) plus opt-beat motion.
+        # Explicitly clear the wide-pill fields so a previous arrival's
+        # app/title/body can't leak through render_widepill_for_state.
         TRANSIENT_KIND="beat"
         TRANSIENT_ID="$NEWEST_ID"
         TRANSIENT_START=$(date +%s%3N)
+        TRANSIENT_APP=""
+        TRANSIENT_TITLE=""
+        TRANSIENT_BODY=""
+        TRANSIENT_OTP_CODE=""
+        TRANSIENT_OTP_COPIED=0
+        TRANSIENT_ACTIONS=()
     fi
 
     if (( ! dnd_on )); then
