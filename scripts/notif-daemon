@@ -455,7 +455,12 @@ on_arrival() {
             TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
             TRANSIENT_OTP_COPIED=0
 
-            # Parse actions (same as P2).
+            # Parse actions (same as P2). Filter out the magic "default"
+            # action key: apps use it as their "click the notif to focus
+            # me" hook, but it carries no user-meaningful label (often
+            # empty or a single space) and would render as an empty blue
+            # pill on hover, which is just noise. Wide-pill click already
+            # invokes the default action via notif-menu view-latest.
             TRANSIENT_ACTIONS=()
             if [[ ${NEWEST_ACTIONS_JSON:-'[]'} != '[]' && -n ${NEWEST_ACTIONS_JSON:-} ]]; then
                 local pair_count=0
@@ -466,9 +471,10 @@ on_arrival() {
                     local key_i label_i
                     key_i=$(jq -r ".[$i]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || key_i=""
                     label_i=$(jq -r ".[$((i+1))]" <<< "$NEWEST_ACTIONS_JSON" 2>/dev/null) || label_i=""
+                    i=$((i + 2))
+                    [[ "$key_i" == "default" ]] && continue
                     TRANSIENT_ACTIONS+=("${key_i}:${label_i}")
                     pair_count=$((pair_count + 1))
-                    i=$((i + 2))
                 done
             fi
         fi
