@@ -43,7 +43,6 @@ _latest_id() {
 #   bell  on transient + otp_code → "invoke-otp"   (P2; copy + 500ms + dismiss)
 #   bell  on rest       → "open-rofi"           (P1; runtime wired in task 7)
 #   bell  on empty/bad  → "noop"
-#   profile             → "open-profile-rofi"   (P3; execs notif-rofi-profiles)
 #   invoke on transient → "invoke-latest"       (legacy spine; removed task 7)
 #   invoke on rest      → "dismiss-all"         (legacy spine; removed task 7)
 #   invoke on empty/bad → "noop"
@@ -91,12 +90,6 @@ notif_click_decide() {
             # creates / removes ~/.local/share/standard-os/notif-dnd
             # and signals the bash notif-daemon to re-emit the pill cache.
             printf 'toggle-dnd'
-            ;;
-        profile)
-            # P3: always open the rofi profile picker. Cache content is
-            # ignored — the picker shows the full list regardless of which
-            # profile is currently active.
-            printf 'open-profile-rofi'
             ;;
         action)
             # Action click: cache must carry a non-empty `key` field.
@@ -196,11 +189,6 @@ case "$decision" in
         # the test fixtures; the live target moved 2026-06-15.)
         exec notif-menu
         ;;
-    open-profile-rofi)
-        # P3: launch the focus-profile picker. The picker writes the override
-        # file then signals SIGUSR1 to notif-daemon for immediate re-resolve.
-        exec notif-rofi-profiles
-        ;;
     invoke-action)
         # P2: read the action key from the action-N cache; the wrapper above
         # has set CACHE to /tmp/waybar-cache/notif-action-N for us.
@@ -231,8 +219,7 @@ case "$decision" in
         ;;
     toggle-dnd)
         # Single state file: presence ↔ DND ON. Empty body is fine;
-        # presence is the signal (same convention the old notif-active-
-        # profile file used). SIGUSR1 wakes the daemon's main loop so
+        # presence is the signal. SIGUSR1 wakes the daemon's main loop so
         # the DND pill cache + tooltip flip without a notif arriving.
         DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
         mkdir -p "$(dirname "$DND_STATE_FILE")"
