@@ -57,7 +57,7 @@
   // by design; placing them first matches the attention hierarchy.
   "modules-right": [
     "tray",
-    "custom/notif-widepill",
+    "group/notif-widepill",
     "group/notif",
     "group/group-2",
     "group/group-power",
@@ -596,7 +596,22 @@
     //   visually when fully expanded).
     "modules": [
       "custom/notif-bell",
-      "custom/notif-dnd",
+      "custom/notif-dnd"
+    ]
+  },
+  // group/notif-widepill: wide-pill is the trigger; hovering it reveals
+  // DND (a duplicate module, same cache as group/notif's dnd) + Dismiss +
+  // app-action children. When wide-pill is collapsed (empty class), the
+  // group has no visible trigger so nothing reveals from this side.
+  "group/notif-widepill": {
+    "orientation": "inherit",
+    "drawer": {
+      "transition-duration": 200,
+      "transition-left-to-right": false
+    },
+    "modules": [
+      "custom/notif-widepill",
+      "custom/notif-dnd-w",
       "custom/notif-dismiss",
       "custom/notif-action-1",
       "custom/notif-action-2",
@@ -622,6 +637,18 @@
     "on-click": "notif-click widepill"
   },
   "custom/notif-dnd": {
+    "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",
+    "return-type": "json",
+    "format": "{}",
+    "interval": "once",
+    "signal": 12,
+    "tooltip": true,
+    "on-click": "notif-click dnd"
+  },
+  // Duplicate of custom/notif-dnd used inside group/notif-widepill so the
+  // wide-pill's hover-drawer can reveal a DND option (a single waybar
+  // module can only live in one container). Same cache + same on-click.
+  "custom/notif-dnd-w": {
     "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",
     "return-type": "json",
     "format": "{}",

@@ -596,12 +596,27 @@ window#waybar #custom-notif-dismiss.empty {
 }
 
 /* ── Wide-pill — empty-collapse ─────────────────────────────────────────────
-   Wide-pill is its own top-level module to the LEFT of group/notif. When
-   no transient is active, the daemon emits class=["empty"]. Collapse to
-   zero presence so it doesn't reserve bar space at rest. font-size: 0 is
-   mandatory because the wide-pill carries Pango markup text that would
-   otherwise hold natural width at opacity 0. */
+   Wide-pill is the trigger of group/notif-widepill, sitting LEFT of
+   group/notif. When no transient is active, the daemon emits
+   class=["empty"]. Collapse to zero presence so it doesn't reserve bar
+   space at rest. font-size: 0 is mandatory because the wide-pill carries
+   Pango markup text that would otherwise hold natural width at opacity 0. */
 window#waybar #custom-notif-widepill.empty {
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    font-size: 0;
+}
+
+/* ── Bell-group DND suppression during widepill ─────────────────────────────
+   When the wide-pill has content (`.opt-pill`, NOT `.empty`), the options
+   drawer should be reached by hovering the wide-pill — not the bell. GTK 3
+   CSS does not support `pointer-events`, so we collapse the bell-group's
+   DND drawer child to zero presence. Hovering bell still opens the drawer,
+   but there is nothing visible to reveal. Wide-pill group's DND duplicate
+   (custom/notif-dnd-w) takes over the user-facing affordance. */
+window#waybar #custom-notif-widepill.opt-pill ~ * #custom-notif-dnd {
+    min-width: 0;
     padding: 0;
     margin: 0;
     opacity: 0;
