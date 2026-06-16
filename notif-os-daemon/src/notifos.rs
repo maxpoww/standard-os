@@ -29,6 +29,7 @@ struct ListEntry<'a> {
     sender_pid: u32,
     source_window: &'a str,
     ts: &'a str,
+    desktop_entry: &'a str,
 }
 
 #[interface(name = "org.standardos.NotifOS")]
@@ -51,6 +52,7 @@ impl NotifOs {
                 sender_pid: r.sender_pid,
                 source_window: &r.source_window,
                 ts: &r.ts,
+                desktop_entry: &r.desktop_entry,
             })
             .collect();
         serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string())
@@ -86,3 +88,31 @@ impl NotifOs {
     }
 }
 
+#[cfg(test)]
+mod desktop_entry_test {
+    use super::*;
+    use crate::store::{NotifRecord, Store};
+
+    #[test]
+    fn list_notifications_serializes_desktop_entry() {
+        let store = Store::new();
+        let rec = NotifRecord {
+            id: 0,
+            app: "WhatsApp Web".into(),
+            summary: "hi".into(),
+            body: "".into(),
+            urgency: 1,
+            actions: vec![],
+            app_icon: String::new(),
+            sender_pid: 0,
+            source_window: String::new(),
+            ts: "2026-06-16T10:00:00-03:00".into(),
+            desktop_entry: "chrome-abc-Default".into(),
+        };
+        store.insert(0, rec);
+        let notifos = NotifOs { store };
+        let json = notifos.list_notifications();
+        let v: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+        assert_eq!(v[0]["desktop_entry"], "chrome-abc-Default");
+    }
+}
