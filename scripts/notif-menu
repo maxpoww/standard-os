@@ -122,23 +122,33 @@ populate_l1() {
     fi
 
     # ── History (journal entries whose id is NOT in the live set) ────────
+    # Two perf wins vs the prior implementation (which took ~3.5 s on 163
+    # history entries at bell-click):
+    #   1. Single jq -nR pass over the whole journal stream (vs one jq fork
+    #      per line). Same `inputs | fromjson?` pattern lib/notif-journal.sh
+    #      uses; skips malformed lines without per-line forks.
+    #   2. live_map → bash assoc-array set, built once. The prior code did
+    #      a `grep -qF` per history row (127 grep forks on a typical run).
     local hist_buf="" hist_count=0
     if [[ -s $JOURNAL ]]; then
-        local line id urg ts app summary body src
-        while IFS= read -r line; do
-            [[ -z $line ]] && continue
-            local row
-            row=$(jq -r '
-                [.id, .urgency, .ts, .app, .summary, .body, (.source_window // "")] | @tsv
-            ' <<<"$line" 2>/dev/null) || continue
-            [[ -z $row ]] && continue
-            IFS=$'\t' read -r id urg ts app summary body src <<<"$row"
-            if [[ -n $live_map ]] && grep -qF "${id}"$'\t' <<<"$live_map"; then
-                continue
-            fi
+        local -A live_id_set=()
+        if [[ -n $live_map ]]; then
+            local _lid _lurg
+            while IFS=$'\t' read -r _lid _lurg; do
+                [[ -n $_lid ]] && live_id_set[$_lid]=1
+            done <<<"$live_map"
+        fi
+        local rows id urg ts app summary body src
+        rows=$(journal_read "$JOURNAL" "$JOURNAL_READ_N" \
+            | jq -r -nR 'inputs | fromjson?
+                | [.id, .urgency, .ts, .app, .summary, .body, (.source_window // "")] | @tsv' \
+            2>/dev/null)
+        while IFS=$'\t' read -r id urg ts app summary body src; do
+            [[ -z $id ]] && continue
+            [[ -n ${live_id_set[$id]:-} ]] && continue
             hist_buf+="$id"$'\t'"$urg"$'\t'"$ts"$'\t'"$app"$'\t'"$summary"$'\t'"$body"$'\t'"$src"$'\n'
             hist_count=$((hist_count+1))
-        done < <(journal_read "$JOURNAL" "$JOURNAL_READ_N")
+        done <<<"$rows"
     fi
 
     if (( hist_count > 0 )); then
@@ -345,7 +355,14 @@ do_relaunch() {
 # ── Rofi wrapper (function so tests can mock it) ─────────────────────────
 run_rofi() {
     local prompt="$1"
+    # `-me-*-entry MousePrimary` binds single-click to both select AND
+    # accept (default is double-click to accept; the user expects one
+    # click to commit). Tested on rofi 2.0.0 — both flags are required:
+    # accept alone fires only when a row is already selected (i.e. the
+    # second click), select alone hovers but never commits.
     rofi -no-config -dmenu -i -p "$prompt" -no-custom -format i \
+        -me-select-entry MousePrimary \
+        -me-accept-entry MousePrimary \
         -theme-str '
             configuration { font: "meslo-ng 13"; }
             window { width: 50%; }

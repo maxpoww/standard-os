@@ -78,6 +78,29 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **notif-menu: bell-click open 3.5s → ~180ms + single-click accept.**
+  Two perf bugs in `populate_l1`, plus a rofi mouse-binding tweak. Both
+  surfaced once the bell pointed at notif-menu instead of notif-rofi.
+  **Speed** (timing on 4 unread + 127 history):
+   - Per-line `jq <<<"$line"` fork in the History loop: 127 jq forks × ~20 ms
+     on NixOS = ~2.5 s by itself. Replaced with one `jq -nR | fromjson?`
+     stream pass over the whole journal — same pattern lib/notif-journal.sh
+     uses correctly.
+   - Per-row `grep -qF` against live_map to skip live ids: 127 grep forks
+     × ~10 ms = ~1.2 s. Replaced with a bash assoc-array set built once
+     from live_map; the lookup is now a pure builtin string check.
+   Result: 3493 ms → ~180 ms (≈ 20× faster). Measured via populate_l1
+   in isolation across three runs.
+  **Single-click**: rofi 2.0.0's default `-me-accept-entry` requires
+  double-click (first click selects, second accepts). Added
+  `-me-select-entry MousePrimary -me-accept-entry MousePrimary` to
+  run_rofi so a single click both selects AND accepts. Both flags
+  required — accept alone fires only when a row is already hovered.
+  **Hint:** the same per-line-jq + per-row-grep pattern lives in
+  `scripts/notif-rofi` build_rows and handle_pick. notif-rofi is no
+  longer the bell target so the perf doesn't surface, but the dead
+  binary will be dropped in the mako-demolition session anyway.
+
 - **2026-06-15** — **bell click switched from notif-rofi → notif-menu.**
   The whole point of the Rust daemon was capturing `source_window` so the
   View action could focus where a notif came from. notif-menu has had View
