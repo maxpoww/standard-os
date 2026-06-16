@@ -249,6 +249,23 @@ render_action_for_state() {
         "$label_esc" "$(glass_theme)" "$label_esc" "$key_esc"
 }
 
+# ─── render_dismiss_for_state — Dismiss(X) child pill ──────────────────────
+# Pure function. Reads UNREAD_COUNT global + DND_STATE_FILE presence. Emits
+# the X glyph as a child pill when DND is OFF and there is at least one
+# unread; otherwise emits the empty-class collapse pattern per Standard-OS's
+# no-op-options rule.
+render_dismiss_for_state() {
+    local theme classes
+    if [[ -e "$DND_STATE_FILE" ]] || (( UNREAD_COUNT == 0 )); then
+        printf '{"text":"","class":["empty"]}'
+        return 0
+    fi
+    theme="$(glass_theme)"
+    _classes_json classes "opt-pill-child" "$theme"
+    #  is FA times (U+F00D) — same Nerd Font set used elsewhere.
+    printf '{"text":"\xef\x80\x8d","class":%s,"tooltip":"Dismiss all unread"}' "$classes"
+}
+
 # ─── render_dnd_for_state — DND child pill ─────────────────────────────────
 # Pure function. Reads presence of DND_STATE_FILE; emits the bell-off glyph
 # with opt-breathe motion when ON, plain child surface when OFF. Icon stays
@@ -300,6 +317,7 @@ fi
 CACHE_BELL="${NOTIF_CACHE_BELL:-/tmp/waybar-cache/notif-bell}"
 DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
 CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
+CACHE_DISMISS="${NOTIF_CACHE_DISMISS:-/tmp/waybar-cache/notif-dismiss}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
 TRANSIENT_MS="${NOTIF_TRANSIENT_MS:-5000}"
 JOURNAL_PATH="${NOTIF_JOURNAL:-$HOME/.local/share/standard-os/notif-history.jsonl}"
@@ -342,6 +360,7 @@ TRANSIENT_BODY=""
 TRANSIENT_START=0
 LAST_BELL_RENDERED=""
 LAST_DND_RENDERED=""
+LAST_DISMISS_RENDERED=""
 # P2 state
 TRANSIENT_OTP_CODE=""              # extracted OTP code (empty when no match)
 TRANSIENT_OTP_COPIED=0             # 1 during the 500ms post-click hold
@@ -565,6 +584,9 @@ emit() {
     local changed=0
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
     write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
+    local dismiss_json
+    dismiss_json=$(render_dismiss_for_state)
+    write_if_changed "$CACHE_DISMISS" "$dismiss_json" LAST_DISMISS_RENDERED && changed=1
     emit_action_caches
     (( $? == 1 )) && changed=1
     if (( changed )); then
@@ -627,6 +649,7 @@ USR1_PENDING=0
 cleanup() {
     printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
     printf '%s' '{"text":""}' > "${CACHE_DND}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DND}.tmp.$$" "$CACHE_DND" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_DISMISS}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DISMISS}.tmp.$$" "$CACHE_DISMISS" 2>/dev/null
     pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
     exec {DBUS_FD}<&- 2>/dev/null || true
 }
