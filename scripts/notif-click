@@ -236,7 +236,7 @@ case "$decision" in
         # the DND pill cache + tooltip flip without a notif arriving.
         DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
         mkdir -p "$(dirname "$DND_STATE_FILE")"
-        if [[ -e $DND_STATE_FILE ]]; then
+        if [[ -e "$DND_STATE_FILE" ]]; then
             rm -f "$DND_STATE_FILE"
         else
             : > "$DND_STATE_FILE"
