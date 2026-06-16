@@ -144,6 +144,20 @@ render_bell_for_state() {
     local kind="${4:-}" app="${5:-}" title="${6:-}" body="${7:-}"
     local otp_code="${8:-}" otp_copied="${9:-0}"
 
+    # When DND is on, bell is the child of DND-parent. Render as default
+    # child surface — no state classes (per spec: children stay default
+    # color even when there are unread notifs). No transient face either
+    # — the DND gate in on_arrival blocks transient setup, so the bell
+    # cache will never carry wide-pill text while DND is on.
+    if [[ -e "$DND_STATE_FILE" ]]; then
+        local theme child_classes
+        theme="$(glass_theme)"
+        _classes_json child_classes "opt-pill-child" "$theme"
+        printf '{"text":"\xef\x83\xb3","class":%s,"tooltip":"Resume notifications","otp_code":""}' \
+            "$child_classes"
+        return 0
+    fi
+
     # Glyph: FA bell (U+F0F3 \xef\x83\xb3) when silenceMode=none,
     # FA solid bell-slash (U+F1F7 \xef\x87\xb7) otherwise.
     local bell
