@@ -355,13 +355,17 @@ do_relaunch() {
 # ── Rofi wrapper (function so tests can mock it) ─────────────────────────
 run_rofi() {
     local prompt="$1"
-    # `-me-*-entry MousePrimary` binds single-click to both select AND
-    # accept (default is double-click to accept; the user expects one
-    # click to commit). Tested on rofi 2.0.0 — both flags are required:
-    # accept alone fires only when a row is already selected (i.e. the
-    # second click), select alone hovers but never commits.
+    # Single-click accepts. Rofi 2.0.0 defaults are
+    #   me-select-entry = MousePrimary
+    #   me-accept-entry = MouseDPrimary   (double click)
+    # so the user needs two clicks to commit. We want left-click to commit
+    # directly — but binding `MousePrimary` to BOTH select and accept fires
+    # rofi's "Binding MousePrimary is already bound" error popup at startup
+    # (each mouse event can only own one action). So we move select to
+    # MouseSecondary (right click — harmless, no destructive action behind
+    # a right click in this menu) and reclaim MousePrimary for accept.
     rofi -no-config -dmenu -i -p "$prompt" -no-custom -format i \
-        -me-select-entry MousePrimary \
+        -me-select-entry MouseSecondary \
         -me-accept-entry MousePrimary \
         -theme-str '
             configuration { font: "meslo-ng 13"; }
