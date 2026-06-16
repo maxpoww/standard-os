@@ -91,6 +91,13 @@ notif_click_decide() {
             # and signals the bash notif-daemon to re-emit the pill cache.
             printf 'toggle-dnd'
             ;;
+        dismiss)
+            # Dismiss-all — fires mako_dismiss_all in the action runner.
+            # Cache content is ignored. The runner case "dismiss-all" is
+            # the existing legacy branch (kept around for waybar custom
+            # 'invoke' on rest face); we reuse it here.
+            printf 'dismiss-all'
+            ;;
         action)
             # Action click: cache must carry a non-empty `key` field.
             local key

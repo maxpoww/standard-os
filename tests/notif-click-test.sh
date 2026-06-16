@@ -99,6 +99,16 @@ assert_eq "$(notif_click_decide dnd "$REST_GREEN")" "toggle-dnd" \
 assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
     "[dnd → toggle-dnd with bare empty-string (≠ EMPTY sentinel)]"
 
+# ─── dismiss subcommand ───────────────────────────────────────────────────
+# Dismiss-all is content-agnostic — the cache is irrelevant; the decision
+# only depends on the subcommand. Always returns "dismiss-all".
+assert_eq "$(notif_click_decide dismiss "$EMPTY")" "dismiss-all" \
+    "[dismiss → dismiss-all regardless of cache (empty)]"
+assert_eq "$(notif_click_decide dismiss "$REST_GREEN")" "dismiss-all" \
+    "[dismiss → dismiss-all regardless of cache (rest)]"
+assert_eq "$(notif_click_decide dismiss '')" "dismiss-all" \
+    "[dismiss → dismiss-all with bare empty-string (≠ EMPTY sentinel)]"
+
 # ─── unknown subcommand → noop ────────────────────────────────────────────
 assert_eq "$(notif_click_decide unknown '')" "noop" \
     "unknown subcommand → noop"
