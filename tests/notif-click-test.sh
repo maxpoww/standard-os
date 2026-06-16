@@ -97,7 +97,7 @@ assert_eq "$(notif_click_decide dnd "$EMPTY")" "toggle-dnd" \
 assert_eq "$(notif_click_decide dnd "$REST_GREEN")" "toggle-dnd" \
     "[dnd → toggle-dnd regardless of cache (rest)]"
 assert_eq "$(notif_click_decide dnd '')" "toggle-dnd" \
-    "[dnd → toggle-dnd with empty string cache]"
+    "[dnd → toggle-dnd with bare empty-string (≠ EMPTY sentinel)]"
 
 # ─── unknown subcommand → noop ────────────────────────────────────────────
 assert_eq "$(notif_click_decide unknown '')" "noop" \
