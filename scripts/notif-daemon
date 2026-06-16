@@ -188,6 +188,15 @@ render_bell_for_state() {
 render_widepill_for_state() {
     local kind="${1:-}" app="${2:-}" title="${3:-}" body="${4:-}"
     local otp_code="${5:-}" otp_copied="${6:-0}"
+    # View preset: shown 4 s after the user toggles DND off via the bell-
+    # glyph click. Click opens the rofi history (handled in notif-click).
+    if [[ "$kind" == "view" ]]; then
+        local classes_json
+        _classes_json classes_json "opt-pill" "$(glass_theme)"
+        printf '{"text":"View","class":%s,"tooltip":"Open notification history"}' \
+            "$classes_json"
+        return 0
+    fi
     # Beat is the silenced-ack (DND-on arrivals) — pure bell-side motion,
     # never a wide-pill. Empty also collapses when kind/app missing.
     if [[ "$kind" == "beat" || -z "$kind" || -z "$app" ]]; then
@@ -513,6 +522,8 @@ check_transient_timer() {
         limit=500   # 500ms post-click hold for the "copied" suffix
     elif [[ $TRANSIENT_KIND == "beat" ]]; then
         limit=700   # one-shot 600ms heartbeat + small buffer
+    elif [[ $TRANSIENT_KIND == "view" ]]; then
+        limit=4000  # preset View wide-pill — 4s window then collapses
     else
         limit="$TRANSIENT_MS"
     fi
@@ -542,6 +553,8 @@ next_tick_seconds() {
     elapsed=$(( now - TRANSIENT_START ))
     if [[ $TRANSIENT_KIND == "beat" ]]; then
         limit=700
+    elif [[ $TRANSIENT_KIND == "view" ]]; then
+        limit=4000
     else
         limit="$TRANSIENT_MS"
     fi
@@ -684,24 +697,20 @@ while true; do
     if (( USR1_PENDING )); then
         USR1_PENDING=0
         sleep 0.05   # filesystem sync window — same reason as before
-        # Rendezvous: notif-click drops /tmp/notif-show-latest when the
-        # user clicks bell-glyph while DND is on. Synthesize a transient
-        # from the newest unread so the wide-pill shows what they missed.
-        if [[ -f /tmp/notif-show-latest ]]; then
-            rm -f /tmp/notif-show-latest
-            query_mako_state
-            if (( NEWEST_ID > 0 )); then
-                TRANSIENT_KIND=$(transient_kind_for_state "$NEWEST_URG" "$NEWEST_APP")
-                if [[ -n $TRANSIENT_KIND ]]; then
-                    TRANSIENT_ID="$NEWEST_ID"
-                    TRANSIENT_APP="$NEWEST_APP"
-                    TRANSIENT_TITLE="$NEWEST_SUMMARY"
-                    TRANSIENT_BODY="$NEWEST_BODY"
-                    TRANSIENT_START=$(date +%s%3N)
-                    TRANSIENT_OTP_CODE=$(detect_otp "$NEWEST_SUMMARY" "$NEWEST_BODY")
-                    TRANSIENT_OTP_COPIED=0
-                fi
-            fi
+        # Rendezvous: notif-click drops /tmp/notif-show-view when the user
+        # clicks bell-glyph while DND is on. Show a preset "View" wide-pill
+        # for 4 s; clicking it opens the rofi history (L1 notif-menu).
+        if [[ -f /tmp/notif-show-view ]]; then
+            rm -f /tmp/notif-show-view
+            TRANSIENT_KIND="view"
+            TRANSIENT_START=$(date +%s%3N)
+            TRANSIENT_ID=0
+            TRANSIENT_APP=""
+            TRANSIENT_TITLE=""
+            TRANSIENT_BODY=""
+            TRANSIENT_OTP_CODE=""
+            TRANSIENT_OTP_COPIED=0
+            TRANSIENT_ACTIONS=()
         fi
         emit
     fi

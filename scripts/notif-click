@@ -99,11 +99,18 @@ notif_click_decide() {
             printf 'dismiss-all'
             ;;
         widepill)
-            # Wide-pill click during the 5 s transient → full View semantics
-            # (default action, focus source window, smart dismiss, honest
-            # fallback). Reuses the existing invoke-and-dismiss runner case
-            # which already execs notif-menu view-latest.
-            printf 'invoke-and-dismiss'
+            # Wide-pill click — two flavors:
+            #   - Preset "View" widepill (kind="view" from the DND-off
+            #     toggle): cache text is the literal "View" with no markup.
+            #     Open the rofi history (L1 notif-menu).
+            #   - Organic transient widepill (kind="normal"|"critical"
+            #     from a notif arrival): text is "<b>App</b> · Title".
+            #     Fire the full View semantic (notif-menu view-latest).
+            if [[ "$cache_content" == *'"text":"View"'* ]]; then
+                printf 'open-history'
+            else
+                printf 'invoke-and-dismiss'
+            fi
             ;;
         action)
             # Action click: cache must carry a non-empty `key` field.
@@ -186,12 +193,12 @@ if [[ -e "$_DND_FILE" ]]; then
             ;;
         dnd)
             # Click bell-glyph on DND child while DND is on: turn DND off
-            # AND synthesize a wide-pill of the latest unread so the user
-            # sees what they missed. The rendezvous file flips the daemon's
-            # next emit into "synthesize transient from latest" mode (handled
-            # in on_user_signal's USR1 path).
+            # AND show the preset "View" wide-pill for 4 s. Clicking that
+            # wide-pill opens the rofi history. The rendezvous file flips
+            # the daemon's next emit into "render View widepill" mode
+            # (handled in the USR1 loop).
             rm -f "$_DND_FILE"
-            : > /tmp/notif-show-latest
+            : > /tmp/notif-show-view
             systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
             exit 0
             ;;
@@ -260,6 +267,10 @@ case "$decision" in
         ;;
     dismiss-all)
         mako_dismiss_all
+        ;;
+    open-history)
+        # View preset wide-pill clicked → open the rofi L1 history list.
+        exec notif-menu
         ;;
     toggle-dnd)
         # Single state file: presence ↔ DND ON. Empty body is fine;
