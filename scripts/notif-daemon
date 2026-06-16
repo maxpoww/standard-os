@@ -519,16 +519,12 @@ check_transient_timer() {
     else
         limit="$TRANSIENT_MS"
     fi
-    # Visible lifetime for normal/critical wide-pill kinds is owned by
-    # CSS (animation + hover-pause + post-animation visibility:hidden).
-    # The daemon keeps the cache content populated indefinitely until a
-    # new notif arrives and overwrites it. Beat (silenced-ack) and
-    # OTP-copied still have an authoritative daemon-side clear because
-    # they affect bell rendering, not wide-pill rendering.
     if (( elapsed >= limit )); then
-        if [[ "$TRANSIENT_KIND" != "beat" ]] && (( TRANSIENT_OTP_COPIED != 1 )); then
-            return 1
-        fi
+        # If we were in the OTP-copied hold, dismiss the notification AS the
+        # transient collapses (notif-os-daemon emits NotificationClosed,
+        # which triggers a fresh on_dbus_event → query_mako_state → emit;
+        # the bell returns to rest carrying whatever pin color the remaining
+        # unread state implies).
         if (( TRANSIENT_OTP_COPIED == 1 )) && (( TRANSIENT_ID > 0 )); then
             busctl --user call \
                 org.freedesktop.Notifications /org/freedesktop/Notifications \
@@ -553,16 +549,6 @@ next_tick_seconds() {
         limit="$TRANSIENT_MS"
     fi
     remaining_ms=$(( limit - elapsed ))
-    # Past the limit, CSS owns the wide-pill's visual lifetime (for
-    # non-beat kinds), so sleep long. New notif arrival re-emits.
-    if (( remaining_ms <= 0 )); then
-        if [[ "$TRANSIENT_KIND" == "beat" ]]; then
-            printf '0.1'   # beat still gets the urgent timer-clear
-        else
-            printf '3600'
-        fi
-        return
-    fi
     (( remaining_ms < 100 )) && remaining_ms=100
     awk -v ms="$remaining_ms" 'BEGIN{ printf "%.3f", ms/1000 }'
 }

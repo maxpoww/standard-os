@@ -608,27 +608,6 @@ window#waybar #custom-notif-widepill.empty {
     font-size: 0;
 }
 
-/* ── Wide-pill + Dismiss — fade-out with hover pause ────────────────────────
-   The daemon keeps the wide-pill cache populated indefinitely (only
-   overwritten by a new notif). CSS owns the visible lifetime: a 5 s
-   solid window then a 0.3 s fade to opacity 0. `:hover` pauses the
-   animation — as long as the mouse is on the pill, it stays at the
-   current opacity (in practice: stays fully visible since hover
-   typically begins before the fade portion). Dismiss rides the same
-   keyframes so the two collapse together. */
-@keyframes notif-widepill-fade {
-    0%   { opacity: 1; }
-    94%  { opacity: 1; }
-    100% { opacity: 0; }
-}
-window#waybar #custom-notif-widepill.opt-pill,
-window#waybar #custom-notif-dismiss.opt-pill-child {
-    animation: notif-widepill-fade 5.3s linear forwards;
-}
-window#waybar #custom-notif-widepill.opt-pill:hover,
-window#waybar #custom-notif-dismiss.opt-pill-child:hover {
-    animation-play-state: paused;
-}
 
 /* ── Bell-group DND suppression during widepill ─────────────────────────────
    When the wide-pill has content (`.opt-pill`, NOT `.empty`), the options
