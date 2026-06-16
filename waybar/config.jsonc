@@ -591,11 +591,11 @@
     // rest are drawer children that animate in on hover. With
     // transition-left-to-right: false (right-zone group), the trigger sits
     // on the right and children expand to its LEFT in declaration order.
-    // → bell (rightmost, always visible) → profile → action-{1,2,3} (leftmost
+    // → bell (rightmost, always visible) → dnd → action-{1,2,3} (leftmost
     //   visually when fully expanded).
     "modules": [
       "custom/notif-bell",
-      "custom/notif-profile",
+      "custom/notif-dnd",
       "custom/notif-action-1",
       "custom/notif-action-2",
       "custom/notif-action-3"
@@ -610,14 +610,14 @@
     "tooltip": true,
     "on-click": "notif-click bell"
   },
-  "custom/notif-profile": {
-    "exec": "cat /tmp/waybar-cache/notif-profile 2>/dev/null || echo '{\"text\":\"\"}'",
+  "custom/notif-dnd": {
+    "exec": "cat /tmp/waybar-cache/notif-dnd 2>/dev/null || echo '{\"text\":\"\"}'",
     "return-type": "json",
     "format": "{}",
     "interval": "once",
     "signal": 12,
     "tooltip": true,
-    "on-click": "notif-click profile"
+    "on-click": "notif-click dnd"
   },
   // ── P2 action child pills — hover-revealed under group/notif ────────────
   // Populated by notif-daemon from each notification's `actions` array (up
