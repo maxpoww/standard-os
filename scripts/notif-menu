@@ -337,6 +337,30 @@ do_dismiss() {
     mako_dismiss "$1" || true
 }
 
+# ── view-latest: headless entry that runs do_view on the newest live notif ─
+# Used by notif-click's "invoke-and-dismiss" decision (wide-pill click): no
+# rofi, no L1/L2 — just pull the highest live id from the daemon, hydrate
+# the L2_* globals do_view reads, and dispatch. Silent no-op when the store
+# is empty (the notif may have been closed by its app between the
+# wide-pill render and the user's click).
+view_latest() {
+    local latest_json id app
+    latest_json=$(_notif_list_raw \
+        | jq -c 'max_by(.id) // empty' 2>/dev/null)
+    [[ -z $latest_json || $latest_json == "null" ]] && return 0
+    id=$(printf '%s' "$latest_json" | jq -r '.id')
+    app=$(printf '%s' "$latest_json" | jq -r '.app')
+    L2_ID="$id"
+    L2_APP="$app"
+    L2_SUMMARY=$(printf '%s' "$latest_json" | jq -r '.summary')
+    L2_BODY=$(printf '%s' "$latest_json" | jq -r '.body')
+    L2_URG=$(printf '%s' "$latest_json" | jq -r '.urgency')
+    L2_SOURCE_WINDOW=$(printf '%s' "$latest_json" | jq -r '.source_window // ""')
+    L2_TS=$(printf '%s' "$latest_json" | jq -r '.ts // ""')
+    L2_KIND="live"
+    do_view "$id" "$app"
+}
+
 do_copy() {
     # printf '%s' to avoid appending a newline — critical for OTP codes and URLs.
     printf '%s' "$1" | wl-copy
@@ -450,7 +474,14 @@ main() {
     dispatch_l1 "$l1_idx"
 }
 
-# Only run main when executed directly (not when sourced for tests).
+# Only run main (or a headless subcommand) when executed directly — not
+# when sourced for tests. Subcommands:
+#   view-latest → headless do_view on the newest live notif (wide-pill
+#                 click target from notif-click). No rofi UI.
+#   (default)   → the interactive L1/L2 rofi flow.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    main
+    case "${1:-}" in
+        view-latest) view_latest ;;
+        *)           main ;;
+    esac
 fi

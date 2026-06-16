@@ -159,11 +159,13 @@ decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
     invoke-and-dismiss)
-        latest_id=$(_latest_id)
-        if [[ -n $latest_id ]]; then
-            mako_invoke "$latest_id" default >/dev/null 2>&1 || true
-            mako_dismiss "$latest_id" >/dev/null 2>&1 || true
-        fi
+        # Wide-pill click → full View semantics (not just default-action +
+        # dismiss). notif-menu view-latest does: invoke default action if
+        # declared, focus the source window via hyprctl, dismiss when
+        # either fired, honest fallback notif otherwise. Decision string
+        # is kept as "invoke-and-dismiss" to avoid churning the test
+        # fixtures; rename to "view-latest" in a future sweep.
+        exec notif-menu view-latest
         ;;
     invoke-otp)
         # P2: extract the OTP code from the bell cache, copy via wl-copy,

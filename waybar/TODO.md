@@ -78,6 +78,27 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **wide-pill click now runs View (was: default-action + dismiss).**
+  The transient bell pill (the wide `App · Title` face that appears for
+  5 s after a notif arrives) used to fire `mako_invoke <id> default` +
+  `mako_dismiss`. For apps that don't react to `ActionInvoked` (notify-send
+  CLI, Claude Code, etc.) that was a silent dismiss with no visible effect.
+  Switched to the same View semantics notif-menu's L2 menu uses:
+   1. Invoke default action if declared.
+   2. `hypr_focus_by_class` on the captured `source_window`.
+   3. Dismiss when either fired.
+   4. Honest fallback notify-send when neither did.
+  Implementation: new `view-latest` subcommand on notif-menu (`notif-menu
+  view-latest`) — headless, no rofi UI. Queries the daemon for the highest
+  live id, hydrates the `L2_*` globals `do_view` reads, dispatches.
+  `notif-click invoke-and-dismiss` now just `exec notif-menu view-latest`.
+  **Hint:** the decision string in notif_click_decide is still
+  `"invoke-and-dismiss"` to avoid churning `tests/notif-click-test.sh`'s
+  oracle values. Rename to `"view-latest"` in a future sweep.
+  **Hint:** silent no-op when the store is empty — the wide-pill is
+  still showing but the notif may have been closed by its app between
+  arrival and click (race window ≤ 5 s).
+
 - **2026-06-15** — **notif-menu: bell-click open 3.5s → ~180ms + single-click accept.**
   Two perf bugs in `populate_l1`, plus a rofi mouse-binding tweak. Both
   surfaced once the bell pointed at notif-menu instead of notif-rofi.
