@@ -219,6 +219,49 @@ rm -f "$mako_list_live_calls"
 # Restore default mako_list_live for any future tests
 mako_list_live() { printf '%s' "$MAKO_LIVE_PAYLOAD"; }
 
+# ─── t10: desktop-entry overrides app as the hypr_focus_by_class needle ───
+# When a notif has L2_DESKTOP_ENTRY set (e.g. Chrome PWA), do_view should
+# pass that string to hypr_focus_by_class (not the human-readable app).
+# Covers the WhatsApp Web PWA case where app="WhatsApp Web" but the
+# matching Hyprland window class is chrome-<hash>-Default.
+(
+    HYPR_FOCUS_NEEDLE=""
+    hypr_focus_by_class() {
+        HYPR_FOCUS_NEEDLE="$1"
+        return 0   # pretend we found and focused a window
+    }
+
+    # do_view dependencies — minimal no-op stubs.
+    mako_has_default_action() { return 1; }   # no default action → skip step 1
+    mako_invoke() { :; }
+    mako_dismiss() { :; }
+
+    # do_view reads these as globals.
+    L2_KIND="live"
+    L2_APP="WhatsApp Web"
+    L2_SUMMARY="ping"
+    L2_BODY="hello"
+    L2_SOURCE_WINDOW=""
+    L2_DESKTOP_ENTRY="chrome-abc-Default"
+
+    do_view 42 "WhatsApp Web" >/dev/null 2>&1 || true
+
+    if [[ "$HYPR_FOCUS_NEEDLE" == "chrome-abc-Default" ]]; then
+        pass=$((pass+1))
+        printf '✓ [t10: desktop_entry overrides app as hypr_focus_by_class needle]\n'
+    else
+        fail=$((fail+1))
+        printf '✗ [t10: desktop_entry override — needle was %q, expected chrome-abc-Default]\n' "$HYPR_FOCUS_NEEDLE"
+    fi
+
+    # Export updated counters back to parent shell via temp file.
+    printf '%d %d' "$pass" "$fail" > "$SANDBOX/t10_counts"
+)
+# Re-import pass/fail from subshell.
+if [[ -f "$SANDBOX/t10_counts" ]]; then
+    read -r pass fail < "$SANDBOX/t10_counts"
+fi
+
 echo
 if [[ $fail -gt 0 ]]; then
     printf '\n✗ %d test(s) failed (%d passed)\n' "$fail" "$pass"
