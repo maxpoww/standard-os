@@ -161,6 +161,13 @@ if [[ "${1:-}" == "action" && -n "${2:-}" ]]; then
 fi
 action="${1:-invoke}"
 cache_content=$(cat "$CACHE" 2>/dev/null || true)
+# When bell is currently a child (DND is on), clicking it should toggle
+# DND off — equivalent to clicking the DND-as-parent pill. The pure
+# decision function shouldn't read the filesystem, so this gate lives
+# in the runner.
+if [[ "$action" == "bell" && -e "${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}" ]]; then
+    action="dnd"
+fi
 decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
