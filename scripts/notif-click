@@ -166,15 +166,27 @@ cache_content=$(cat "$CACHE" 2>/dev/null || true)
 # notif-daemon swaps glyphs: bell pill shows bell-slash, DND child shows
 # bell. So:
 #   - click bell-with-bell-slash-glyph → user expects DND toggle
-#   - click dnd-with-bell-glyph        → user expects notif-menu
+#   - click dnd-with-bell-glyph        → user expects notif-menu AND
+#     (symmetric with the off-direction click) wants DND to swap off
+#     so the icons flip back to their default arrangement.
 # The pure decision function shouldn't read the filesystem, so this
 # gate lives in the runner.
-if [[ -e "${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}" ]]; then
+_DND_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
+if [[ -e "$_DND_FILE" ]]; then
     case "$action" in
-        bell) action="dnd"  ;;
-        dnd)  action="bell" ;;
+        bell)
+            action="dnd"
+            ;;
+        dnd)
+            # Side effect: turn DND off so the icons swap back, then
+            # let the action runner handle the bell click (opens menu).
+            rm -f "$_DND_FILE"
+            systemctl --user kill --kill-who=main -s SIGUSR1 notif-daemon.service 2>/dev/null || true
+            action="bell"
+            ;;
     esac
 fi
+unset _DND_FILE
 decision=$(notif_click_decide "$action" "$cache_content")
 
 case "$decision" in
