@@ -266,22 +266,27 @@ render_dismiss_for_state() {
     printf '{"text":"\xef\x80\x8d","class":%s,"tooltip":"Dismiss all unread"}' "$classes"
 }
 
-# ─── render_dnd_for_state — DND child pill ─────────────────────────────────
-# Pure function. Reads presence of DND_STATE_FILE; emits the bell-off glyph
-# with opt-breathe motion when ON, plain child surface when OFF. Icon stays
-# bell-slash in both states — state is shown via animation, not icon swap.
+# ─── render_dnd_for_state — DND pill (child when off, parent when on) ──────
+# Pure function. Reads DND_STATE_FILE presence + UNREAD_COUNT global.
+# DND off (default): child surface, bell-slash glyph, no state classes.
+# DND on:            parent surface, bell-slash glyph, opt-breathe always,
+#                    opt-yes compose if unread (blue surface + breathing).
 render_dnd_for_state() {
-    local theme dnd_on classes tooltip
+    local theme classes tooltip
     theme="$(glass_theme)"
-    [[ -e "$DND_STATE_FILE" ]] && dnd_on=1 || dnd_on=0
-    if (( dnd_on )); then
-        _classes_json classes "opt-pill-child" "$theme" "opt-breathe"
+    if [[ -e "$DND_STATE_FILE" ]]; then
+        # Parent mode.
+        if (( UNREAD_COUNT > 0 )); then
+            _classes_json classes "opt-pill" "$theme" "opt-breathe" "opt-yes"
+        else
+            _classes_json classes "opt-pill" "$theme" "opt-breathe"
+        fi
         tooltip="DND on — click to resume notifications"
     else
+        # Child mode.
         _classes_json classes "opt-pill-child" "$theme"
         tooltip="Stop notifications"
     fi
-    #  is the FA solid bell-slash glyph (already used in render_bell_for_state).
     printf '{"text":"\xef\x87\xb7","class":%s,"tooltip":"%s"}' "$classes" "$tooltip"
 }
 
