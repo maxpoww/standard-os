@@ -78,6 +78,26 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-16** — **profile machinery purged → single DND toggle pill.**
+  Replaced six profiles (off/dnd/sleep/work/gaming/media), the
+  notif-rofi-profiles picker, lib/notif-profile-format.sh, lib/notif-schedule.sh,
+  the profiles JSON materialization, and ~150 lines of profile-resolution
+  logic in the bash daemon with a single state file
+  ~/.local/share/standard-os/notif-dnd (presence ↔ ON).
+  Click `notif-click dnd` (bell-child pill) toggles + SIGUSR1s the daemon.
+  When ON: wide-pill suppressed, sound suppressed, journal + pin keep working.
+  Visible from the moment of toggle via `opt-breathe` on the DND child pill.
+  Single left-click commits everywhere (rofi `-me-accept-entry MousePrimary`).
+  **Hint:** spec at `docs/superpowers/specs/2026-06-15-profile-purge-dnd-toggle-design.md`.
+  **Hint:** plan at `docs/superpowers/plans/2026-06-15-profile-purge-dnd-toggle.md`.
+  **Hint:** notif-rofi-profiles is gone from PATH; any hyprland keybinding
+  that called it should now call `notif-click dnd` directly.
+  **Hint:** the daemon's per-arrival `kind` (transient_kind_for_state) was
+  also fixed mid-task — it was returning "beat" for urg=2 which rendered
+  the silenced-ack face instead of the pulsing critical wide-pill. Now
+  returns "critical" / "normal" which match `render_bell_for_state`'s
+  case statement. Critical urgency notifs now correctly pulse-orange.
+
 - **2026-06-15** — **wide-pill click now runs View (was: default-action + dismiss).**
   The transient bell pill (the wide `App · Title` face that appears for
   5 s after a notif arrives) used to fire `mako_invoke <id> default` +
