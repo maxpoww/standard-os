@@ -253,8 +253,9 @@ render_dismiss_for_state() {
     fi
     theme="$(glass_theme)"
     _classes_json classes "opt-pill-child" "$theme"
-    #  is FA times (U+F00D) — same Nerd Font set used elsewhere.
-    printf '{"text":"\xef\x80\x8d","class":%s,"tooltip":"Dismiss all unread"}' "$classes"
+    # 󰅖 is MDI window-close (U+F0156) — same glyph the win-close pill
+    # uses so the "close" affordance reads consistently across the bar.
+    printf '{"text":"\xf3\xb0\x85\x96","class":%s,"tooltip":"Dismiss all unread"}' "$classes"
 }
 
 # ─── render_dnd_for_state — DND pill (child when off, parent when on) ──────
