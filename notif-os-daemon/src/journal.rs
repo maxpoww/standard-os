@@ -23,6 +23,7 @@ struct JournalLine<'a> {
     dismissed_at: &'a str,
     source_window: &'a str,
     sender_pid: u32,
+    desktop_entry: &'a str,
 }
 
 /// Resolves the journal path — env override or default.
@@ -58,6 +59,7 @@ pub fn append(path: &Path, rec: &NotifRecord) -> anyhow::Result<()> {
         dismissed_at: "",
         source_window: &rec.source_window,
         sender_pid: rec.sender_pid,
+        desktop_entry: &rec.desktop_entry,
     };
     let s = serde_json::to_string(&line)?;
     let mut f = OpenOptions::new().create(true).append(true).open(path)?;
@@ -148,5 +150,16 @@ mod tests {
         prune(tmp.path(), 200).unwrap();
         let s = std::fs::read_to_string(tmp.path()).unwrap();
         assert_eq!(s.lines().count(), 1);
+    }
+
+    #[test]
+    fn journal_records_desktop_entry() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let mut rec = rec(1, "WhatsApp Web", "ping");
+        rec.desktop_entry = "chrome-abc-Default".into();
+        append(tmp.path(), &rec).unwrap();
+        let s = std::fs::read_to_string(tmp.path()).unwrap();
+        let v: serde_json::Value = serde_json::from_str(s.trim()).unwrap();
+        assert_eq!(v["desktop_entry"], "chrome-abc-Default");
     }
 }
