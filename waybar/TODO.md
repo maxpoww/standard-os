@@ -78,6 +78,23 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-16** — **View focuses Chrome PWAs correctly via desktop-entry hint.**
+  Chrome PWAs (WhatsApp Web, YouTube Music, etc.) declare a distinct
+  Hyprland window class per app (`chrome-<hash>-Default`). The same
+  string appears in the notification's freedesktop `desktop-entry`
+  hint. Previously View used the notif's `app_name` ("WhatsApp Web")
+  as the class needle, which substring-matched the wrong Chromium
+  window on another workspace. Now: notif-os-daemon extracts the
+  `desktop-entry` hint at Notify time, stores it in NotifRecord +
+  ListNotifications JSON + the JSONL journal; notif-menu uses it as
+  the hyprctl class needle in do_view, falling back to `app_name`
+  ONLY when the hint is absent (intentional — falling back when the
+  hint is set but unmatched would defeat the PWA disambiguation).
+  **Hint:** spec at `docs/superpowers/specs/2026-06-16-notif-desktop-entry-pwa-focus-design.md`.
+  **Hint:** plan at `docs/superpowers/plans/2026-06-16-notif-desktop-entry-pwa-focus.md`.
+  **Hint:** simulate from CLI with
+  `notify-send --hint=string:desktop-entry:chrome-XXX-Default "title" "body"`.
+
 - **2026-06-16** — **bell ↔ DND pill swap + Dismiss(X) child.**
   Parent identity = DND state. DND off → bell is parent (`opt-pill`,
   `opt-yes` if unread), DND is hover-revealed child. DND on → DND is parent
