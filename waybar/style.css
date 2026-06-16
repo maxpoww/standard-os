@@ -582,6 +582,19 @@ window#waybar .opt-pill-child.light:hover {
     font-size: 0;
 }
 
+/* ── Dismiss pill — empty-collapse ──────────────────────────────────────────
+   notif-daemon writes class=["empty"] (no opt-pill-child) when unread == 0.
+   The generic window#waybar .empty rule handles most cases, but the dismiss
+   pill is glyph-bearing: without font-size: 0 the glyph retains its natural
+   width even at opacity 0. This targeted rule ensures true zero-presence. */
+
+window#waybar #custom-notif-dismiss.empty {
+    padding: 0;
+    margin: 0;
+    opacity: 0;
+    font-size: 0;
+}
+
 /* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
 /* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
    the usual `window#waybar .foo` ancestor convention does not apply here.

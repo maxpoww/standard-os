@@ -596,6 +596,7 @@
     "modules": [
       "custom/notif-bell",
       "custom/notif-dnd",
+      "custom/notif-dismiss",
       "custom/notif-action-1",
       "custom/notif-action-2",
       "custom/notif-action-3"
@@ -618,6 +619,14 @@
     "signal": 12,
     "tooltip": true,
     "on-click": "notif-click dnd"
+  },
+  "custom/notif-dismiss": {
+    "exec": "cat /tmp/waybar-cache/notif-dismiss 2>/dev/null || echo '{\"text\":\"\"}'",
+    "interval": "once",
+    "signal": 12,
+    "return-type": "json",
+    "format": "{}",
+    "on-click": "notif-click dismiss"
   },
   // ── P2 action child pills — hover-revealed under group/notif ────────────
   // Populated by notif-daemon from each notification's `actions` array (up
