@@ -252,7 +252,9 @@ render_dismiss_for_state() {
         return 0
     fi
     theme="$(glass_theme)"
-    _classes_json classes "opt-pill-child" "$theme"
+    # opt-no = red state color (matches the win-close pill's red
+    # "destructive action" affordance).
+    _classes_json classes "opt-pill-child" "$theme" "opt-no"
     # 󰅖 is MDI window-close (U+F0156) — same glyph the win-close pill
     # uses so the "close" affordance reads consistently across the bar.
     printf '{"text":"\xf3\xb0\x85\x96","class":%s,"tooltip":"Dismiss all unread"}' "$classes"
@@ -518,6 +520,23 @@ check_transient_timer() {
         limit="$TRANSIENT_MS"
     fi
     if (( elapsed >= limit )); then
+        # Hover-pause for wide-pill kinds: if waybar's tooltip-format-cmd
+        # has touched /tmp/notif-widepill-hover within the current
+        # transient window (TRANSIENT_MS), refresh the start time so we
+        # don't collapse mid-read. The cmd fires once per hover-entry
+        # (~700 ms into hover), so each mouse-over extends the wide-pill
+        # by another TRANSIENT_MS window. Beat / OTP-copied bypass.
+        if [[ "$TRANSIENT_KIND" != "beat" ]] && (( TRANSIENT_OTP_COPIED != 1 )); then
+            if [[ -f /tmp/notif-widepill-hover ]]; then
+                local mark_age_ms
+                mark_age_ms=$(( now - $(stat -c %Y /tmp/notif-widepill-hover 2>/dev/null)000 ))
+                if (( mark_age_ms < limit )); then
+                    rm -f /tmp/notif-widepill-hover
+                    TRANSIENT_START="$now"
+                    return 1
+                fi
+            fi
+        fi
         # If we were in the OTP-copied hold, dismiss the notification AS the
         # transient collapses (notif-os-daemon emits NotificationClosed,
         # which triggers a fresh on_dbus_event → query_mako_state → emit;
