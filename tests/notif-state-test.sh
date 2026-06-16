@@ -374,136 +374,29 @@ assert_eq \
   "$(echo "$out" | jq -r '.class | index("opt-pushed") == null')" "true" \
   "[P3 transient: no opt-pushed regardless of silence mode]"
 
-# ─── render_profile_for_state ────────────────────────────────────────────
-# Args: profile_name display_name
+# ─── sound_for_state ──────────────────────────────────────────────────────
+# Args: urgency → canberra event id
+# DND gate is handled upstream in on_arrival; function always returns a sound.
 
-# Off → neutral child surface, no opt-yes
-out=$(render_profile_for_state "off" "Off")
 assert_eq \
-  "$(echo "$out" | jq -r '.text')" "Off" \
-  "[profile Off: text]"
+  "$(sound_for_state 1)" "message-new-instant" \
+  "[sound: normal → message-new-instant]"
 assert_eq \
-  "$(echo "$out" | jq -r '.class | index("opt-yes") == null')" "true" \
-  "[profile Off: no opt-yes]"
+  "$(sound_for_state 2)" "dialog-warning" \
+  "[sound: critical → dialog-warning]"
 assert_eq \
-  "$(echo "$out" | jq -r '.class | index("opt-pill-child") != null')" "true" \
-  "[profile Off: opt-pill-child surface]"
-
-# Non-off → opt-yes accent
-for p in dnd sleep work gaming media; do
-    out=$(render_profile_for_state "$p" "$p")
-    assert_eq \
-      "$(echo "$out" | jq -r '.class | index("opt-yes") != null')" "true" \
-      "[profile $p: opt-yes present]"
-done
-
-# Tooltip
-out=$(render_profile_for_state "work" "Work")
-assert_eq \
-  "$(echo "$out" | jq -r '.tooltip')" "Focus profile" \
-  "[profile work: tooltip is Focus profile]"
-
-# JSON-escape display_name with quote
-out=$(render_profile_for_state "dnd" 'Do "Not" Disturb')
-assert_eq \
-  "$(echo "$out" | jq -r '.text')" 'Do "Not" Disturb' \
-  "[profile: JSON-escapes quote in display name]"
-
-# ─── sound_for_state — P3 ──────────────────────────────────────────────────
-# Args: urgency silence_mode crit_sound app allowed_csv
-# Returns the canberra event id, or empty for silent.
-
-# Off / silenceMode=none
-assert_eq \
-  "$(sound_for_state 0 none 1 anyapp '')" "" \
-  "[sound: low → silent]"
-assert_eq \
-  "$(sound_for_state 1 none 1 anyapp '')" "message-new-instant" \
-  "[sound: normal + none → message-new-instant]"
-assert_eq \
-  "$(sound_for_state 2 none 1 anyapp '')" "dialog-warning" \
-  "[sound: critical + none + crit_sound=1 → dialog-warning]"
-assert_eq \
-  "$(sound_for_state 2 none 0 anyapp '')" "" \
-  "[sound: critical + none + crit_sound=0 → silent]"
-
-# silenceMode=transient (DND-style)
-assert_eq \
-  "$(sound_for_state 1 transient 1 anyapp '')" "" \
-  "[sound: normal + transient → silent]"
-assert_eq \
-  "$(sound_for_state 2 transient 1 anyapp '')" "dialog-warning" \
-  "[sound: critical + transient + crit_sound=1 → dialog-warning]"
-
-# silenceMode=all-but-critical-silent (Sleep/Media)
-assert_eq \
-  "$(sound_for_state 1 all-but-critical-silent 0 anyapp '')" "" \
-  "[sound: normal + all-but-critical-silent → silent]"
-assert_eq \
-  "$(sound_for_state 2 all-but-critical-silent 0 anyapp '')" "" \
-  "[sound: critical + all-but-critical-silent → silent]"
-
-# silenceMode=all (Gaming)
-assert_eq \
-  "$(sound_for_state 1 all 1 anyapp '')" "" \
-  "[sound: normal + all → silent]"
-assert_eq \
-  "$(sound_for_state 2 all 1 anyapp '')" "dialog-warning" \
-  "[sound: critical + all + crit_sound=1 → dialog-warning]"
-
-# silenceMode=non-allowed (Work)
-assert_eq \
-  "$(sound_for_state 1 non-allowed 1 Slack 'Slack,Outlook')" "message-new-instant" \
-  "[sound: normal Work + Slack allowed → message-new-instant]"
-assert_eq \
-  "$(sound_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "" \
-  "[sound: normal Work + not-allowed app → silent]"
-assert_eq \
-  "$(sound_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "" \
-  "[sound: critical Work + not-allowed app → silent]"
-assert_eq \
-  "$(sound_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "dialog-warning" \
-  "[sound: critical Work + allowed app + crit_sound=1 → dialog-warning]"
+  "$(sound_for_state 0)" "message-new-instant" \
+  "[sound: low → message-new-instant (DND gate suppresses upstream)]"
 
 # ─── transient_kind_for_state — pure ────────────────────────────────────
-# Args: urgency silence_mode crit_pulse app allowed_csv → echo "normal" | "critical" | ""
+# Args: urgency app → "" | "wide" | "beat"
+# DND suppression is handled in on_arrival before this is called.
 
-# none → unchanged from P2 (low silent, normal normal, critical critical)
-assert_eq "$(transient_kind_for_state 0 none 1 a '')" "" "[tk: low + none → empty]"
-assert_eq "$(transient_kind_for_state 1 none 1 a '')" "normal" "[tk: normal + none → normal]"
-assert_eq "$(transient_kind_for_state 2 none 1 a '')" "critical" "[tk: critical + none + pulse=1 → critical]"
-assert_eq "$(transient_kind_for_state 2 none 0 a '')" "" "[tk: critical + none + pulse=0 → empty]"
-
-# transient → normal silent; critical pierces if pulse=1
-assert_eq "$(transient_kind_for_state 1 transient 1 a '')" "" "[tk: normal + transient → empty]"
-assert_eq "$(transient_kind_for_state 2 transient 1 a '')" "critical" "[tk: critical + transient + pulse=1 → critical]"
-assert_eq "$(transient_kind_for_state 2 transient 0 a '')" "" "[tk: critical + transient + pulse=0 → empty]"
-
-# all-but-critical-silent → beat for non-critical; critical+pulse keeps
-# pulse, critical without pulse falls through to beat too.
-assert_eq "$(transient_kind_for_state 1 all-but-critical-silent 0 a '')" "beat" "[tk: normal + all-but-crit-silent → beat]"
-assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 0 a '')" "beat" "[tk: critical + all-but-crit-silent + pulse=0 → beat]"
-assert_eq "$(transient_kind_for_state 2 all-but-critical-silent 1 a '')" "critical" "[tk: critical + all-but-crit-silent + pulse=1 → critical]"
-
-# all → beat for normal; critical pulses with pulse=1, else beat
-assert_eq "$(transient_kind_for_state 1 all 1 a '')" "beat" "[tk: normal + all → beat]"
-assert_eq "$(transient_kind_for_state 2 all 1 a '')" "critical" "[tk: critical + all + pulse=1 → critical]"
-assert_eq "$(transient_kind_for_state 2 all 0 a '')" "beat" "[tk: critical + all + pulse=0 → beat]"
-
-# non-allowed → allowed apps render as `none` mode would; non-allowed apps
-# get the silent beat ack instead of full silence.
-assert_eq \
-  "$(transient_kind_for_state 1 non-allowed 1 Slack 'Slack,Outlook')" "normal" \
-  "[tk: normal + non-allowed + Slack allowed → normal]"
-assert_eq \
-  "$(transient_kind_for_state 1 non-allowed 1 Facebook 'Slack,Outlook')" "beat" \
-  "[tk: normal + non-allowed + Facebook not allowed → beat]"
-assert_eq \
-  "$(transient_kind_for_state 2 non-allowed 1 Slack 'Slack,Outlook')" "critical" \
-  "[tk: critical + non-allowed + Slack allowed → critical]"
-assert_eq \
-  "$(transient_kind_for_state 2 non-allowed 1 Facebook 'Slack,Outlook')" "beat" \
-  "[tk: critical + non-allowed + Facebook not allowed → beat]"
+assert_eq "$(transient_kind_for_state 2 'Slack')" "beat"  "[tk: critical + app → beat]"
+assert_eq "$(transient_kind_for_state 2 '')"      "beat"  "[tk: critical + no app → beat]"
+assert_eq "$(transient_kind_for_state 1 'Slack')" "wide"  "[tk: normal + app → wide]"
+assert_eq "$(transient_kind_for_state 1 '')"      ""      "[tk: normal + no app → empty]"
+assert_eq "$(transient_kind_for_state 0 'Slack')" "wide"  "[tk: low + app → wide (DND gate suppresses upstream)]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then

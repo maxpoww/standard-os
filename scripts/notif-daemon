@@ -5,14 +5,14 @@
 # the Rust notif-os-daemon (org.standardos.NotifOS) for authoritative
 # state, and writes two atomic cache files that the custom/notif waybar
 # pills render:
-#   /tmp/waybar-cache/notif-bell     — bell parent pill (state + transient face)
-#   /tmp/waybar-cache/notif-profile  — profile child pill (hover-revealed)
+#   /tmp/waybar-cache/notif-bell  — bell parent pill (state + transient face)
+#   /tmp/waybar-cache/notif-dnd   — DND child pill (hover-revealed)
 #
 # Spine spec:
 #   waybar/docs/superpowers/specs/2026-06-06-notification-center-spine-design.md
 # §"Pill state machine" is the authoritative behavior table.
-# render_bell_for_state + render_profile_for_state (below) encode that table —
-# pure functions, no side effects, safe to source from tests via
+# render_bell_for_state (below) encodes that table —
+# pure function, no side effects, safe to source from tests via
 # NOTIF_DAEMON_LIB_ONLY=1.
 #
 # Hazard checklist (from waybar/CLAUDE.md):
@@ -93,129 +93,29 @@ detect_otp() {
 
 # ─── sound_for_state — pick canberra event ID per arrival ──────────────────
 # Pure function. Returns the event id string, or empty for silent.
+# DND suppression is handled in on_arrival before this is called.
 #
 # Args:
-#   $1 urgency      — 0 (low), 1 (normal), 2 (critical)
-#   $2 silence_mode — none | transient | all-but-critical-silent | non-allowed | all
-#   $3 crit_sound   — 0 or 1; profile's criticalSound flag
-#   $4 app          — D-Bus app_name of the arrival
-#   $5 allowed_csv  — comma-separated list of allowedApps (Work profile)
+#   $1 urgency — 0 (low), 1 (normal), 2 (critical)
 sound_for_state() {
-    local urgency="$1" mode="$2" crit_sound="$3" app="$4" allowed_csv="$5"
-
-    # Low urgency is always silent.
-    (( urgency == 0 )) && { printf ''; return; }
-
-    # non-allowed: gate by allowedApps membership.
-    if [[ $mode == "non-allowed" ]]; then
-        local IFS=','
-        local a matched=0
-        for a in $allowed_csv; do
-            [[ "$a" == "$app" ]] && { matched=1; break; }
-        done
-        if (( !matched )); then
-            printf ''; return
-        fi
-        # App is allowed → behave like silenceMode=none below.
-        mode="none"
+    local urg="$1"
+    if (( urg == 2 )); then
+        printf 'dialog-warning'
+    else
+        printf 'message-new-instant'
     fi
-
-    case "$mode" in
-        none)
-            if (( urgency == 2 )); then
-                (( crit_sound )) && printf 'dialog-warning' || printf ''
-            else
-                printf 'message-new-instant'
-            fi
-            ;;
-        transient)
-            if (( urgency == 2 )) && (( crit_sound )); then
-                printf 'dialog-warning'
-            else
-                printf ''
-            fi
-            ;;
-        all-but-critical-silent)
-            printf ''
-            ;;
-        all)
-            if (( urgency == 2 )) && (( crit_sound )); then
-                printf 'dialog-warning'
-            else
-                printf ''
-            fi
-            ;;
-        *)
-            printf ''
-            ;;
-    esac
 }
 
 # ─── transient_kind_for_state — pure ───────────────────────────────────────
-# Decide whether on_arrival should set TRANSIENT_KIND to "normal", "critical",
-# or empty (no transient at all).
-#
-# Args:
-#   $1 urgency      — 0|1|2
-#   $2 silence_mode — none|transient|all-but-critical-silent|non-allowed|all
-#   $3 crit_pulse   — 0|1; profile's criticalPulse flag
-#   $4 app          — arrival's D-Bus app_name
-#   $5 allowed_csv  — comma-separated allowedApps (Work)
+# transient_kind_for_state URGENCY APP → "" | "wide" | "beat"
+# (Pure function. DND suppression is handled in on_arrival before this is called.)
 transient_kind_for_state() {
-    local urgency="$1" mode="$2" crit_pulse="$3" app="$4" allowed_csv="$5"
-
-    (( urgency == 0 )) && { printf ''; return; }
-
-    if [[ $mode == "non-allowed" ]]; then
-        local IFS=','
-        local a; local matched=0
-        for a in $allowed_csv; do
-            [[ "$a" == "$app" ]] && { matched=1; break; }
-        done
-        if (( !matched )); then
-            # Work: app is not in the allowed list — beat the bell as a
-            # silent ack rather than silencing entirely.
-            printf 'beat'; return
-        fi
-        mode="none"
+    local urg="$1" app="$2"
+    if (( urg == 2 )); then
+        printf 'beat'
+    elif [[ -n "$app" ]]; then
+        printf 'wide'
     fi
-
-    case "$mode" in
-        none)
-            if (( urgency == 2 )); then
-                (( crit_pulse )) && printf 'critical' || printf ''
-            else
-                printf 'normal'
-            fi
-            ;;
-        transient)
-            if (( urgency == 2 )) && (( crit_pulse )); then
-                printf 'critical'
-            else
-                printf ''
-            fi
-            ;;
-        all-but-critical-silent)
-            if (( urgency == 2 )); then
-                (( crit_pulse )) && { printf 'critical'; return; }
-            fi
-            # Non-critical arrival in Sleep/Media: a subtle bell beat that
-            # acknowledges "something arrived" without surfacing content.
-            printf 'beat'
-            ;;
-        all)
-            if (( urgency == 2 )) && (( crit_pulse )); then
-                printf 'critical'
-            else
-                # Gaming: beat-only ack for any urgency. Critical without
-                # crit_pulse still gets the beat (user knows to check later).
-                printf 'beat'
-            fi
-            ;;
-        *)
-            printf ''
-            ;;
-    esac
 }
 
 # ─── render_bell_for_state ──────────────────────────────────────────────────
@@ -326,27 +226,6 @@ render_bell_for_state() {
         "$bell" "$classes_json"
 }
 
-# ─── render_profile_for_state (P3) ─────────────────────────────────────────
-# The profile child pill that replaces the legacy DND child.
-#
-# Args:
-#   $1 profile_name — internal name (off|dnd|sleep|work|gaming|media|...)
-#   $2 display_name — text shown on the pill
-render_profile_for_state() {
-    local profile="$1" display="$2"
-    local display_esc
-    display_esc=$(json_escape "$display")
-    local classes theme
-    theme=$(glass_theme)
-    if [[ $profile == "off" ]]; then
-        classes=$(printf '["opt-pill-child","%s"]' "$theme")
-    else
-        classes=$(printf '["opt-pill-child","%s","opt-yes"]' "$theme")
-    fi
-    printf '{"text":"%s","class":%s,"tooltip":"Focus profile"}' \
-        "$display_esc" "$classes"
-}
-
 # ─── render_action_for_state (P2) ──────────────────────────────────────────
 # One action child pill. Pure function.
 #
@@ -414,10 +293,6 @@ fi
 
 # ─── Configuration ─────────────────────────────────────────────────────────
 CACHE_BELL="${NOTIF_CACHE_BELL:-/tmp/waybar-cache/notif-bell}"
-PROFILES_JSON="${NOTIF_PROFILES_JSON:-$HOME/.local/share/standard-os/notif-profiles.json}"
-ACTIVE_PROFILE_FILE="${NOTIF_ACTIVE_PROFILE_FILE:-$HOME/.local/share/standard-os/notif-active-profile}"
-DEFAULT_PROFILE="${NOTIF_DEFAULT_PROFILE:-off}"
-CACHE_PROFILE="${NOTIF_CACHE_PROFILE:-/tmp/waybar-cache/notif-profile}"
 DND_STATE_FILE="${NOTIF_DND_FILE:-$HOME/.local/share/standard-os/notif-dnd}"
 CACHE_DND="${NOTIF_CACHE_DND:-/tmp/waybar-cache/notif-dnd}"
 SIGNAL="${NOTIF_SIGNAL:-12}"
@@ -445,58 +320,7 @@ fi
 # shellcheck source=lib/notif-journal.sh
 source "$LIB_DIR/notif-journal.sh"
 
-# Source the schedule lib (no per-tick reload; tasks call it directly).
-# shellcheck source=lib/notif-schedule.sh
-source "$LIB_DIR/notif-schedule.sh"
-
-mkdir -p "$(dirname "$CACHE_BELL")" "$(dirname "$CACHE_PROFILE")" "$(dirname "$JOURNAL_PATH")"
-
-# Load profile properties from PROFILES_JSON into ACTIVE_* vars.
-load_profile_into_active() {
-    local name="$1"
-    ACTIVE_PROFILE="$name"
-    ACTIVE_SILENCE_MODE=$(jq -r --arg p "$name" '.[$p].silenceMode // "none"' "$PROFILES_JSON" 2>/dev/null)
-    [[ -z $ACTIVE_SILENCE_MODE || $ACTIVE_SILENCE_MODE == "null" ]] && ACTIVE_SILENCE_MODE="none"
-    ACTIVE_CRIT_PULSE=$(jq -r --arg p "$name" '.[$p].criticalPulse // true | if . then 1 else 0 end' "$PROFILES_JSON" 2>/dev/null)
-    [[ -z $ACTIVE_CRIT_PULSE ]] && ACTIVE_CRIT_PULSE=1
-    ACTIVE_CRIT_SOUND=$(jq -r --arg p "$name" '.[$p].criticalSound // true | if . then 1 else 0 end' "$PROFILES_JSON" 2>/dev/null)
-    [[ -z $ACTIVE_CRIT_SOUND ]] && ACTIVE_CRIT_SOUND=1
-    ACTIVE_ALLOWED_CSV=$(jq -r --arg p "$name" '.[$p].allowedApps // [] | join(",")' "$PROFILES_JSON" 2>/dev/null)
-    [[ -z $ACTIVE_ALLOWED_CSV || $ACTIVE_ALLOWED_CSV == "null" ]] && ACTIVE_ALLOWED_CSV=""
-}
-
-# Resolve the active profile from override file + schedules, populate ACTIVE_*.
-resolve_and_load_profile() {
-    [[ ! -f $PROFILES_JSON ]] && { load_profile_into_active "$DEFAULT_PROFILE"; ACTIVE_VALID_UNTIL=""; return; }
-    local out prof until_iso
-    NOTIF_DEFAULT_PROFILE="$DEFAULT_PROFILE" \
-        out=$(resolve_active_profile "$ACTIVE_PROFILE_FILE" "$PROFILES_JSON" "$(date +%s)")
-    IFS=$'\t' read -r prof until_iso <<< "$out"
-    [[ -z $prof ]] && prof="$DEFAULT_PROFILE"
-    load_profile_into_active "$prof"
-    ACTIVE_VALID_UNTIL="$until_iso"
-    LAST_PROFILE_RESOLVED_AT=$(date +%s)
-}
-
-# Convert internal profile name to display text.
-profile_display_name() {
-    local name="$1"
-    local custom
-    custom=$(jq -r --arg p "$name" '.[$p].display // empty' "$PROFILES_JSON" 2>/dev/null)
-    if [[ -n $custom ]]; then
-        printf '%s' "$custom"
-        return
-    fi
-    case "$name" in
-        off) printf 'Off' ;;
-        dnd) printf 'DND' ;;
-        sleep) printf 'Sleep' ;;
-        work) printf 'Work' ;;
-        gaming) printf 'Gaming' ;;
-        media) printf 'Media' ;;
-        *) printf '%s' "$name" ;;
-    esac
-}
+mkdir -p "$(dirname "$CACHE_BELL")" "$(dirname "$CACHE_DND")" "$(dirname "$JOURNAL_PATH")"
 
 # ─── State variables ───────────────────────────────────────────────────────
 UNREAD_COUNT=0
@@ -504,15 +328,6 @@ CRITICAL_COUNT=0
 UNREAD_IDS=""
 LAST_KNOWN_TOP_ID=0
 LAST_UNREAD_IDS=""
-# P3 profile state
-ACTIVE_PROFILE="off"
-ACTIVE_SILENCE_MODE="none"
-ACTIVE_CRIT_PULSE=1
-ACTIVE_CRIT_SOUND=1
-ACTIVE_ALLOWED_CSV=""
-ACTIVE_VALID_UNTIL=""
-LAST_PROFILE_RESOLVED_AT=0
-LAST_PROFILE_RENDERED=""
 LAST_SOUND_AT=0
 TRANSIENT_KIND=""
 TRANSIENT_ID=0
@@ -596,20 +411,13 @@ transient_id_still_unread() {
 on_arrival() {
     local urg="$NEWEST_URG"
 
-    # Schedule may need re-resolution if we crossed a boundary.
-    local now_epoch
-    now_epoch=$(date +%s)
-    if (( now_epoch - LAST_PROFILE_RESOLVED_AT >= 60 )); then
-        resolve_and_load_profile
-    fi
-
     local dnd_on=0
     [[ -e "$DND_STATE_FILE" ]] && dnd_on=1
 
     if (( ! dnd_on )); then
         # Decide transient kind via the pure helper.
         local kind
-        kind=$(transient_kind_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_PULSE" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+        kind=$(transient_kind_for_state "$urg" "$NEWEST_APP")
         TRANSIENT_KIND="$kind"
 
         # OTP + actions only matter when there's a transient.
@@ -646,7 +454,7 @@ on_arrival() {
     if (( ! dnd_on )); then
         # Sound playback, rate-limited at 500ms.
         local sound_id
-        sound_id=$(sound_for_state "$urg" "$ACTIVE_SILENCE_MODE" "$ACTIVE_CRIT_SOUND" "$NEWEST_APP" "$ACTIVE_ALLOWED_CSV")
+        sound_id=$(sound_for_state "$urg")
         if [[ -n $sound_id ]]; then
             local now_ms
             now_ms=$(date +%s%3N)
@@ -741,19 +549,17 @@ emit_action_caches() {
 
 emit() {
     query_mako_state
-    local bell_json profile_json
+    local bell_json
     bell_json=$(render_bell_for_state \
-        "$UNREAD_COUNT" "$CRITICAL_COUNT" "$ACTIVE_SILENCE_MODE" \
+        "$UNREAD_COUNT" "$CRITICAL_COUNT" "none" \
         "$TRANSIENT_KIND" "$TRANSIENT_APP" "$TRANSIENT_TITLE" "$TRANSIENT_BODY" \
         "$TRANSIENT_OTP_CODE" "$TRANSIENT_OTP_COPIED")
-    profile_json=$(render_profile_for_state "$ACTIVE_PROFILE" "$(profile_display_name "$ACTIVE_PROFILE")")
 
     local dnd_json
     dnd_json=$(render_dnd_for_state)
     local changed=0
     write_if_changed "$CACHE_BELL" "$bell_json" LAST_BELL_RENDERED && changed=1
     write_if_changed "$CACHE_DND" "$dnd_json" LAST_DND_RENDERED && changed=1
-    write_if_changed "$CACHE_PROFILE" "$profile_json" LAST_PROFILE_RENDERED && changed=1
     emit_action_caches
     (( $? == 1 )) && changed=1
     if (( changed )); then
@@ -797,11 +603,11 @@ drain_dbus_burst() {
     while read -t 0.05 -u "$DBUS_FD" -r _line; do :; done
 }
 
-# ─── SIGUSR1: external profile-change notification ────────────────────────
-# notif-rofi-profiles writes the override file then signals us via
-# systemctl --user kill --kill-who=main -s SIGUSR1 so we re-resolve
-# the active profile and re-render. Without this, profile state in the
-# bar would lag until the next Notify event triggered on_dbus_event.
+# ─── SIGUSR1: DND toggle notification ────────────────────────────────────
+# notif-click writes the DND state file then signals us via
+# systemctl --user kill --kill-who=main -s SIGUSR1 so we re-render
+# the DND child pill. Without this, DND state in the bar would lag
+# until the next Notify event triggered on_dbus_event.
 on_user_signal() {
     USR1_PENDING=1
 }
@@ -815,7 +621,7 @@ USR1_PENDING=0
 # ─── Cleanup ───────────────────────────────────────────────────────────────
 cleanup() {
     printf '%s' '{"text":""}' > "${CACHE_BELL}.tmp.$$" 2>/dev/null && mv -f "${CACHE_BELL}.tmp.$$" "$CACHE_BELL" 2>/dev/null
-    printf '%s' '{"text":""}' > "${CACHE_PROFILE}.tmp.$$" 2>/dev/null && mv -f "${CACHE_PROFILE}.tmp.$$" "$CACHE_PROFILE" 2>/dev/null
+    printf '%s' '{"text":""}' > "${CACHE_DND}.tmp.$$" 2>/dev/null && mv -f "${CACHE_DND}.tmp.$$" "$CACHE_DND" 2>/dev/null
     pkill -RTMIN+"$SIGNAL" waybar 2>/dev/null || true
     exec {DBUS_FD}<&- 2>/dev/null || true
 }
@@ -825,7 +631,6 @@ trap cleanup EXIT INT TERM
 exec {DBUS_FD}< <(dbus-monitor --session \
     "interface='org.freedesktop.Notifications'" 2>/dev/null)
 
-resolve_and_load_profile
 query_mako_state
 LAST_KNOWN_TOP_ID="$NEWEST_ID"
 LAST_UNREAD_IDS="$UNREAD_IDS"
@@ -897,9 +702,7 @@ while true; do
         # Genuine EOF on the dbus-monitor pipe — exit so systemd respawns us.
         break
     elif [[ -z $TRANSIENT_KIND ]]; then
-        # Idle 1-second tick: re-resolve profile as a fallback for SIGUSR1
-        # misses and schedule boundary crossings.
-        resolve_and_load_profile
+        # Idle 1-second tick: re-emit in case DND state changed.
         emit
     elif [[ -n $TRANSIENT_KIND ]]; then
         check_transient_timer && emit
