@@ -107,14 +107,19 @@ sound_for_state() {
 }
 
 # ─── transient_kind_for_state — pure ───────────────────────────────────────
-# transient_kind_for_state URGENCY APP → "" | "wide" | "beat"
-# (Pure function. DND suppression is handled in on_arrival before this is called.)
+# transient_kind_for_state URGENCY APP → "" | "normal" | "critical"
+# (Pure function. DND suppression is handled in on_arrival before this is
+# called.) The returned kind is consumed by render_bell_for_state's
+# `case "$kind"`: "critical" adds opt-no + opt-pulse-orange to the
+# wide-pill; "normal" falls through with no extra classes. "beat" exists
+# in render_bell_for_state for a silenced-ack path that nothing currently
+# emits (kept dormant in case a future quiet-mode wants it).
 transient_kind_for_state() {
     local urg="$1" app="$2"
     if (( urg == 2 )); then
-        printf 'beat'
+        printf 'critical'
     elif [[ -n "$app" ]]; then
-        printf 'wide'
+        printf 'normal'
     fi
 }
 

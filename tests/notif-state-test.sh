@@ -389,14 +389,17 @@ assert_eq \
   "[sound: low → message-new-instant (DND gate suppresses upstream)]"
 
 # ─── transient_kind_for_state — pure ────────────────────────────────────
-# Args: urgency app → "" | "wide" | "beat"
+# Args: urgency app → "" | "normal" | "critical"
 # DND suppression is handled in on_arrival before this is called.
+# "critical" is the wide-pill pulse-orange face; "normal" is the plain
+# wide-pill. render_bell_for_state still has a "beat" path for a
+# silenced-ack face that nothing currently emits.
 
-assert_eq "$(transient_kind_for_state 2 'Slack')" "beat"  "[tk: critical + app → beat]"
-assert_eq "$(transient_kind_for_state 2 '')"      "beat"  "[tk: critical + no app → beat]"
-assert_eq "$(transient_kind_for_state 1 'Slack')" "wide"  "[tk: normal + app → wide]"
-assert_eq "$(transient_kind_for_state 1 '')"      ""      "[tk: normal + no app → empty]"
-assert_eq "$(transient_kind_for_state 0 'Slack')" "wide"  "[tk: low + app → wide (DND gate suppresses upstream)]"
+assert_eq "$(transient_kind_for_state 2 'Slack')" "critical" "[tk: critical + app → critical]"
+assert_eq "$(transient_kind_for_state 2 '')"      "critical" "[tk: critical + no app → critical]"
+assert_eq "$(transient_kind_for_state 1 'Slack')" "normal"   "[tk: normal + app → normal]"
+assert_eq "$(transient_kind_for_state 1 '')"      ""         "[tk: normal + no app → empty]"
+assert_eq "$(transient_kind_for_state 0 'Slack')" "normal"   "[tk: low + app → normal (DND gate suppresses upstream)]"
 
 # ─── Result ────────────────────────────────────────────────────────────────
 if [[ $fail -eq 0 ]]; then
