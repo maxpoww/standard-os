@@ -78,6 +78,21 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-15** — **bell click switched from notif-rofi → notif-menu.**
+  The whole point of the Rust daemon was capturing `source_window` so the
+  View action could focus where a notif came from. notif-menu has had View
+  + the L1/L2 two-level UX since the 2026-06-14 do_view compose fix, but
+  the bell still launched the older notif-rofi. Swapped the `open-rofi`
+  decision in notif-click to `exec notif-menu`. Click flow:
+   1. Bell click → L1 (Actions block / Unread / History).
+   2. Click a Unread row → L2: View / [app actions] / Dismiss / Back.
+   3. Click View → hyprctl focuses the captured source_window.
+   4. History rows get: View / Copy summary / Copy body / Remove / Back.
+  All clicks are single-click (rofi `-dmenu` default). notif-rofi binary
+  stays in `home.packages` for one more session — will be dropped in the
+  mako-demolition pass along with the other dead surface (mako package,
+  mako/config xdg.configFile, ARCHITECTURE.md "notif-rofi" docs).
+
 - **2026-06-15** — **notif-rofi: fix latent `fromjson?` bug (clicks were no-op).**
   Three jq pipelines in notif-rofi used `fromjson? // empty | select(.id == $id)`
   against bare jq stdin. Bare jq already parses each input line as JSON,

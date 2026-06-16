@@ -182,7 +182,11 @@ case "$decision" in
         fi
         ;;
     open-rofi)
-        exec notif-rofi
+        # Bell click target is notif-menu — the modern L1+L2 selector with
+        # View / Copy / Snooze / Dismiss actions and source-window focus.
+        # (The decision string is still "open-rofi" because it's already in
+        # the test fixtures; the live target moved 2026-06-15.)
+        exec notif-menu
         ;;
     open-profile-rofi)
         # P3: launch the focus-profile picker. The picker writes the override

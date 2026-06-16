@@ -6,7 +6,7 @@
 #   L2 → per-notif actions (app actions + Copy/Snooze/Dismiss for live;
 #                           Copy + Remove for history)
 #
-# Manual launch only this iteration; the bar's notif-bell still uses notif-rofi.
+# Wired to the bar's notif-bell as of 2026-06-15 (replaces notif-rofi).
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
