@@ -595,47 +595,14 @@ window#waybar #custom-notif-dismiss.empty {
     font-size: 0;
 }
 
-/* ── Bell/DND anchor swap when DND is on ────────────────────────────────────
-   When DND is on, notif-daemon flips bell → opt-pill-child and DND → opt-pill.
-   Bell is modules[0] — the structural anchor that GTK always allocates space
-   for and that triggers the drawer on hover.  With DND on we want DND to be
-   the de-facto visible anchor and bell to disappear.
-
-   Bell collapse (opt-pill-child): zero out all visual presence.  GTK still
-   gives bell full allocation (it's the group anchor), so the invisible area
-   remains hoverable — hover the ghost → drawer opens → DND appears.  Because
-   the glyph would otherwise hold its natural width at opacity 0 (same issue as
-   #custom-notif-dismiss.empty), we set font-size: 0 in addition to the
-   geometry zeroes.
-
-   DND force-visible (opt-pill on a drawer child): in GTK 3 the drawer wraps
-   children in a GtkRevealer that allocates 0 size when closed, so CSS
-   min-width alone cannot override the allocation.  The rule below is correct
-   GTK CSS and will take effect if waybar ever switches to a purely CSS-driven
-   collapse (children-class only, no revealer), or if a future waybar version
-   exposes a CSS hook.  For now the net visible behaviour is: DND on → bell
-   ghost → hover ghost → drawer slides DND into view as the first child. */
-
-window#waybar #custom-notif-bell.opt-pill-child {
-    min-width: 0;
-    padding: 0;
-    margin: 0;
-    opacity: 0;
-    font-size: 0;
-}
-
-window#waybar #custom-notif-dnd.opt-pill-child {
-    background: @opt-surface-child;
-    color: @opt-text-on-dark;
-}
-
-/* DND carries opt-pill (parent class) when DND is on.  Try to keep it visible
-   even when the GtkRevealer is closed (see note above — CSS alone may not be
-   sufficient against the revealer allocation).  Only assert opacity so we don't
-   clobber the pill geometry that the generic .opt-pill rule supplies. */
-window#waybar #custom-notif-dnd.opt-pill {
-    opacity: 1;
-}
+/* ── DND state: glyph swap, no structural pill swap ──────────────────────────
+   notif-daemon swaps the glyph on the bell pill and the DND child pill based
+   on the DND state file: DND off → bell pill shows bell, DND child shows
+   bell-slash. DND on → bell pill shows bell-slash (silenced indicator), DND
+   child shows bell (click to read). Surfaces stay fixed: bell is always
+   opt-pill, DND is always opt-pill-child. Clicks follow the icon (cross-routed
+   in notif-click by DND state) so the user always clicks the affordance they
+   see. opt-breathe rides DND child whenever DND is on. */
 
 /* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
 /* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
