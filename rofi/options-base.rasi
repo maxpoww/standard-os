@@ -63,7 +63,11 @@ window {
        window's bar-veil border-radius. */
     padding:          0 4px 4px 4px;
     background-color: @opt-bar-veil;
-    border-radius:    30px;
+    /* border-radius: top-left top-right bottom-right bottom-left. Top
+       corners squared so the popup's top edge meets the bar's bottom
+       edge with no rounded notch; bottom corners stay 30px to match
+       waybar's pill rounding. */
+    border-radius:    0 0 30px 30px;
 }
 
 mainbox {
