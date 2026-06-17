@@ -23,7 +23,11 @@
 
 configuration {
     font: "MesloLGS NF 13";
-    show-icons: true;
+    /* show-icons: false — notif-menu and the other current rofi callers
+       emit text-only rows. With show-icons: true rofi reserves a 1.6em
+       slot for an icon container per row even when no icon path is
+       provided, leaving a blank gap to the left of every text cell. */
+    show-icons: false;
     me-select-entry: "MouseSecondary";
     me-accept-entry: "MousePrimary";
     hover-select: true;
