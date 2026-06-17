@@ -57,7 +57,11 @@ configuration {
    scripts/lib/rofi-anchor.sh (the anchor math assumes window width). */
 window {
     width:            320px;
-    padding:          4px;
+    /* padding: top right bottom left — top is 0 so the first row sits
+       flush at the popup's top edge, butting up against the bar.
+       Sides + bottom keep 4px breathing room so pills don't touch the
+       window's bar-veil border-radius. */
+    padding:          0 4px 4px 4px;
     background-color: @opt-bar-veil;
     border-radius:    30px;
 }
@@ -156,7 +160,9 @@ element normal.urgent {
     background-color: transparent;
     text-color:       @opt-text-dim;
     font:             "MesloLGS NF, Font Awesome 7 Free, Symbols Nerd Font Mono 11px";
-    padding:          4px 12px 0;
+    /* padding: top right bottom left — top is 0 so the first header
+       (e.g. "Actions") sits at the popup's top edge, against the bar. */
+    padding:          0 12px 0 12px;
     margin:           0;
     cursor:           default;
 }
