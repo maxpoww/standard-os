@@ -83,10 +83,8 @@ populate_l1() {
     local idx=0
 
     # ── Actions block ────────────────────────────────────────────────────
-    put_row $idx "header"
-    fmt_l1_header "Actions"; printf '\n'
-    idx=$((idx+1))
-
+    # No "— Actions —" header — the action row(s) here speak for
+    # themselves (leading ▸ chevron + bold weight on the rendered pill).
     put_row $idx "dismiss_all"
     fmt_l1_action "Dismiss all unread"; printf '\n'
     idx=$((idx+1))
