@@ -22,7 +22,13 @@
  */
 
 configuration {
-    font: "MesloLGS NF 13";
+    /* Font: copy-verbatim from waybar/style.css:188-191. Same family
+       fallback chain (MesloLGS NF primary for full Nerd Font glyph set,
+       then Font Awesome 7 Free, Symbols Nerd Font Mono, then monospace).
+       Size is 13px EXPLICITLY — without the px suffix Pango treats the
+       number as POINTS and renders 13pt ≈ 17px, ~30% larger than the
+       bar's 13px text. Pango ≥ 1.44 honors the px suffix. */
+    font: "MesloLGS NF, Font Awesome 7 Free, Symbols Nerd Font Mono 13px";
     /* show-icons: false — notif-menu and the other current rofi callers
        emit text-only rows. With show-icons: true rofi reserves a 1.6em
        slot for an icon container per row even when no icon path is
@@ -63,7 +69,9 @@ mainbox {
 }
 
 listview {
-    spacing:      2px;
+    /* spacing 0 — between-pill breathing space is carried by each
+       element's own `margin: 1px 0px`, mirroring waybar exactly. */
+    spacing:      0;
     scrollbar:    false;
     fixed-height: 0;
     lines:        12;
@@ -71,12 +79,17 @@ listview {
 
 /* Row, default — parent-surface pill at rest (mirrors .opt-pill).
    Hover film replaces the surface to brighten on selection.
-   Padding + border-radius are copy-verbatim from
-   waybar/style.css `.opt-pill` (lines 200-207). */
+   Properties copy-verbatim from waybar/style.css:200-207:
+     border-radius: 30px;
+     color:         @opt-text-on-dark;  (rasi: text-color, theme-flipped)
+     padding:       3px 8px 3px 7px;
+     margin:        1px 0px; */
 element {
     padding:          3px 8px 3px 7px;
+    margin:           1px 0px;
     border-radius:    30px;
     background-color: @opt-surface-parent;
+    text-color:       @opt-text;
     cursor:           pointer;
 }
 
@@ -114,12 +127,15 @@ element normal.active {
 /* Section headers — emitted with the existing dim-non-selectable
    format. rofi treats them as `urgent` rows; we make them small + dim
    and non-clickable visually. The smaller font lets the headers recede
-   behind the pill labels. */
+   behind the pill labels. Size in px to match the body's px sizing
+   (without px Pango would render this as 11pt ≈ 14.7px, BIGGER than
+   the body's 13px — exactly the inverse of the intended hierarchy). */
 element normal.urgent {
     background-color: transparent;
     text-color:       @opt-text-dim;
-    font:             "MesloLGS NF 11";
+    font:             "MesloLGS NF, Font Awesome 7 Free, Symbols Nerd Font Mono 11px";
     padding:          4px 12px 0;
+    margin:           0;
     cursor:           default;
 }
 element normal.urgent element-text {
