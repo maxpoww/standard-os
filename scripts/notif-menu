@@ -396,19 +396,29 @@ do_relaunch() {
 # Rule 4 (popup open IS user-initiated input, so animating it is
 # permitted; the stagger never runs after population completes).
 #
-# Tuning: ROFI_ROW_STAGGER_MS = 25 → ~25 ms gap per row, ~350 ms total
-# for a 14-row L1. First row is interactive immediately; user need not
-# wait for population to finish before picking or filtering. Lower
-# values feel instant (no animation); higher feel sluggish.
+# IMPORTANT: only the first ROFI_ROW_STAGGER_LINES rows are staggered.
+# History sections can have 100+ entries; staggering all of them would
+# take seconds before the popup looked "done." The listview only shows
+# 12 rows at once anyway — below-fold rows ship at full pipe speed and
+# are ready by the time the user scrolls. The stagger is for what the
+# user SEES on open, not for invisible content.
+#
+# Tuning:
+#   ROFI_ROW_STAGGER_MS    = 25  → 25 ms gap per row
+#   ROFI_ROW_STAGGER_LINES = 12  → matches rasi `listview { lines: 12 }`
+# Total visible animation: (LINES - 1) × MS ≈ 275 ms. First row is
+# interactive immediately; user need not wait to filter or pick.
 ROFI_ROW_STAGGER_MS=25
+ROFI_ROW_STAGGER_LINES=12
 
 stream_rows() {
-    local f="$1" line gap_s
+    local f="$1" line gap_s count=0
     [ -r "$f" ] || return 0
     gap_s=$(printf '0.%03d' "$ROFI_ROW_STAGGER_MS")
     while IFS= read -r line; do
         printf '%s\n' "$line"
-        sleep "$gap_s"
+        count=$(( count + 1 ))
+        [ "$count" -lt "$ROFI_ROW_STAGGER_LINES" ] && sleep "$gap_s"
     done < "$f"
 }
 
@@ -425,8 +435,14 @@ run_rofi() {
     local prompt="$1"
     local theme; theme=$(rofi_theme_for_mode)
     local anchor; anchor=$(rofi_anchor_at_cursor)
+    # -async-pre-read 1: render as soon as the first stdin row arrives.
+    # Default is 25 — rofi would buffer 25 rows before showing anything,
+    # which combined with our 25ms-per-row stagger delays first render by
+    # ~625ms. With 1, the popup paints the first row immediately and
+    # subsequent rows join the listview live.
     rofi -theme "$theme" $anchor -dmenu -i -p "$prompt" -no-custom -format i \
         -markup-rows \
+        -async-pre-read 1 \
         -me-select-entry MouseSecondary \
         -me-accept-entry MousePrimary \
         2>/dev/null
