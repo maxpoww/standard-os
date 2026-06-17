@@ -12,6 +12,11 @@
     opt-hover-bright:   rgba(255, 255, 255, 0.30);
     opt-text:           rgba(  0,   0,   0, 0.85);
     opt-text-dim:       rgba(  0,   0,   0, 0.55);
+    /* Precomputed alpha composites of @opt-hover-bright over each
+       surface — see options-base.rasi `element selected.*` for the math.
+       Surfaces are theme-neutral so the composites match dark mode. */
+    opt-hover-on-parent: rgba(203, 203, 203, 0.51);
+    opt-hover-on-child:  rgba(220, 220, 220, 0.51);
 }
 
 @import "options-base.rasi"

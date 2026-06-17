@@ -12,6 +12,12 @@
     opt-hover-bright:   rgba(255, 255, 255, 0.30);
     opt-text:           rgba(255, 255, 255, 1.00);
     opt-text-dim:       rgba(255, 255, 255, 0.55);
+    /* Precomputed alpha composites of @opt-hover-bright over each
+       surface — see options-base.rasi `element selected.*` for the math.
+       These mimic waybar's box-shadow-inset hover film since rofi/cairo
+       cannot layer transparencies natively. Identical visual output. */
+    opt-hover-on-parent: rgba(203, 203, 203, 0.51);
+    opt-hover-on-child:  rgba(220, 220, 220, 0.51);
 }
 
 @import "options-base.rasi"

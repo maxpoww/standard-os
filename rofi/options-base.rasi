@@ -104,14 +104,36 @@ element-icon {
     size:    1.6em;
 }
 
-/* Universal bright-hover — selected row gets a white 0.30 alpha film
-   over whatever surface is beneath. Matches waybar's .opt-pill:hover
-   which applies inset 0 0 0 999px @opt-hover-bright via box-shadow. */
-element selected.normal,
-element selected.active,
-element selected.urgent {
-    background-color: @opt-hover-bright;
+/* Universal bright-hover — mirrors waybar/style.css:220-221:
+     window#waybar .opt-pill:hover,
+     window#waybar .opt-pill-child:hover { box-shadow: inset 0 0 0 999px @opt-hover-bright; }
+   waybar layers a white 0.30 film OVER the existing background-color via
+   inset box-shadow. rofi/cairo accepts neither inset box-shadow nor
+   variable references inside linear-gradient on rofi 2.0.0, so we
+   express the SAME visual outcome using precomputed alpha composites.
+   Math (source-over): result_alpha = α_s + α_d(1-α_s), result_color =
+   (C_s·α_s + C_d·α_d(1-α_s)) / result_alpha. With α_s = α_d = 0.30:
+     parent gray 128 + white film → rgba(203, 203, 203, 0.51)
+     child  gray 170 + white film → rgba(220, 220, 220, 0.51)
+   These render identically over the wallpaper to layering the two
+   tokens, confirmed by the alpha-composite identity:
+     wallpaper·(1 - α_combined) + composite·α_combined
+       == (wallpaper·0.70 + 128·0.30)·0.70 + 255·0.30
+   Both reduce to wallpaper·0.49 + 103.4 (± rounding). Identity preserved:
+   action pills (220) stay brighter than normal pills (203) on hover. */
+element selected.normal {
+    background-color: @opt-hover-on-parent;
     text-color:       @opt-text;
+}
+element selected.active {
+    background-color: @opt-hover-on-child;
+    text-color:       @opt-text;
+}
+element selected.urgent {
+    /* Headers stay dim even when keyboard-navigated over — no hover film.
+       The notif-menu L1 dispatcher no-ops on header indices anyway. */
+    background-color: transparent;
+    text-color:       @opt-text-dim;
 }
 
 /* Action rows — emitted by format_rofi_action with a leading \x02
