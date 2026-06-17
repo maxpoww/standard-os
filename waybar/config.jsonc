@@ -267,7 +267,7 @@
   "custom/new": {
     "exec": "pill '' opt-plus",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "rofi -show drun"
+    "on-click": "apps-launcher"
   },
   "custom/hidden": {
     "exec": "pill-child '󰍁' opt-yes",
@@ -314,7 +314,7 @@
   "custom/blue": {
     "exec": "pill-child '' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "rofi -show drun"
+    "on-click": "apps-launcher"
   },
   "custom/kill": {
     "exec": "pill-child '󰂲' opt-no",
@@ -323,7 +323,7 @@
   "custom/scan": {
     "exec": "pill-child '󰛔' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "rofi -show drun"
+    "on-click": "apps-launcher"
   },
   "custom/more": {
     "exec": "pill-child ''",
@@ -345,7 +345,7 @@
   "custom/wifi": {
     "exec": "pill-child '󰖩' opt-hover-blue",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "rofi -show drun"
+    "on-click": "apps-launcher"
   },
   "custom/kill2": {
     "exec": "pill-child '󰖪' opt-no",
@@ -354,7 +354,7 @@
   "custom/scan2": {
     "exec": "pill-child '󱛄' opt-yes",
     "return-type": "json", "format": "{}", "interval": "once", "signal": 10, "tooltip": false,
-    "on-click": "rofi -show drun"
+    "on-click": "apps-launcher"
   },
   "custom/more2": {
     "exec": "pill-child ''",

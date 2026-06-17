@@ -12,7 +12,12 @@ mapfile -t windows < <(
     '
 )
 
-[[ ${#windows[@]} -eq 0 ]] && { rofi -e "No minimized windows"; exit 0; }
+if [[ ${#windows[@]} -eq 0 ]]; then
+    theme=$(rofi_theme_for_mode)
+    anchor=$(rofi_anchor_at_cursor)
+    rofi -theme "$theme" $anchor -e "No minimized windows"
+    exit 0
+fi
 
 declare -A addr_map
 entries=()
