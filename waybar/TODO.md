@@ -78,6 +78,41 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-17** — **notif-menu: anchor under cursor at click time + universal
+  screen-edge clamp.** The notif-menu popup was landing 220px off-screen on
+  the hi-DPI laptop panel because the pill-geom width registry undercounted
+  the SYSTEM zone (icon-only pills had width=8, non-pill_write modules had
+  no entry at all). Replaced the width-estimator anchor source with
+  cursor-at-click on the universal entry point `rofi_anchor_at_cursor` —
+  cursor IS on the trigger pill at the moment the click handler fires
+  (notif-menu is exec'd from notif-click), so centering the popup on
+  cursor.x places it consistently under the parent on any monitor /
+  resolution / scale without any per-pill geometry. Belt-and-suspenders:
+  every anchor path now passes through `_rofi_clamp_x_offset` which clamps
+  to `[mon_x + margin, mon_x + mon_w - W - margin]` against the focused
+  monitor's LOGICAL bounds — the popup can never overflow the screen
+  regardless of how the anchor was computed.
+  **Hint:** new functions in `scripts/lib/rofi-anchor.sh`:
+  `_rofi_clamp_x_offset`, `_rofi_cursor_xy` (with `ROFI_CURSORPOS_FILE` test
+  hook), `_rofi_scale_pct`, `_rofi_monitor_logical_xy`,
+  `_rofi_monitor_containing` (resolves which monitor a logical x sits on —
+  used by anchor_at so multi-monitor clamping picks the monitor where
+  the click happened, not the focused-window monitor), `rofi_anchor_at
+  <logical_x>`, `rofi_anchor_at_cursor`. `rofi_anchor_for` (zone-walker
+  fallback) now also clamps. `rofi_launch` defaults to the cursor anchor.
+  **Hint:** fixed regression from this morning's hi-DPI patch: only
+  `monitor.width` is RAW-px (divide by scale), `monitor.x` is LOGICAL
+  (pass through). Symptom was harmless on the single-monitor x=0 case but
+  would have placed popups against the wrong screen on multi-monitor.
+  Regression test: `[multi-monitor scale=2 right: mon.x logical 3200 ...]`.
+  **Hint:** retired stale entries from `ROFI_ZONE_SYSTEM`
+  (`waybar-self-test`, `power-resume`) — both removed from the bar this
+  morning.
+  **Hint:** `notif-menu::run_rofi` calls `rofi_anchor_at_cursor` instead
+  of `rofi_anchor_for notif-bell`. Future click-triggered popups (apps
+  launcher, restore-minimized, etc.) follow the same pattern; only
+  keyboard-triggered popups need the `rofi_anchor_for` zone walker.
+
 - **2026-06-17** — **rofi-anchor: divide by monitor scale (hi-DPI fix).**
   notif-menu rofi popup was landing too far right on the hi-DPI eDP-1 panel
   because hypr-context.json publishes RAW pixel dimensions while rofi

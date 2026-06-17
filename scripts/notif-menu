@@ -390,13 +390,17 @@ do_relaunch() {
 
 # ── Rofi wrapper (function so tests can mock it) ─────────────────────────
 # Sourced at top of file once — see "shellcheck source" block below.
-# rofi_anchor_for/rofi_theme_for_mode handle anchor + theme; this
-# function only owns the run-time prompt and stdin pipe. -markup-rows
-# is required for fmt_l1_action's Pango-bold action rows to render.
+# rofi_theme_for_mode handles light/dark. Anchor source:
+#   rofi_anchor_at_cursor — cursor IS on the bell at click time (this
+#   script is exec'd by notif-click, which inherits the click cursor
+#   position). Centers popup on cursor.x, clamped to the focused monitor.
+#   Works on any monitor / resolution / scale without a pill-geom
+#   registry or width estimator — the cursor is the truth.
+# -markup-rows is required for fmt_l1_action's Pango-bold action rows.
 run_rofi() {
     local prompt="$1"
     local theme; theme=$(rofi_theme_for_mode)
-    local anchor; anchor=$(rofi_anchor_for notif-bell)
+    local anchor; anchor=$(rofi_anchor_at_cursor)
     rofi -theme "$theme" $anchor -dmenu -i -p "$prompt" -no-custom -format i \
         -markup-rows \
         -me-select-entry MouseSecondary \
