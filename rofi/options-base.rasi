@@ -36,11 +36,18 @@ configuration {
     border:           0px;            /* Rule 3: no hard borders */
 }
 
-/* Window — the wide pill container. Position is overridden by the
-   launcher's -theme-str (x-offset/y-offset/location/anchor). */
+/* Window — the bar-veil container. Position is overridden by the
+   launcher's -theme-str (x-offset/y-offset/location/anchor).
+   Width is intentionally tight (320px) so rows read as compact pills
+   instead of stretched bars: a 30px-radius pill at ~308px wide reads
+   as a capsule, the closest analog to the bar's short content-fit pills.
+   Window padding 4px keeps the breathing space minimal — bar pills sit
+   directly on the bar veil with no container padding.
+   IMPORTANT: keep this width in sync with ROFI_DEFAULT_WIDTH in
+   scripts/lib/rofi-anchor.sh (the anchor math assumes window width). */
 window {
-    width:            480px;
-    padding:          6px;
+    width:            320px;
+    padding:          4px;
     background-color: @opt-bar-veil;
     border-radius:    30px;
 }

@@ -49,9 +49,9 @@ check "[missing glass → dark theme]" test "$out" = "$ROFI_THEME_DIR/options-da
 # total_zone_width = 60 + 0 + 0 + 28 = 88
 # zone_left_edge = 1600 - 88 = 1512
 # bell estimated center X = 1512 + 60 + 0 + 0 + 14 = 1586
-# Naive x_offset = 1586 - 240 = 1346 → popup right edge = 1826
-# (overflows 1600 by 226). Clamp engages: x_offset = mon_w - W - margin
-# = 1600 - 480 - 8 = 1112.
+# Naive x_offset = 1586 - 160 = 1426 → popup right edge = 1746
+# (overflows 1600 by 146). Clamp engages: x_offset = mon_w - W - margin
+# = 1600 - 320 - 8 = 1272.
 cat > "$ROFI_HYPR_CTX" <<'EOF'
 {"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":3200,"h":2000,"scale":2.00,"focused_ws":1}]}
 EOF
@@ -67,20 +67,20 @@ export ROFI_TRAY_WIDTH=60
 
 out=$(rofi_anchor_for notif-bell)
 check "[anchor output non-empty]" test -n "$out"
-check "[bell near right edge: clamped to 1112 (was 1346 off-screen)]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+check "[bell near right edge: clamped to 1272 (popup right at mon_w - margin)]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 check "[anchor contains y-offset]" test -n "$(echo "$out" | grep -Eo 'y-offset:29px')"
 check "[anchor sets location northwest]" test -n "$(echo "$out" | grep -F 'location:northwest')"
 check "[anchor sets anchor north]" test -n "$(echo "$out" | grep -F 'anchor:north')"
 
 # Pill not in any zone array → fallback path.
-# Fallback cx = mon_x + mon_w - DEFAULT_WIDTH = 1600 - 480 = 1120.
-# Naive x_offset = 1120 - 240 = 880. Right edge = 1360, fits. No clamp.
+# Fallback cx = mon_x + mon_w - DEFAULT_WIDTH = 1600 - 320 = 1280.
+# Naive x_offset = 1280 - 160 = 1120. Right edge = 1440, fits. No clamp.
 export ROFI_ZONE_SYSTEM_OVERRIDE="tray notif-widepill notif-dnd"
 out=$(rofi_anchor_for notif-bell)
 check "[fallback anchor still set]" test -n "$out"
-check "[fallback x-offset = 880 (no clamp; fits on-screen)]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:880px')"
+check "[fallback x-offset = 1120 (no clamp; fits on-screen)]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1120px')"
 # Restore for any later tests
 export ROFI_ZONE_SYSTEM_OVERRIDE="tray notif-widepill notif-dnd notif-bell"
 
@@ -89,16 +89,16 @@ cat > "$ROFI_HYPR_CTX" <<'EOF'
 {"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":1600,"h":1000,"scale":1.00,"focused_ws":1}]}
 EOF
 out=$(rofi_anchor_for notif-bell)
-check "[scale=1.0: clamped to 1112 (same as hi-DPI logical case)]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+check "[scale=1.0: clamped to 1272 (same as hi-DPI logical case)]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 
 # Fractional scale: 1.50. Raw 2400x1500 → logical 1600x1000. Same clamp.
 cat > "$ROFI_HYPR_CTX" <<'EOF'
 {"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":2400,"h":1500,"scale":1.50,"focused_ws":1}]}
 EOF
 out=$(rofi_anchor_for notif-bell)
-check "[scale=1.5: clamped to 1112]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+check "[scale=1.5: clamped to 1272]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 
 # A bell at the SYSTEM-zone right edge will ALWAYS clamp on any monitor
 # (the 480-wide popup centered on a pill within ~30px of mon_right_edge
@@ -152,19 +152,19 @@ EOF
 cat > "$ROFI_HYPR_CTX" <<'EOF'
 {"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":3200,"h":2000,"scale":2.00,"focused_ws":1}]}
 EOF
-# logical mon = (0, 1600). popup width = 480. margin = 8.
-# cursor at center (800) → x_offset = 800 - 240 = 560, fits.
+# logical mon = (0, 1600). popup width = 320. margin = 8.
+# cursor at center (800) → x_offset = 800 - 160 = 640, fits.
 out=$(rofi_anchor_at 800)
 check "[anchor_at center: x_offset = cursor - W/2]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:560px')"
+    test -n "$(echo "$out" | grep -Eo 'x-offset:640px')"
 
-# cursor near right edge (1500): naive x_offset = 1260, popup right edge
-# at 1740 → overflows. Clamp at mon_w - W - margin = 1600 - 480 - 8 = 1112.
+# cursor near right edge (1500): naive x_offset = 1340, popup right edge
+# at 1660 → overflows. Clamp at mon_w - W - margin = 1600 - 320 - 8 = 1272.
 out=$(rofi_anchor_at 1500)
-check "[anchor_at right edge: clamped to 1112]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+check "[anchor_at right edge: clamped to 1272]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 
-# cursor near left edge (50): naive x_offset = -190. Clamp at mon_x +
+# cursor near left edge (50): naive x_offset = -110. Clamp at mon_x +
 # margin = 8.
 out=$(rofi_anchor_at 50)
 check "[anchor_at left edge: clamped to 8]" \
@@ -172,15 +172,13 @@ check "[anchor_at left edge: clamped to 8]" \
 
 # ────────────────────────────────────────────────────────────────────────
 # rofi_anchor_for clamp: bell near right edge of a small monitor must NOT
-# produce an off-screen x_offset. The pre-clamp version emitted 1340px on
-# a 1600-wide screen for a 480-wide popup (right edge at 1820 → 220 off).
-# Now: clamp to mon_w - W - margin = 1112.
+# produce an off-screen x_offset. Clamp to mon_w - W - margin = 1272.
 export ROFI_ZONE_SYSTEM_OVERRIDE="tray notif-widepill notif-dnd notif-bell"
 out=$(rofi_anchor_for notif-bell)
-# bell center estimated at 1586, x_offset wants 1346, which leaves
-# popup right edge at 1346+480 = 1826 (off by 226). Expect clamp to 1112.
+# bell center estimated at 1586, naive x_offset = 1426, right edge 1746
+# (off by 146). Expect clamp to 1272.
 check "[anchor_for clamps when popup would overflow right]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 
 # ────────────────────────────────────────────────────────────────────────
 # rofi_anchor_at_cursor — reads cursor pos via hyprctl OR via a sandboxed
@@ -189,13 +187,13 @@ check "[anchor_for clamps when popup would overflow right]" \
 export ROFI_CURSORPOS_FILE="$TEST_TMP/cursorpos.json"
 echo '{"x":800,"y":12}' > "$ROFI_CURSORPOS_FILE"
 out=$(rofi_anchor_at_cursor)
-check "[anchor_at_cursor: cursor at 800 → x_offset 560]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:560px')"
+check "[anchor_at_cursor: cursor at 800 → x_offset 640]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:640px')"
 
 echo '{"x":1500,"y":12}' > "$ROFI_CURSORPOS_FILE"
 out=$(rofi_anchor_at_cursor)
-check "[anchor_at_cursor: cursor near right edge → clamped to 1112]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:1112px')"
+check "[anchor_at_cursor: cursor near right edge → clamped to 1272]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
 
 # Multi-monitor: cursor on second monitor (DP-1 at logical x=1600..3200,
 # w=1600 logical at scale=1). Cursor x=2400 (mid of DP-1), focused mon=DP-1.
@@ -208,16 +206,16 @@ EOF
 echo '{"x":2400,"y":12}' > "$ROFI_CURSORPOS_FILE"
 out=$(rofi_anchor_at_cursor)
 # DP-1 logical bounds = [1600, 3200]. Cursor at 2400. Naive x_offset =
-# 2400 - 240 = 2160. Popup right edge = 2640 < 3200. Fits. Expect 2160.
-check "[anchor_at_cursor multi-mon: cursor on DP-1 → 2160]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:2160px')"
+# 2400 - 160 = 2240. Popup right edge = 2560 < 3200. Fits. Expect 2240.
+check "[anchor_at_cursor multi-mon: cursor on DP-1 → 2240]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:2240px')"
 
-# Cursor near right edge of DP-1: x=3150. Naive = 2910, right edge = 3390
-# (overflow by 190). Clamp at mon_x + mon_w - W - margin = 1600+1600-480-8 = 2712.
+# Cursor near right edge of DP-1: x=3150. Naive = 2990, right edge = 3310
+# (overflow by 110). Clamp at mon_x + mon_w - W - margin = 1600+1600-320-8 = 2872.
 echo '{"x":3150,"y":12}' > "$ROFI_CURSORPOS_FILE"
 out=$(rofi_anchor_at_cursor)
-check "[anchor_at_cursor multi-mon: cursor near DP-1 right → clamp 2712]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:2712px')"
+check "[anchor_at_cursor multi-mon: cursor near DP-1 right → clamp 2872]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:2872px')"
 
 # Focus on Mon1, cursor click on Mon2. The clamp must use Mon2's bounds,
 # not the focused-window monitor's. Pre-fix: anchor_at used focused monitor
@@ -232,8 +230,8 @@ cat > "$ROFI_HYPR_CTX" <<'EOF'
 EOF
 echo '{"x":2400,"y":12}' > "$ROFI_CURSORPOS_FILE"
 out=$(rofi_anchor_at_cursor)
-check "[focus≠cursor monitor: click on Mon2 → clamp uses Mon2 (2160)]" \
-    test -n "$(echo "$out" | grep -Eo 'x-offset:2160px')"
+check "[focus≠cursor monitor: click on Mon2 → x_offset 2240 (Mon2 bounds)]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:2240px')"
 
 unset ROFI_CURSORPOS_FILE
 
