@@ -55,7 +55,6 @@ let
   libDir = pkgs.runCommand "notif-libs" {} ''
     mkdir -p $out/lib
     cp ${../scripts/lib/notif-journal.sh}        $out/lib/notif-journal.sh
-    cp ${../scripts/lib/notif-rofi-format.sh}    $out/lib/notif-rofi-format.sh
     # notif-menu's libs — added when notif-menu started shipping.
     cp ${../scripts/lib/notif-menu-format.sh}    $out/lib/notif-menu-format.sh
     cp ${../scripts/lib/notif-hypr.sh}           $out/lib/notif-hypr.sh
@@ -83,7 +82,6 @@ let
 
   notifDaemonBin       = mkScript "notif-daemon"        ./../scripts/notif-daemon;
   notifClickBin        = mkScript "notif-click"         ./../scripts/notif-click;
-  notifRofiBin         = mkScript "notif-rofi"          ./../scripts/notif-rofi;
   notifMenuBin         = mkScript "notif-menu"          ./../scripts/notif-menu;
 
 in {
@@ -141,8 +139,7 @@ in {
     home.packages = [
       notifDaemonBin
       notifClickBin
-      notifRofiBin
-      notifMenuBin       # new: rofi notif selector with View action
+      notifMenuBin       # rofi notif selector with View action
       notifOsDaemonBin   # Standard-OS native notif daemon (Rust)
     ];
 
