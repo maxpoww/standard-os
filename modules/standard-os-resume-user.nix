@@ -39,20 +39,11 @@ in
         ExecStart = let
           script = pkgs.writeShellScript "standard-os-resume-user" ''
             set -u
-            CACHE=/tmp/waybar-cache/power-resume
-            mkdir -p /tmp/waybar-cache
 
-            write_pill() {
-              local text="$1" tooltip="$2"
-              local theme
-              theme=$(cat /tmp/glass-mode 2>/dev/null) || theme=dark
-              case "$theme" in light|dark) ;; *) theme=dark ;; esac
-              local classes
-              classes=$(printf '["opt-pill","opt-flash","opt-no","%s"]' "$theme")
-              local json="{\"text\":\"$text\",\"class\":$classes,\"tooltip\":\"$tooltip\"}"
-              printf '%s' "$json" > "$CACHE.tmp" && mv -f "$CACHE.tmp" "$CACHE"
-              ${pkgs.procps}/bin/pkill -RTMIN+10 waybar 2>/dev/null || true
-            }
+            # Health-check probes + remediation only. Failures are
+            # silent — they go to journalctl -u standard-os-resume-user
+            # (no waybar pill since 2026-06-17). User chose silent: log
+            # only over a visible error pill on OPTIONS.
 
             # ── User-scope probes ──
 
@@ -117,20 +108,9 @@ in
               exit 0
             fi
 
-            # Don't stomp a system-scope failure pill if one already exists.
-            if [ -s "$CACHE" ] && ! grep -q '"text":""' "$CACHE" 2>/dev/null; then
-              exit 0
-            fi
-
-            n="''${#pass2[@]}"
-            if [ "$n" -eq 1 ]; then
-              text="Resume: ''${pass2[0]}"
-            else
-              text="Resume: $n issues"
-            fi
             joined=$(IFS=', '; echo "''${pass2[*]}")
-            tooltip="User-scope. Failed: ''${joined}. Click to retry."
-            write_pill "$text" "$tooltip"
+            printf 'standard-os-resume-user: pass2 failures: %s\n' "$joined" >&2
+            exit 0
           '';
         in "${script}";
       };

@@ -62,8 +62,6 @@
     "group/group-2",
     "group/group-power",
     "custom/update-pending",
-    "custom/waybar-self-test",
-    "custom/power-resume",
     "custom/clock",
     "custom/battery",
     "custom/night-dimmer",
@@ -521,27 +519,12 @@
   // as a plain string makes waybar treat the whole thing as ONE class name,
   // silently breaking every .opt-pill selector. Bit us on 2026-05-28 — see
   // CLAUDE.md "Known hazards" and the spec's daemon convention.)
-  // ── Waybar self-test pill ──
-  // Hidden when healthy (empty text — waybar collapses the module).
-  // Populated by waybar-self-test.service if any checks fail. Emits ⚠ N
-  // with opt-no class on failure. Click → kicks immediate re-check.
-  // Signal RTMIN+10 matches the daemon's broadcast frequency.
-  "custom/waybar-self-test": {
-    "exec": "cat /tmp/waybar-cache/waybar-self-test 2>/dev/null",
-    "return-type": "json",
-    "format": "{}",
-    "interval": 2,
-    "signal": 10,
-    "tooltip": true,
-    "on-click": "systemctl --user start waybar-self-test.service"
-  },
-
   // ── Update-pending pill ──
   // Hidden when steady-state (empty text — waybar collapses the module).
   // Lights opt-pin-orange + opt-breathe while the UPDATE pipeline is
-  // running, with phase-specific tooltip text. Lights opt-no on error.
-  // Click handler: standard-os-update-pill-ack (no-op while working,
-  // opens log + clears pill when in error state).
+  // running, with phase-specific tooltip text. Errors are silent (log only)
+  // — the pill never goes red on failure (2026-06-17 user decision: errors
+  // are not attractive on the bar). Success still fires a notify-send.
   "custom/update-pending": {
     "exec": "cat /tmp/waybar-cache/update-pending 2>/dev/null",
     "return-type": "json",
@@ -561,21 +544,11 @@
   // reads it now (the new power-pill helper compares /run/current-system
   // vs /run/booted-system directly).
 
-  // ── Post-resume failure pill ──
-  // Hidden when empty (waybar collapses modules with empty text). Populated
-  // by standard-os-resume.service if the post-resume health-check finds a
-  // subsystem still broken at pass 2. Click → re-runs system health-check.
-  // Signal RTMIN+10 matches pill_write's hardcoded broadcast (every
-  // daemon-driven pill listens on the same global refresh slot).
-  "custom/power-resume": {
-    "exec": "cat /tmp/waybar-cache/power-resume 2>/dev/null || echo '{\"text\":\"\"}'",
-    "return-type": "json",
-    "format": "{}",
-    "interval": "once",
-    "signal": 10,
-    "tooltip": true,
-    "on-click": "systemctl start standard-os-resume.service"
-  },
+  // Post-resume failure pill retired 2026-06-17 (user: error pills are not
+  // attractive). standard-os-resume.service still runs the health-check
+  // and remediates, but failures are silent — log only via journalctl -u
+  // standard-os-resume.service. Waybar self-test pill retired in the same
+  // pass for the same reason.
 
   // ── Notification center — drawer (P1 design) ────────────────────────────
   // Bell parent always visible; DND child appears LEFT on hover. Two cache

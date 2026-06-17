@@ -538,10 +538,6 @@ window#waybar .opt-pill-child.light {
     text-shadow: 0 1px 2px @opt-text-light-shadow;
 }
 
-window#waybar #custom-waybar-self-test.light {
-  color: @opt-text-on-light;
-}
-
 window#waybar .opt-pill.light:hover,
 window#waybar .opt-pill-child.light:hover {
     color: @opt-text-on-light-hov;
@@ -566,21 +562,6 @@ window#waybar .opt-pill-child.light:hover {
     animation: opt-glow-green 2s ease-in-out infinite alternate;
 }
 
-/* ── Post-resume failure pill — empty-collapse only ──────────────────────
-   Written by standard-os-resume.service / standard-os-resume-user.service
-   when the two-pass health-check finds a subsystem still broken at pass 2.
-   Writers emit ["opt-pill","opt-flash","opt-no","dark"] — geometry, colour
-   and motion come from those canonical classes. The only rule needed here
-   is the empty-collapse override (waybar leaves a GTK button slot for
-   text="" unless padding/margin/font-size are explicitly zeroed). */
-
-#custom-power-resume.empty {
-    padding: 0;
-    margin: 0;
-    min-width: 0;
-    opacity: 0;
-    font-size: 0;
-}
 
 /* ── Dismiss pill — empty-collapse ──────────────────────────────────────────
    notif-daemon writes class=["empty"] (no opt-pill-child) when unread == 0.

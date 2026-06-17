@@ -78,6 +78,35 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-17** — **error pills erased from OPTIONS — failures are silent.**
+  Three red error pills removed entirely from the bar: `custom/power-resume`
+  ("Resume: bt" and friends), `custom/waybar-self-test` ("⚠ N"), and the
+  opt-no error state of `custom/update-pending`. The in-progress update pill
+  (opt-pin-orange + opt-breathe) and the "System updated" success notify-send
+  are preserved. Failures go to the existing logs only — no notify-send, no
+  pill. User decision: "the error on options are not atractive, erase them
+  complitly. silent — log only."
+  **Hint:** `custom/waybar-self-test` and `custom/power-resume` deleted from
+  `config.jsonc` (both the modules-right list and their definitions);
+  matching CSS rules pulled from `style.css`. `custom/update-pending` kept
+  for the working pill.
+  **Hint:** `standard-os-update::pill_state_error` now writes an empty pill
+  (collapses the module) — the function signature is preserved so call sites
+  don't change, but no opt-no class is ever emitted. All four error-state
+  `notify-send` calls in the script were removed; the success one in
+  `phase_signal` is untouched.
+  **Hint:** `standard-os-resume-user.nix` and `/etc/nixos/modules/power-sleep.nix`
+  no longer write `/tmp/waybar-cache/power-resume`; both still probe and
+  remediate, both log failures to journalctl. `standard-os-resume-crashed`
+  service + its `onFailure` reference deleted.
+  **Hint:** `waybar-self-test.sh` no longer writes the `waybar-self-test`
+  pill cache. Exit-code contract (0 healthy / 1 broken) is preserved so the
+  update pipeline's pre-flight and post-switch verify phases still work.
+  `emit_reboot_pending` is unchanged (separate cache feeding the power-pill).
+  **Hint:** click handler `standard-os-update-pill-ack` left as-is — the
+  `opt-no` branch is now unreachable but harmless; the working-state no-op
+  is still wired through.
+
 - **2026-06-16** — **rofi unified with OPTIONS — bellwether ships on notif-menu.**
   Three new shared artefacts: pill-geom registry in pill.sh (per-pill
   files at /tmp/waybar-cache/pill-geom/), rofi-anchor.sh library

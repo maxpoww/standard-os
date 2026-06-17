@@ -43,11 +43,10 @@ pill_state_working() {
         "$phase"
 }
 # pill_state_error <one_line_summary>
+# Silent since 2026-06-17 (user: error pills are not attractive). Failures
+# are visible only via $ERROR_LOG; the in-progress pill collapses on exit.
 pill_state_error() {
-    local summary="$1"
-    pill_write "$PILL_NAME" "$SYNC_GLYPH" \
-        "opt-pill opt-no" \
-        "Update failed — click for details: $summary"
+    pill_write "$PILL_NAME" "" "opt-pill" ""
 }
 # pill_state_clear — empty text → waybar collapses the module.
 pill_state_clear() {
@@ -88,7 +87,6 @@ phase_dry_build() {
     log "[build] dry-build failed:"
     log "$out"
     pill_state_error "Build failed"
-    notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
     return 1
 }
 phase_switch() {
@@ -101,7 +99,6 @@ phase_switch() {
     log "[switch] failed:"
     log "$out"
     pill_state_error "Activation failed"
-    notify-send -a "Standard-OS" "Update failed" "System unchanged — click pill for details" 2>/dev/null || true
     return 1
 }
 # How long to wait after switch for systemd-user reloads to settle.
@@ -121,23 +118,16 @@ phase_verify() {
         log "[verify] ROLLBACK ITSELF FAILED — system may be in a bad state:"
         log "$out"
         pill_state_error "Rollback failed — manual intervention needed"
-        notify-send -u critical -a "Standard-OS" "Critical" \
-            "Update rollback failed — see /var/lib/standard-os/last-update-error.log" \
-            2>/dev/null || true
         return 2
     fi
     sleep "$VERIFY_SETTLE_SEC"
     if "$WAYBAR_SELF_TEST_CMD" >/dev/null 2>&1; then
         log "[verify] rolled back successfully; previous gen restored"
         pill_state_error "Update reverted — system unchanged"
-        notify-send -a "Standard-OS" "Update was reverted" \
-            "System is unchanged — click pill for details" 2>/dev/null || true
         return 1
     fi
     log "[verify] rollback completed but self-test STILL red — system was already broken"
     pill_state_error "System was already broken pre-update"
-    notify-send -u critical -a "Standard-OS" "Update aborted" \
-        "Pre-existing system issues — see log" 2>/dev/null || true
     return 2
 }
 phase_signal() {

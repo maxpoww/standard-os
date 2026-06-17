@@ -72,15 +72,18 @@ emit_reboot_pending() {
     fi
 }
 
-# ---- emit health pill and exit with appropriate code ----
+# ---- exit with appropriate code ----
+# Self-test failure pill retired 2026-06-17 (user: error pills are not
+# attractive). Failures are visible only via journalctl -u waybar-self-test
+# and as the non-zero exit code consumed by the update pipeline's pre-flight
+# and post-switch verify phases. emit_reboot_pending still runs because the
+# reboot-pending cache feeds the power-pill helper, not an error pill.
 if [ "${#failures[@]}" -eq 0 ]; then
-  # Healthy: empty text → waybar hides the module entirely.
-  pill_write waybar-self-test "" "opt-pill" ""
   emit_reboot_pending
   exit 0
 else
-  tooltip=$(printf 'Self-test failures:\n%s\n' "$(printf '• %s\n' "${failures[@]}")")
-  pill_write waybar-self-test "⚠ ${#failures[@]}" "opt-pill opt-no" "$tooltip"
+  printf 'waybar-self-test failures:\n' >&2
+  printf '  • %s\n' "${failures[@]}" >&2
   emit_reboot_pending
   exit 1
 fi
