@@ -87,13 +87,24 @@ listview {
 
 /* Row, default — parent-surface pill at rest (mirrors .opt-pill).
    Hover film replaces the surface to brighten on selection.
-   Properties copy-verbatim from waybar/style.css:200-207:
+   Properties from waybar/style.css:200-207 (with one adjustment noted
+   below):
      border-radius: 30px;
      color:         @opt-text-on-dark;  (rasi: text-color, theme-flipped)
-     padding:       3px 8px 3px 7px;
-     margin:        1px 0px; */
+     padding:       3px 8px 3px 7px;    → 6px 8px 6px 7px here
+     margin:        1px 0px;
+   Why the vertical-padding bump (3→6): waybar pills contain Font
+   Awesome / Nerd Font glyph icons (bell, gear, bluetooth, …) that
+   render at ~1.6em (≈21px) — larger than 13px text, so the icons
+   visually inflate the bar pills to ~21px text-content + 6px padding
+   = ~27px tall. The popup rows are text-only (timestamps + names) so
+   13px text + 3px padding renders only ~19px tall, a noticeably
+   thinner pill. Adding 6 logical px to vertical padding closes the
+   visible gap so a popup pill reads as the same thickness as a bar
+   pill containing a Nerd Font icon. Horizontal padding stays at the
+   verbatim waybar value. */
 element {
-    padding:          3px 8px 3px 7px;
+    padding:          6px 8px 6px 7px;
     margin:           1px 0px;
     border-radius:    30px;
     background-color: @opt-surface-parent;
