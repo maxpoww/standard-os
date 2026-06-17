@@ -15,8 +15,16 @@ ROFI_THEME_DIR="${ROFI_THEME_DIR:-/etc/nixos/home/rofi}"
 ROFI_GLASS_FILE="${ROFI_GLASS_FILE:-/tmp/glass-mode}"
 ROFI_GEOM_DIR="${ROFI_GEOM_DIR:-/tmp/waybar-cache/pill-geom}"
 ROFI_HYPR_CTX="${ROFI_HYPR_CTX:-/tmp/waybar-cache/hypr-context.json}"
-ROFI_BAR_HEIGHT="${ROFI_BAR_HEIGHT:-25}"     # logical px, matches monitor reserved
-ROFI_GAP_PX="${ROFI_GAP_PX:-0}"               # gap between bar bottom and rofi top (0 = flush)
+ROFI_BAR_HEIGHT="${ROFI_BAR_HEIGHT:-0}"      # NOT the bar height. Hyprland already
+                                              # adds the reserved-zone offset
+                                              # (monitor.reserved[1]) to every layer
+                                              # below the bar — verified by probing
+                                              # y_offset=0 → layer.y=25 (= bar height)
+                                              # on 2026-06-17. Setting this >0 stacks
+                                              # ON TOP of the auto-offset and shows as
+                                              # a gap. Kept as a knob in case future
+                                              # bar config drops exclusive-zone.
+ROFI_GAP_PX="${ROFI_GAP_PX:-0}"               # extra gap above the popup (0 = flush)
 ROFI_DEFAULT_WIDTH="${ROFI_DEFAULT_WIDTH:-320}"  # default window width in logical px
                                                   # MUST match `window { width: ... }` in rofi/options-base.rasi
 ROFI_EDGE_MARGIN="${ROFI_EDGE_MARGIN:-8}"     # minimum gap from monitor edge

@@ -69,7 +69,7 @@ out=$(rofi_anchor_for notif-bell)
 check "[anchor output non-empty]" test -n "$out"
 check "[bell near right edge: clamped to 1272 (popup right at mon_w - margin)]" \
     test -n "$(echo "$out" | grep -Eo 'x-offset:1272px')"
-check "[anchor contains y-offset]" test -n "$(echo "$out" | grep -Eo 'y-offset:25px')"
+check "[anchor contains y-offset]" test -n "$(echo "$out" | grep -Eo 'y-offset:0px')"
 check "[anchor sets location northwest]" test -n "$(echo "$out" | grep -F 'location:northwest')"
 check "[anchor sets anchor north]" test -n "$(echo "$out" | grep -F 'anchor:north')"
 
