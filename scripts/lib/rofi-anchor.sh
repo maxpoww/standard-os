@@ -16,7 +16,7 @@ ROFI_GLASS_FILE="${ROFI_GLASS_FILE:-/tmp/glass-mode}"
 ROFI_GEOM_DIR="${ROFI_GEOM_DIR:-/tmp/waybar-cache/pill-geom}"
 ROFI_HYPR_CTX="${ROFI_HYPR_CTX:-/tmp/waybar-cache/hypr-context.json}"
 ROFI_BAR_HEIGHT="${ROFI_BAR_HEIGHT:-25}"     # logical px, matches monitor reserved
-ROFI_GAP_PX="${ROFI_GAP_PX:-4}"               # gap between bar bottom and rofi top
+ROFI_GAP_PX="${ROFI_GAP_PX:-0}"               # gap between bar bottom and rofi top (0 = flush)
 ROFI_DEFAULT_WIDTH="${ROFI_DEFAULT_WIDTH:-320}"  # default window width in logical px
                                                   # MUST match `window { width: ... }` in rofi/options-base.rasi
 ROFI_EDGE_MARGIN="${ROFI_EDGE_MARGIN:-8}"     # minimum gap from monitor edge
