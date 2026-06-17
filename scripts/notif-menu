@@ -408,17 +408,36 @@ do_relaunch() {
 #   ROFI_ROW_STAGGER_LINES = 12  → matches rasi `listview { lines: 12 }`
 # Total visible animation: (LINES - 1) × MS ≈ 275 ms. First row is
 # interactive immediately; user need not wait to filter or pick.
-ROFI_ROW_STAGGER_MS=25
-ROFI_ROW_STAGGER_LINES=12
+ROFI_ROW_STAGGER_MS=110          # per-row gap once popup is visible
+ROFI_ROW_STAGGER_INTRO_MS=350    # pause after the FIRST row, before staggering
+ROFI_ROW_STAGGER_LINES=12        # how many rows get the animation
 
+# Why the intro pause: rofi's own startup (theme parse, layer-shell
+# surface alloc) + Hyprland's `layersIn` fade (4 = 400 ms, easeOutQuint
+# so mostly visible by ~250 ms) together eat ~250-400 ms between exec
+# and "popup visible to user." If we stream all rows immediately, the
+# stagger completes BEFORE the popup paints — the user sees the finished
+# list pop in, no animation. The intro holds back rows 2..N until the
+# popup is on-screen, so the staggered fill is what the user actually
+# sees.
+#
+# Why 110 ms per row: 80 ms felt invisible — rofi/cairo may coalesce
+# renders for events arriving inside a single frame. At 110 ms gaps each
+# row lands in a distinct frame at 60 Hz (16.7 ms × ~7 frames). Total
+# visible animation: 11 × 110 ≈ 1.2 s after the popup is on-screen.
 stream_rows() {
-    local f="$1" line gap_s count=0
+    local f="$1" line gap_s intro_s count=0
     [ -r "$f" ] || return 0
-    gap_s=$(printf '0.%03d' "$ROFI_ROW_STAGGER_MS")
+    gap_s=$(printf '0.%03d'   "$ROFI_ROW_STAGGER_MS")
+    intro_s=$(printf '0.%03d' "$ROFI_ROW_STAGGER_INTRO_MS")
     while IFS= read -r line; do
         printf '%s\n' "$line"
         count=$(( count + 1 ))
-        [ "$count" -lt "$ROFI_ROW_STAGGER_LINES" ] && sleep "$gap_s"
+        if [ "$count" -eq 1 ]; then
+            sleep "$intro_s"
+        elif [ "$count" -lt "$ROFI_ROW_STAGGER_LINES" ]; then
+            sleep "$gap_s"
+        fi
     done < "$f"
 }
 
