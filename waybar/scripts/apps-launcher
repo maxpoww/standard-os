@@ -14,4 +14,7 @@ anchor=$(rofi_anchor_at_cursor)
 # stdin and -no-custom doesn't apply. The cursor anchor works identically
 # whether the trigger is a click (cursor on the "+") or the keyboard
 # shortcut (cursor wherever the user left it).
-exec rofi -theme "$theme" $anchor -show drun
+# -show-icons re-enables the icon column on top of the rasi default
+# (options-base.rasi sets show-icons: false so notif-menu / reboot
+# prompt don't get a blank icon gap).
+exec rofi -theme "$theme" $anchor -show-icons -show drun

@@ -71,9 +71,53 @@ window {
 }
 
 mainbox {
-    padding: 0;
-    spacing: 4px;
-    children: ["listview"];
+    padding:  0;
+    spacing:  2px;
+    /* All three widgets are listed so any rofi caller that uses
+       -dmenu (with or without a typed prompt), -show drun, or -mesg
+       gets a consistently-styled inputbar / message / listview. rofi
+       only renders each widget when relevant content exists, so
+       notif-menu still appears list-only when no input has been typed
+       and no -mesg flag was passed. */
+    children: ["inputbar", "message", "listview"];
+}
+
+/* ── Input field — search/filter row above the listview ────────────────
+   Styled as a single OPTIONS-pill row: parent surface, same border-
+   radius and padding as a list element. Prompt label is dimmed so the
+   typeable area visually dominates. */
+inputbar {
+    padding:          6px 8px 6px 7px;
+    margin:           1px 0px;
+    spacing:          6px;
+    border-radius:    30px;
+    background-color: @opt-surface-parent;
+    children:         [ "prompt", "entry" ];
+}
+prompt {
+    text-color:       @opt-text-dim;
+    background-color: transparent;
+}
+entry {
+    text-color:        @opt-text;
+    background-color:  transparent;
+    placeholder:       "";
+    placeholder-color: @opt-text-dim;
+    cursor:            text;
+}
+
+/* ── Message banner — emitted when caller passes -mesg "..." ────────────
+   Same pill shape as a list element so the banner reads as another
+   row in the OPTIONS family rather than a separate widget. */
+message {
+    padding:          6px 8px 6px 7px;
+    margin:           1px 0px;
+    border-radius:    30px;
+    background-color: @opt-surface-parent;
+}
+textbox {
+    text-color:       @opt-text;
+    background-color: transparent;
 }
 
 listview {
