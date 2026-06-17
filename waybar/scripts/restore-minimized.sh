@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Show minimized windows (special workspace) in rofi; restore selected to current workspace.
+# Theme + anchor: shared OPTIONS treatment via scripts/lib/rofi-anchor.sh.
 source ~/.config/rofi/window-helper.sh
+# shellcheck source=../../scripts/lib/rofi-anchor.sh
+source /etc/nixos/home/scripts/lib/rofi-anchor.sh
 
 mapfile -t windows < <(
     hyprctl clients -j | jq -r '
@@ -20,8 +23,10 @@ for entry in "${windows[@]}"; do
     entries+=("$label\0icon\x1f$class")
 done
 
-chosen=$(printf '%b\n' "${entries[@]}" | rofi -dmenu -i -p "Minimized" -show-icons \
-    -theme-str 'window {padding: 35px 30% 40%;}')
+theme=$(rofi_theme_for_mode)
+anchor=$(rofi_anchor_at_cursor)
+chosen=$(printf '%b\n' "${entries[@]}" | rofi -theme "$theme" $anchor \
+    -dmenu -i -p "Minimized" -show-icons)
 
 [[ -z "$chosen" ]] && exit 0
 

@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# apps-launcher — wrapper around `rofi -show drun` that applies the shared
+# OPTIONS theme + cursor anchor. Triggered by the $mainMod+SPACE bind
+# (and by any future "+" pill click handler).
+set -uo pipefail
+
+# shellcheck source=../../scripts/lib/rofi-anchor.sh
+source /etc/nixos/home/scripts/lib/rofi-anchor.sh
+
+theme=$(rofi_theme_for_mode)
+anchor=$(rofi_anchor_at_cursor)
+
+# `-show drun` is a built-in rofi mode (NOT -dmenu), so it doesn't read
+# stdin and -no-custom doesn't apply. The cursor anchor works identically
+# whether the trigger is a click (cursor on the "+") or the keyboard
+# shortcut (cursor wherever the user left it).
+exec rofi -theme "$theme" $anchor -show drun

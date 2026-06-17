@@ -87,7 +87,7 @@ let
       # not enforcing a style pass on the pre-bulletproof corpus.
       # Explicit extensionless names so they don't silently slip through
       # the `*.sh` glob.
-      shellcheck -S error -s bash *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler
+      shellcheck -S error -s bash *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler apps-launcher
       runHook postCheck
     '';
 
@@ -97,7 +97,7 @@ let
 
       install -m 0644 lib/pill.sh $out/share/waybar-scripts/lib/pill.sh
 
-      for f in *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler; do
+      for f in *.sh pill pill-child standard-os-reboot-prompt standard-os-update standard-os-update-pill-ack standard-os-update-scheduler apps-launcher; do
         # name=f when extensionless (pill, pill-child); strip .sh otherwise.
         name=''${f%.sh}
         install -m 0755 "$f" "$out/libexec/waybar-scripts/$f"

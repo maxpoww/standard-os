@@ -8,14 +8,18 @@
 #                 system. New switch or actual reboot invalidates it.
 set -uo pipefail
 
+# shellcheck source=../../scripts/lib/rofi-anchor.sh
+source /etc/nixos/home/scripts/lib/rofi-anchor.sh
+
 DISMISS_MARKER="/run/standard-os/reboot-dismissed"
 
+theme=$(rofi_theme_for_mode)
+anchor=$(rofi_anchor_at_cursor)
 choice=$(printf '%s\n' \
     "Reboot now" \
     "Dismiss" \
-    | rofi -dmenu -p "system" \
-           -mesg "Reboot recommended to finalize the latest update." \
-           -theme-str 'window {width: 480px;}')
+    | rofi -theme "$theme" $anchor -dmenu -p "system" \
+           -mesg "Reboot recommended to finalize the latest update.")
 
 case "$choice" in
     "Reboot now")
