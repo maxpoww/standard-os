@@ -78,6 +78,23 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-17** — **rofi popup styled as OPTIONS pills.** Every row is
+  now a parent-surface pill at rest; action rows keep the child-surface
+  treatment; section headers stay dim small text with no pill. The
+  window dropped from `@opt-surface-parent` to `@opt-bar-veil` so the
+  pills inside become visible — previously the window was the same tint
+  as the pills and they merged. Added one new token (`@opt-bar-veil`)
+  to both rasi theme files, mirroring `waybar/style.css:50`. The five
+  remaining rofi surfaces (apps launcher, window switcher,
+  restore-minimized, reboot-prompt, notif-rofi legacy) inherit the
+  treatment automatically — they import the same shared rasi.
+  **Hint:** all changes in `rofi/options-{base,dark,light}.rasi`. No
+  script, daemon, or Nix module touched. Edits are live via the
+  `mkOutOfStoreSymlink` wiring in `modules/rofi.nix` — no
+  `nixos-rebuild switch` needed.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-17-rofi-pill-styling-design.md`.
+  Plan at `docs/superpowers/plans/2026-06-17-rofi-pill-styling.md`.
+
 - **2026-06-17** — **notif-menu: anchor under cursor at click time + universal
   screen-edge clamp.** The notif-menu popup was landing 220px off-screen on
   the hi-DPI laptop panel because the pill-geom width registry undercounted

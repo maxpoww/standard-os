@@ -6,6 +6,7 @@
    Text uses opt-text-on-dark = rgba(255,255,255,1.00). */
 
 * {
+    opt-bar-veil:       rgba(128, 128, 128, 0.10);
     opt-surface-parent: rgba(128, 128, 128, 0.30);
     opt-surface-child:  rgba(170, 170, 170, 0.30);
     opt-hover-bright:   rgba(255, 255, 255, 0.30);
