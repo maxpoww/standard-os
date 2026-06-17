@@ -388,59 +388,6 @@ do_relaunch() {
     exec "$(readlink -f "$0")"
 }
 
-# ── Stagger-in animation for rofi rows ──────────────────────────────────
-# rofi's default stdin mode is async — rows render as they arrive on the
-# pipe. Streaming the populated row file with a small gap between lines
-# gives the popup open a one-by-one "pills appearing" feel without any
-# rasi animation primitive (rofi 2.0 has none) and without violating
-# Rule 4 (popup open IS user-initiated input, so animating it is
-# permitted; the stagger never runs after population completes).
-#
-# IMPORTANT: only the first ROFI_ROW_STAGGER_LINES rows are staggered.
-# History sections can have 100+ entries; staggering all of them would
-# take seconds before the popup looked "done." The listview only shows
-# 12 rows at once anyway — below-fold rows ship at full pipe speed and
-# are ready by the time the user scrolls. The stagger is for what the
-# user SEES on open, not for invisible content.
-#
-# Tuning:
-#   ROFI_ROW_STAGGER_MS    = 25  → 25 ms gap per row
-#   ROFI_ROW_STAGGER_LINES = 12  → matches rasi `listview { lines: 12 }`
-# Total visible animation: (LINES - 1) × MS ≈ 275 ms. First row is
-# interactive immediately; user need not wait to filter or pick.
-ROFI_ROW_STAGGER_MS=110          # per-row gap once popup is visible
-ROFI_ROW_STAGGER_INTRO_MS=350    # pause after the FIRST row, before staggering
-ROFI_ROW_STAGGER_LINES=12        # how many rows get the animation
-
-# Why the intro pause: rofi's own startup (theme parse, layer-shell
-# surface alloc) + Hyprland's `layersIn` fade (4 = 400 ms, easeOutQuint
-# so mostly visible by ~250 ms) together eat ~250-400 ms between exec
-# and "popup visible to user." If we stream all rows immediately, the
-# stagger completes BEFORE the popup paints — the user sees the finished
-# list pop in, no animation. The intro holds back rows 2..N until the
-# popup is on-screen, so the staggered fill is what the user actually
-# sees.
-#
-# Why 110 ms per row: 80 ms felt invisible — rofi/cairo may coalesce
-# renders for events arriving inside a single frame. At 110 ms gaps each
-# row lands in a distinct frame at 60 Hz (16.7 ms × ~7 frames). Total
-# visible animation: 11 × 110 ≈ 1.2 s after the popup is on-screen.
-stream_rows() {
-    local f="$1" line gap_s intro_s count=0
-    [ -r "$f" ] || return 0
-    gap_s=$(printf '0.%03d'   "$ROFI_ROW_STAGGER_MS")
-    intro_s=$(printf '0.%03d' "$ROFI_ROW_STAGGER_INTRO_MS")
-    while IFS= read -r line; do
-        printf '%s\n' "$line"
-        count=$(( count + 1 ))
-        if [ "$count" -eq 1 ]; then
-            sleep "$intro_s"
-        elif [ "$count" -lt "$ROFI_ROW_STAGGER_LINES" ]; then
-            sleep "$gap_s"
-        fi
-    done < "$f"
-}
-
 # ── Rofi wrapper (function so tests can mock it) ─────────────────────────
 # Sourced at top of file once — see "shellcheck source" block below.
 # rofi_theme_for_mode handles light/dark. Anchor source:
@@ -454,14 +401,8 @@ run_rofi() {
     local prompt="$1"
     local theme; theme=$(rofi_theme_for_mode)
     local anchor; anchor=$(rofi_anchor_at_cursor)
-    # -async-pre-read 1: render as soon as the first stdin row arrives.
-    # Default is 25 — rofi would buffer 25 rows before showing anything,
-    # which combined with our 25ms-per-row stagger delays first render by
-    # ~625ms. With 1, the popup paints the first row immediately and
-    # subsequent rows join the listview live.
     rofi -theme "$theme" $anchor -dmenu -i -p "$prompt" -no-custom -format i \
         -markup-rows \
-        -async-pre-read 1 \
         -me-select-entry MouseSecondary \
         -me-accept-entry MousePrimary \
         2>/dev/null
@@ -507,14 +448,14 @@ dispatch_l1() {
             populate_l2_live "$idx" > "$NOTIF_MENU_TMP/l2"
             local prompt; prompt=$(_l2_prompt)
             local l2_idx
-            l2_idx=$(stream_rows "$NOTIF_MENU_TMP/l2" | run_rofi "$prompt") || return 0
+            l2_idx=$(run_rofi "$prompt" < "$NOTIF_MENU_TMP/l2") || return 0
             dispatch_l2 "$l2_idx"
             ;;
         history)
             populate_l2_history "$idx" > "$NOTIF_MENU_TMP/l2"
             local prompt; prompt=$(_l2_prompt)
             local l2_idx
-            l2_idx=$(stream_rows "$NOTIF_MENU_TMP/l2" | run_rofi "$prompt") || return 0
+            l2_idx=$(run_rofi "$prompt" < "$NOTIF_MENU_TMP/l2") || return 0
             dispatch_l2 "$l2_idx"
             ;;
         ""|header|noop) : ;;
@@ -539,7 +480,7 @@ main() {
     [[ "${BASH_SOURCE[0]}" == "$0" ]] && trap 'rm -rf "$NOTIF_MENU_TMP"' EXIT
     populate_l1 > "$NOTIF_MENU_TMP/l1"
     local l1_idx
-    l1_idx=$(stream_rows "$NOTIF_MENU_TMP/l1" | run_rofi "notifications") || return 0
+    l1_idx=$(run_rofi "notifications" < "$NOTIF_MENU_TMP/l1") || return 0
     dispatch_l1 "$l1_idx"
 }
 
