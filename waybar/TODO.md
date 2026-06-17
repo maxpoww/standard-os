@@ -78,6 +78,22 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-17** — **rofi-anchor: divide by monitor scale (hi-DPI fix).**
+  notif-menu rofi popup was landing too far right on the hi-DPI eDP-1 panel
+  because hypr-context.json publishes RAW pixel dimensions while rofi
+  positions in LOGICAL pixels. `_rofi_focused_monitor` now parses
+  `"scale":N.NN` from the monitor blob as integer percent (no fork to bc),
+  divides x and w by it, returns logical-pixel anchor inputs. Test grid
+  extended: scale 1.0 / 1.5 / 2.0 all produce the same `x-offset:1346px`
+  for the bell-anchored notif-menu (12/12 pass).
+  **Hint:** scale parser uses BASH_REMATCH on `"scale":[0-9]+(\.[0-9]+)?`
+  and pads/truncates the decimal to two digits → `sx100` integer percent.
+  No `bc`, no `awk` — bash builtin arithmetic only (hot path on every
+  rofi popup).
+  **Hint:** previous bellwether commit (f692e13) tested on scale=1 (no
+  divide), regressed on scale=2. Now all three scales covered in
+  `tests/rofi-anchor-test.sh`.
+
 - **2026-06-17** — **error pills erased from OPTIONS — failures are silent.**
   Three red error pills removed entirely from the bar: `custom/power-resume`
   ("Resume: bt" and friends), `custom/waybar-self-test` ("⚠ N"), and the

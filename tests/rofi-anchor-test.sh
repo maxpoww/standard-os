@@ -41,7 +41,10 @@ check "[missing glass → dark theme]" test "$out" = "$ROFI_THEME_DIR/options-da
 # a rofi -theme-str fragment that positions rofi's top-center under the
 # pill's bottom-center + ROFI_GAP_PX.
 
-# Set up a fake monitor + a minimal SYSTEM zone for the test:
+# Set up a fake monitor + a minimal SYSTEM zone for the test.
+# Raw monitor dimensions (3200x2000 at scale 2.0) → LOGICAL 1600x1000,
+# matching a typical hi-DPI laptop panel. All position arithmetic
+# operates in logical pixels post-scale.
 # [tray=60, notif-widepill=0, notif-dnd=0, notif-bell=28].
 # total_zone_width = 60 + 0 + 0 + 28 = 88
 # zone_left_edge = 1600 - 88 = 1512
@@ -50,7 +53,7 @@ check "[missing glass → dark theme]" test "$out" = "$ROFI_THEME_DIR/options-da
 # bell center X = 1572 + 14 = 1586
 # rofi x_offset (window width 480) = 1586 - 240 = 1346
 cat > "$ROFI_HYPR_CTX" <<'EOF'
-{"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":1600,"h":1000,"scale":2.0,"focused_ws":1}]}
+{"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":3200,"h":2000,"scale":2.00,"focused_ws":1}]}
 EOF
 printf '{"w":0,"monitor":"eDP-1"}'  > "$ROFI_GEOM_DIR/notif-widepill.json"
 printf '{"w":0,"monitor":"eDP-1"}'  > "$ROFI_GEOM_DIR/notif-dnd.json"
@@ -79,6 +82,23 @@ check "[fallback x-offset = (mon_w - default - default/2) = 880]" \
     test -n "$(echo "$out" | grep -Eo 'x-offset:880px')"
 # Restore for any later tests
 export ROFI_ZONE_SYSTEM_OVERRIDE="tray notif-widepill notif-dnd notif-bell"
+
+# Scale=1.0 regression: ensure non-hi-DPI monitor math is unchanged.
+# Raw 1600x1000 at scale 1.0 → logical 1600x1000 (same numbers).
+cat > "$ROFI_HYPR_CTX" <<'EOF'
+{"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":1600,"h":1000,"scale":1.00,"focused_ws":1}]}
+EOF
+out=$(rofi_anchor_for notif-bell)
+check "[scale=1.0: bell anchor matches hi-DPI logical case]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1346px')"
+
+# Fractional scale: 1.50. Raw 2400x1500 → logical 1600x1000. Same expected.
+cat > "$ROFI_HYPR_CTX" <<'EOF'
+{"monitor_focused":"eDP-1","monitors":[{"name":"eDP-1","x":0,"y":0,"w":2400,"h":1500,"scale":1.50,"focused_ws":1}]}
+EOF
+out=$(rofi_anchor_for notif-bell)
+check "[scale=1.5: bell anchor matches logical case]" \
+    test -n "$(echo "$out" | grep -Eo 'x-offset:1346px')"
 
 printf '\n--- %d pass, %d fail ---\n' "$pass" "$fail"
 exit $(( fail > 0 ))

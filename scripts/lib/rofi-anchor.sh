@@ -73,7 +73,7 @@ _rofi_json_str() {
 # Resolve focused monitor's (x, w) from hypr-context.json. Falls back
 # to (0, 1920) when context is missing — better than blank.
 _rofi_focused_monitor() {
-    local ctx focused mon_blob mon_x mon_w
+    local ctx focused mon_blob mon_x mon_w scale_str sx100
     [ -r "$ROFI_HYPR_CTX" ] || { printf '0 1920'; return; }
     ctx=$(cat "$ROFI_HYPR_CTX" 2>/dev/null) || { printf '0 1920'; return; }
     focused=$(_rofi_json_str "$ctx" monitor_focused)
@@ -84,6 +84,29 @@ _rofi_focused_monitor() {
     fi
     mon_x=$(_rofi_json_int "$mon_blob" x)
     mon_w=$(_rofi_json_int "$mon_blob" w)
+    # hypr-context publishes raw pixel dimensions; rofi positions in
+    # LOGICAL pixels (compositor surface units). Divide x and w by scale.
+    # Scale is parsed as integer percent (2.00 → 200, 1.25 → 125, 1 → 100)
+    # so we can do integer arithmetic. If scale is missing, treat as 1.0.
+    if [[ $mon_blob =~ \"scale\":[[:space:]]*([0-9]+)(\.[0-9]+)? ]]; then
+        scale_str="${BASH_REMATCH[1]}${BASH_REMATCH[2]:-.00}"
+        # Convert "2.00" → 200, "1.5" → 150, "1" → 100 without forking.
+        local int_part="${scale_str%%.*}" dec_part="${scale_str#*.}"
+        [ "$int_part" = "$scale_str" ] && dec_part="00"   # no dot
+        # Pad/truncate dec_part to exactly 2 chars.
+        case ${#dec_part} in
+            0) dec_part="00" ;;
+            1) dec_part="${dec_part}0" ;;
+            2) : ;;
+            *) dec_part="${dec_part:0:2}" ;;
+        esac
+        sx100=$(( 10#$int_part * 100 + 10#$dec_part ))
+        [ "$sx100" -lt 1 ] && sx100=100
+    else
+        sx100=100
+    fi
+    mon_x=$(( mon_x * 100 / sx100 ))
+    mon_w=$(( mon_w * 100 / sx100 ))
     printf '%d %d' "$mon_x" "$mon_w"
 }
 
