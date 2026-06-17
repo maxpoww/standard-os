@@ -96,6 +96,16 @@ set_glass_mode() {
     [[ $mode == "$LAST_MODE" ]] && return 0
     printf '%s' "$mode" >"$GLASS_MODE_FILE.tmp" && mv -f "$GLASS_MODE_FILE.tmp" "$GLASS_MODE_FILE"
     LAST_MODE=$mode
+    # Rofi 2.0 reads its theme at LAUNCH time only — there is no live
+    # reload mechanism, no per-widget recolor hook, no usable signal.
+    # An open rofi popup that was launched in dark mode keeps its dark
+    # text forever, even if the wallpaper now needs light mode. The
+    # only clean fix is to dismiss the open popup so the next click
+    # re-launches with the new theme. Popups are short-lived in normal
+    # use, so this is a no-op nearly always; when it does fire the
+    # disruption (popup vanishes) is preferable to wrong-color text
+    # against the new wallpaper.
+    pkill -INT rofi 2>/dev/null || true
 }
 
 ensure_preloaded() {
