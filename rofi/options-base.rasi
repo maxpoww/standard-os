@@ -3,12 +3,13 @@
  * surface in OPTIONS. The light and dark theme files @import this and
  * set @opt-surface-parent / @opt-surface-child / @opt-text constants.
  *
- * Soul rule: rofi IS a wide pill from the OPTIONS family.
- * - Window: parent surface, rounded, NO hard border (Rule 3).
+ * Soul rule: rofi IS a fragment of the bar dropped down — bar-veil
+ * window with pills inside, mirroring window#waybar's structure.
+ * - Window: bar-veil surface, rounded, NO hard border (Rule 3).
+ * - Notif rows (records): parent surface (mirrors .opt-pill at rest).
+ * - Action rows (verbs): child surface (mirrors .opt-pill-child).
  * - Selected row: white film 0.30 alpha (universal bright-hover).
- * - Action rows (verbs): child surface, rounded, action verb in text.
- * - Notif rows (records): transparent rest, icon + text.
- * - Section headers: smaller font, dim, non-selectable.
+ * - Section headers: smaller font, dim, no pill surface.
  *
  * Color tokens are defined in options-dark.rasi / options-light.rasi
  * and mirror the @define-color block in waybar/style.css exactly:
