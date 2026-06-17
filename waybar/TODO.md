@@ -78,6 +78,18 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-17** — **rofi pill metrics: copy-verbatim from waybar.** Follow-up
+  to the pill-styling commit (cd276fa). User: *"pills are huge and the
+  corners are not the same round of the waybar ones."* Extracted exact
+  values from `waybar/style.css:200-207` and copied verbatim to
+  `rofi/options-base.rasi`:
+  padding `6px 12px` → `3px 8px 3px 7px`, border-radius `18px` → `30px`,
+  listview spacing `4px` → `2px` (matches waybar's `margin: 1px 0px`
+  between-pill rhythm). Action rows inherit padding from `element`;
+  border-radius bumped to 30 too. Headers stay at 11pt (no waybar
+  analogue). Pills now read as compact fully-rounded chips identical to
+  bar pills.
+
 - **2026-06-17** — **rofi popup styled as OPTIONS pills.** Every row is
   now a parent-surface pill at rest; action rows keep the child-surface
   treatment; section headers stay dim small text with no pill. The

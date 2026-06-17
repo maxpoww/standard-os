@@ -52,17 +52,19 @@ mainbox {
 }
 
 listview {
-    spacing:      4px;
+    spacing:      2px;
     scrollbar:    false;
     fixed-height: 0;
     lines:        12;
 }
 
 /* Row, default — parent-surface pill at rest (mirrors .opt-pill).
-   Hover film replaces the surface to brighten on selection. */
+   Hover film replaces the surface to brighten on selection.
+   Padding + border-radius are copy-verbatim from
+   waybar/style.css `.opt-pill` (lines 200-207). */
 element {
-    padding:          6px 12px;
-    border-radius:    18px;
+    padding:          3px 8px 3px 7px;
+    border-radius:    30px;
     background-color: @opt-surface-parent;
     cursor:           pointer;
 }
@@ -90,10 +92,12 @@ element selected.urgent {
 
 /* Action rows — emitted by format_rofi_action with a leading \x02
    sentinel. rofi treats them as `active` rows; we give them the child
-   surface so they read as action pills. */
+   surface so they read as action pills. Padding inherited from
+   `element` above — waybar uses identical padding/radius for
+   .opt-pill and .opt-pill-child. */
 element normal.active {
     background-color: @opt-surface-child;
-    border-radius:    18px;
+    border-radius:    30px;
 }
 
 /* Section headers — emitted with the existing dim-non-selectable
