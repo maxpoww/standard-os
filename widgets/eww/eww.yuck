@@ -1,0 +1,83 @@
+;; ─────────────────────────────────────────────────────────────────────
+;;  StandardOS widget canvas — Eww root.
+;;
+;;  Wave 0: the dashboard window with three zones (CROWN / HERO / FIELD)
+;;  drawn as labeled placeholders, plus a clock label in HERO that polls
+;;  date(1) every second.
+;;
+;;  Future waves replace the placeholders with real widgets (see
+;;  docs/superpowers/specs/2026-06-19-widgets-canvas-design.md).
+;; ─────────────────────────────────────────────────────────────────────
+
+;; Time data — polled every second. `date(1)` is the cheapest possible
+;; source; locale comes from the user's environment.
+(defpoll time
+  :interval "1s"
+  :initial "--:--"
+  `date +'%H:%M'`)
+
+;; HERO widget: the huge clock. The only widget shipped in Wave 0.
+(defwidget clock-hero []
+  (label
+    :class "widget-clock-hero"
+    :text time))
+
+;; CROWN zone placeholder — will hold identity widgets (date, user-select)
+;; in Wave 1 / Wave 4.
+(defwidget crown-placeholder []
+  (label
+    :class "zone-placeholder"
+    :text "CROWN"))
+
+;; FIELD zone placeholder — will hold smaller info widgets in Wave 1+.
+(defwidget field-placeholder []
+  (label
+    :class "zone-placeholder"
+    :text "FIELD"))
+
+;; The canvas root: a vertical box with three zones, edge-padded by 5%
+;; per spec §3.
+(defwidget canvas []
+  (box
+    :class "canvas-root"
+    :orientation "vertical"
+    :space-evenly false
+    ;; CROWN — top, fixed height roughly 15% of the canvas.
+    (box
+      :orientation "horizontal"
+      :halign "center"
+      :valign "start"
+      :vexpand false
+      (crown-placeholder))
+    ;; HERO — vertical center, fills available space, holds exactly one
+    ;; widget (the clock).
+    (box
+      :orientation "horizontal"
+      :halign "center"
+      :valign "center"
+      :vexpand true
+      (clock-hero))
+    ;; FIELD — bottom row, fixed height, will become a responsive wrap
+    ;; container in Wave 1+.
+    (box
+      :orientation "horizontal"
+      :halign "center"
+      :valign "end"
+      :vexpand false
+      (field-placeholder))))
+
+;; The dashboard window: overlay layer, full-screen on the focused
+;; monitor (Wave 0 ships single-monitor; multi-monitor decision deferred
+;; per spec §9.1).
+(defwindow dashboard
+  :monitor 0
+  :geometry (geometry
+              :x "0%"
+              :y "0%"
+              :width "100%"
+              :height "100%"
+              :anchor "center")
+  :stacking "overlay"
+  :exclusive false
+  :focusable false
+  (canvas))

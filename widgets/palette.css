@@ -1,0 +1,46 @@
+/*
+ * StandardOS palette tokens — single source of truth for color across
+ * Eww (Dashboard), hyprlock (Lock), and regreet (Greeter).
+ *
+ * Values mirror /etc/nixos/home/waybar/style.css §50-126. Keep in sync
+ * if waybar's palette changes (waybar is canonical for the bar; this
+ * file is canonical for the canvas surfaces).
+ *
+ * GTK CSS @define-color works in Eww. hyprlock / regreet pick up the
+ * raw rgba() values manually (they don't share GTK CSS variables).
+ */
+
+/* Surfaces */
+@define-color opt-bar-veil          rgba(128, 128, 128, 0.10);
+@define-color opt-surface-parent    rgba(128, 128, 128, 0.30);
+@define-color opt-surface-child     rgba(170, 170, 170, 0.30);
+
+/* Hover (universal brighten film, layered via inset box-shadow on hover) */
+@define-color opt-hover-bright      rgba(255, 255, 255, 0.30);
+
+/* Primary state colors */
+@define-color opt-blue              rgba(179, 191, 255, 0.05);
+@define-color opt-blue-state        rgba(110, 150, 255, 0.55);
+@define-color opt-yellow            rgba(255, 230, 179, 0.05);
+@define-color opt-yellow-state      rgba(255, 230, 179, 0.35);
+@define-color opt-red               rgba(255, 179, 179, 0.05);
+@define-color opt-red-state         rgba(255, 179, 179, 0.35);
+
+/* Secondary animation / pin colors */
+@define-color opt-violet            rgba(217, 179, 255, 0.70);
+@define-color opt-green             rgba(179, 255, 179, 0.70);
+@define-color opt-orange            rgba(255, 191, 179, 0.70);
+@define-color opt-yellow-pin        rgba(255, 230, 179, 0.70);
+
+/* Press feedback */
+@define-color opt-pushed-shadow     rgba(  0,   0,   0, 0.35);
+
+/* Text */
+@define-color opt-text-on-dark      rgba(255, 255, 255, 1.00);
+@define-color opt-text-on-light     rgba(  0,   0,   0, 0.85);
+@define-color opt-text-on-light-hov rgba(  0,   0,   0, 0.95);
+@define-color opt-text-light-shadow rgba(255, 255, 255, 0.25);
+
+/* Canvas-specific (Wave 0): the dashboard veil */
+@define-color canvas-veil           rgba(  0,   0,   0, 0.85);
+@define-color canvas-zone-label     rgba(255, 255, 255, 0.30);

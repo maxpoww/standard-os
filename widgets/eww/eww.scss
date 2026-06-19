@@ -1,0 +1,42 @@
+/*
+ * StandardOS widget canvas — Eww styles.
+ * Imports the shared StandardOS palette and styles the Dashboard window.
+ *
+ * Wave 0: dark veil + three zone placeholders + clock in HERO.
+ * Wave 1+ adds per-widget card styles.
+ */
+
+@import "../palette.css";
+
+/* Reset GTK defaults so Eww starts from neutral ground. */
+* {
+  all: unset;
+}
+
+/* The full-screen dashboard window: dark veil over the underlying session. */
+window.dashboard {
+  background-color: @canvas-veil;
+  font-family: "MesloLGS NF", "Symbols Nerd Font Mono", sans-serif;
+}
+
+/* Wave 0 placeholders for CROWN and FIELD (future widgets fill these). */
+.zone-placeholder {
+  color: @canvas-zone-label;
+  font-size: 11pt;
+  font-weight: 300;
+  letter-spacing: 2px;
+  padding: 24px;
+}
+
+/* HERO clock: the only place the 96pt scale appears (spec §5.2). */
+.widget-clock-hero {
+  color: @opt-text-on-dark;
+  font-size: 96pt;
+  font-weight: 200;
+  letter-spacing: -2px;
+}
+
+/* Vertical zone container: CROWN at top, HERO in middle, FIELD at bottom. */
+.canvas-root {
+  padding: 5% 5%;
+}
