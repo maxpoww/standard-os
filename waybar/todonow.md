@@ -1,0 +1,61 @@
+# todonow
+
+The current priority slate — features picked from the 2026-06-19 UX-gap
+analysis (the six things that turn Standard-OS from "compelling demo" into
+"daily-driver for a normal person"). Work through these top-to-bottom.
+Each item graduates to `TODO.md` when work starts and to its DONE section
+when it ships.
+
+This file is the short list. `TODO.md` is the active work map (capped at 6)
+and the full history. `NEXT` in `TODO.md` still holds the longer backlog
+(audio module, screenshot, brightness, mpris, rfkill, network/bluetooth/
+system/clipboard daemons, control-panel row, per-window context surfacing).
+
+---
+
+1. **Settings surface** — the configurable-depth layer for things that can't
+   reasonably become bar pills: hostname, timezone, locale, user account
+   name + avatar + password, time format, default applications, startup
+   apps, lid-close behavior, keyboard repeat, mouse acceleration,
+   accessibility defaults, sleep / lock timers, additional users, drive
+   encryption setup. Candidate substrate: rofi-grammar pages (categories →
+   pill rows or text inputs in dmenu mode), bound to `$mainMod+,` (the Mac
+   convention). Without this, Standard-OS is not installable by a normal
+   user.
+
+2. **Search-everything launcher** — today `apps-launcher` is
+   `rofi -show drun` (apps only). Expand the "+" pill's surface to cover
+   apps + files + settings entries + actions + inline calculator. Same
+   pill, same anchor, broader modes. Single biggest first-impression gap
+   for macOS / Windows switchers.
+
+3. **Display / multi-monitor pill** — resolution, refresh rate, scale,
+   mirror / extend, primary picker, "send focused window to other
+   monitor." SYSTEM zone, value pill with a drawer of monitors. Plugging
+   in HDMI / USB-C must surface *something* — today the user has no idea
+   the second screen was detected. Pairs with hypr-context-daemon, which
+   already publishes monitor info.
+
+4. **Privacy indicators — screen-share, camera, mic** — three pills that
+   surface silently (Rule 4) when their respective portal / device is in
+   use, and a permanent "stop sharing" affordance while
+   `xdg-desktop-portal` is sharing the screen. Pattern: opt-pushed +
+   opt-breathe ambient for active capture; opt-pin-orange if the user
+   should notice and act. `mic-monitor` cache already exists — wire its
+   surfacing and add camera + screen-share peers. Non-negotiable for
+   video calls and for the user trusting the OS.
+
+5. **Themed login + lock screen** — swaylock + greeter (regreet /
+   tuigreet) re-skinned to share the OPTIONS pill aesthetic (same
+   surfaces, same hover, same dark/light adaptation via glass-mode).
+   First and last surface the user sees every day; if the grammar
+   breaks at the lock veil, the whole illusion does.
+
+6. **Workspaces navigator** — richer workspaces surface beyond the
+   current `ws-current` + `ws-1..9` button row. Design door is open;
+   the user has the vision in head.
+
+7. **Widgets** — a new surface class alongside pills. Design door is
+   open; the user has the vision in head. (Note for future me: this is
+   the user's vision of widgets, *not* the GNOME/KDE desktop-canvas
+   widget — don't assume. Wait for the spec.)
