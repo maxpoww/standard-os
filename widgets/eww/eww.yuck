@@ -16,18 +16,26 @@
   :initial "--:--"
   `date +'%H:%M'`)
 
+;; Date data — polled every minute. Format matches "Friday, June 19".
+;; %A = full weekday name, %B = full month name, %-d = day-of-month
+;; without leading zero.
+(defpoll today
+  :interval "60s"
+  :initial "—"
+  `date +'%A, %B %-d'`)
+
 ;; HERO widget: the huge clock. The only widget shipped in Wave 0.
 (defwidget clock-hero []
   (label
     :class "widget-clock-hero"
     :text time))
 
-;; CROWN zone placeholder — will hold identity widgets (date, user-select)
-;; in Wave 1 / Wave 4.
-(defwidget crown-placeholder []
+;; CROWN: the date. Replaces the Wave 0 placeholder.
+;; Matches "Friday, June 19" — full weekday + month + day.
+(defwidget date-crown []
   (label
-    :class "zone-placeholder"
-    :text "CROWN"))
+    :class "widget-date"
+    :text today))
 
 ;; FIELD zone placeholder — will hold smaller info widgets in Wave 1+.
 (defwidget field-placeholder []
@@ -48,7 +56,7 @@
       :halign "center"
       :valign "start"
       :vexpand false
-      (crown-placeholder))
+      (date-crown))
     ;; HERO — vertical center, fills available space, holds exactly one
     ;; widget (the clock).
     (box
