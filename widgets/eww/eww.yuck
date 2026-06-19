@@ -79,5 +79,5 @@
               :anchor "center")
   :stacking "overlay"
   :exclusive false
-  :focusable false
+  :focusable true
   (canvas))

@@ -44,7 +44,7 @@ closes the instant the user lets go.
 
 | Surface | When it appears | Persistence | Interaction | Auth |
 |---|---|---|---|---|
-| **Dashboard** | User presses Super+Return | Until user presses Esc | Read-mostly during v0; clicks pass through to underlying windows (canvas window is non-focusable) | None (already in session) |
+| **Dashboard** | User presses Super+Return | Until user presses Esc | Widgets are focusable + clickable from Wave 1 onward (the canvas window is `:focusable true`); clicks are captured by widgets, not passed through. Esc still dismisses via a Hyprland `bind` that intercepts before the focused widget. | None (already in session) |
 | **Lock screen** | `loginctl lock-session`, idle timer (off by default), lid-close (configurable) | Until auth succeeds or hibernate | Password input + read-only widgets | PAM password |
 | **Greeter** | Boot if autologin off; after explicit logout | Until auth + session choice | User-pick (if >1 user) + password input | PAM password |
 
@@ -251,9 +251,12 @@ from pills.
   elements (Rule 4 — input acknowledged, context shifts silent — still holds).
 - No hard borders. Card edge is surface-color difference, not an outline
   (same constraint as pills).
-- No hover beat / no `opt-pushed` on widget cards themselves. Widgets are
-  read-mostly; on Dashboard the user is sitting with the dashboard, not
-  interacting.
+- No hover beat / no `opt-pushed` on widget cards themselves *by default*.
+  Interactive widgets (calendar month navigation, configuration toggles
+  in later waves) ARE clickable + focusable — the canvas window is
+  `:focusable true` from Wave 1 onward. Hover/pushed states apply per
+  widget where the widget's nature is interactive; non-interactive
+  display widgets (clock, date, notes preview) stay calm.
   The `quick-toggles` row is the one exception — it's a strip of pills
   mirrored, so it carries the bar's full hover/pushed grammar.
 
