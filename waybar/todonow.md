@@ -54,6 +54,8 @@ system/clipboard daemons, control-panel row, per-window context surfacing).
    current `ws-current` + `ws-1..9` button row. Design door is open;
    the user has the vision in head.
 
-7. **Widgets** — Wave 0 (substrate + clock) shipped 2026-06-19. Waves 1–3
-   add the rest of the 12-widget Dashboard catalog. Spec:
+7. **Widgets** — Waves 0 + 1 shipped 2026-06-19 (substrate, clock, date,
+   calendar, notes-preview). Waves 2–3 add the remaining Dashboard
+   catalog widgets (quick-toggles, battery-card, media-player, weather,
+   agenda, pomodoro, notifications-list, system-stats). Spec:
    `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.

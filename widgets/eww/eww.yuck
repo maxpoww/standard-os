@@ -24,6 +24,14 @@
   :initial "—"
   `date +'%A, %B %-d'`)
 
+;; Notes preview — last 8 lines of the user's notes file. If the file
+;; doesn't exist, the poll command exits non-zero and Eww's `:initial`
+;; value is used (an empty-state hint).
+(defpoll notes-preview
+  :interval "5s"
+  :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
+  `tail -n 8 ~/.config/standardos/notes.md 2>/dev/null || echo 'Notes file not yet created.\nWrite to ~/.config/standardos/notes.md'`)
+
 ;; HERO widget: the huge clock. The only widget shipped in Wave 0.
 (defwidget clock-hero []
   (label
@@ -54,6 +62,25 @@
     :valign "center"
     (calendar)))
 
+;; FIELD: notes card. Read-only preview of the last 8 lines of
+;; ~/.config/standardos/notes.md. Editing happens out-of-band — open
+;; the file in your editor of choice. A future wave adds inline
+;; capture once the configuration-widget input pattern is established.
+(defwidget notes-card []
+  (box
+    :class "widget-notes"
+    :orientation "vertical"
+    :halign "fill"
+    :valign "center"
+    (label
+      :class "widget-notes-heading"
+      :text "Notes")
+    (label
+      :class "widget-notes-body"
+      :text notes-preview
+      :wrap true
+      :limit-width 40)))
+
 ;; The canvas root: a vertical box with three zones, edge-padded by 5%
 ;; per spec §3.
 (defwidget canvas []
@@ -77,7 +104,7 @@
       :vexpand true
       (clock-hero))
     ;; FIELD — bottom row, horizontal flex of small info widgets.
-    ;; Wave 1: calendar; Task 4 adds notes; future waves grow this row.
+    ;; Wave 1: calendar + notes. Future waves grow this row.
     (box
       :class "field-row"
       :orientation "horizontal"
@@ -86,7 +113,8 @@
       :space-evenly false
       :spacing 24
       :vexpand false
-      (calendar-card))))
+      (calendar-card)
+      (notes-card))))
 
 ;; The dashboard window: overlay layer, full-screen on the focused
 ;; monitor (Wave 0 ships single-monitor; multi-monitor decision deferred

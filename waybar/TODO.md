@@ -78,6 +78,34 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-19** — **widgets-canvas Wave 1: date + calendar + notes; canvas
+  pivots to :focusable true.** Three catalog widgets shipped to the
+  Dashboard. Date (CROWN, "Friday, June 19", 18pt) replaces the Wave 0
+  CROWN placeholder. Calendar (FIELD, Eww's built-in `(calendar)`,
+  parent-surface card, blue selected-day) is the first interactive
+  widget — exercises the canvas's new `:focusable true` setting.
+  Notes (FIELD, read-only preview of last 8 lines from
+  `~/.config/standardos/notes.md`) sits alongside calendar in a
+  horizontal `.field-row` flex. Editing notes is out-of-band in Wave 1;
+  inline capture deferred until the configuration-widget input pattern
+  is established in a later wave.
+  **Hint:** the canvas pivot is architectural — once `:focusable true`,
+  clicks no longer pass through. Esc continues to dismiss via the
+  Hyprland canvas-open-submap bind (intercepts before the focused
+  widget). Spec §2 + §5.3 updated to match.
+  **Hint:** notes file expected at `~/.config/standardos/notes.md`. If
+  absent the widget shows an empty-state message. The directory is
+  user-owned (not Nix-managed); the install ensures it exists by
+  touching the file in Task 4 Step 3.
+  **Hint:** calendar uses Eww's built-in widget — `(calendar :show-day-
+  names true :show-week-numbers false :show-heading true)`. Styling
+  hooks GTK pseudo-classes on the `calendar` element; see
+  `.widget-calendar calendar:selected` for the today/selected highlight.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
+  Wave 1 plan at `docs/superpowers/plans/2026-06-19-widgets-canvas-wave-1.md`.
+  Wave 2 (existing-cache widgets — quick-toggles, battery, media-player)
+  and Wave 3 (new-daemon widgets) are separate plans.
+
 - **2026-06-19** — **widgets-canvas Wave 0: dashboard substrate + clock.**
   New surface class shipped: the canvas, Eww-rendered, full-screen
   translucent overlay opened on Super+RETURN and dismissed on Esc

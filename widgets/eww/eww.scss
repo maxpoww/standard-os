@@ -79,6 +79,32 @@ window.dashboard {
   opacity: 0.95;
 }
 
+/* Notes card — read-only preview of last 8 lines. */
+.widget-notes {
+  background-color: @opt-surface-parent;
+  border-radius: 12px;
+  padding: 16px 20px;
+  min-width: 280px;
+  max-width: 360px;
+}
+
+.widget-notes-heading {
+  color: @opt-text-on-dark;
+  font-size: 11pt;
+  font-weight: 500;
+  letter-spacing: 1px;
+  opacity: 0.6;
+  margin-bottom: 8px;
+}
+
+.widget-notes-body {
+  color: @opt-text-on-dark;
+  font-size: 12pt;
+  font-weight: 400;
+  opacity: 0.85;
+  font-family: "MesloLGS NF", monospace;
+}
+
 /* Vertical zone container: CROWN at top, HERO in middle, FIELD at bottom. */
 .canvas-root {
   padding: 5% 5%;
