@@ -2,7 +2,8 @@
 
 A new surface class for StandardOS: the **canvas**. It hosts widgets the way
 the bar hosts pills. Three surfaces share the canvas substrate: a **Dashboard**
-the user summons during a session by holding Super+Return, a **Lock screen**
+the user summons during a session by pressing Super+RETURN (canvas persists
+until Esc dismisses it), a **Lock screen**
 that re-uses the same canvas with an auth boundary, and a **Greeter** for
 multi-user installs and the post-logout path. All three share data through
 the existing `/tmp/waybar-cache/` pattern and share visual identity through a
@@ -251,7 +252,8 @@ from pills.
 - No hard borders. Card edge is surface-color difference, not an outline
   (same constraint as pills).
 - No hover beat / no `opt-pushed` on widget cards themselves. Widgets are
-  read-mostly; on Dashboard the user is holding to peek, not interacting.
+  read-mostly; on Dashboard the user is sitting with the dashboard, not
+  interacting.
   The `quick-toggles` row is the one exception — it's a strip of pills
   mirrored, so it carries the bar's full hover/pushed grammar.
 
@@ -327,7 +329,7 @@ host enables only `widgets-canvas`; a multi-user install enables all three.
 
 ### 6.3 Keybinds & triggers
 
-- **Dashboard:** Hyprland `bindn / bindr` on Super+Return (§2.1).
+- **Dashboard:** Hyprland `bind` on Super+RETURN (two dispatches on press: `exec eww open dashboard` + `submap canvas-open`). Inside the canvas-open submap, `bind` on Esc dispatches `exec eww close dashboard` + `submap reset`. See §2.1.
 - **Lock:** `loginctl lock-session` → systemd unit runs hyprlock. Idle
   trigger via hypridle (off by default). Lid-close trigger via logind
   (off by default).
@@ -410,12 +412,16 @@ independently-shippable waves. Sketch:
 - New Nix module `widgets-canvas.nix` + Eww package + `eww.yuck` canvas root
   drawing the three zones as colored placeholders.
 - `palette.css` shared tokens.
-- Hyprland keybinds: `bindn` press → `eww open dashboard`,
-  `bindr` release → `eww close dashboard`.
+- Hyprland keybinds: `bind` on Super+RETURN (two dispatches on press:
+  `exec eww open dashboard` + `submap canvas-open`); inside the
+  canvas-open submap, `bind` on Esc dispatches `exec eww close dashboard`
+  + `submap reset`.
 - One widget shipped: **clock** (HERO).
-- Canvas fade-in / fade-out animation (~150 ms each direction).
-- **Ships when:** holding Super+Return shows a black-veiled canvas with a
-  huge clock; releasing closes it. No other widgets, no lock, no greeter.
+- Canvas fade-in / fade-out animation (~150 ms each direction) — deferred
+  to Wave 1; Wave 0 ships without transitions.
+- **Ships when:** pressing Super+RETURN shows a black-veiled canvas with a
+  huge clock that persists; pressing Esc closes it. No other widgets, no
+  lock, no greeter.
 
 ### Wave 1 — Dashboard core widgets (pure-data, no new daemons)
 
@@ -473,9 +479,11 @@ Decisions not resolved in this spec; plan-writing picks them up.
    StandardOS fabric, not the underlying session.
 3. **Wallpaper-blur depth + dim opacity.** Visual-review tunable; defer to
    Wave 0.
-4. **Cancel-mid-animation behavior.** Holding Super+Return triggers fade-in;
-   releasing at t=80 ms should reverse, not snap. Define the Eww transition
-   recipe in Wave 0.
+4. **Canvas fade-in/out animation.** Wave 0 ships without transitions
+   (snaps open and closed). Wave 1 can add ~150 ms fades; the cancel-mid-
+   press concern from the original spec dissolves because the user opens
+   once with Super+RETURN and closes once with Esc — there is no held
+   chord to cancel mid-animation.
 5. **PAM stack + gnome-keyring interaction.** How hyprlock + regreet talk to
    PAM, and how the empty-password keyring auto-unlock
    (`keyring-unlocked.nix`) coexists with session-time password input. Wave 4

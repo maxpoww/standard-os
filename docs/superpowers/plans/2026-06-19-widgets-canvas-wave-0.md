@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Holding Super+Return shows a full-screen translucent canvas with a huge clock in the HERO zone and labeled CROWN / FIELD placeholders. Releasing the key closes it.
+**Goal:** Pressing Super+RETURN shows a full-screen translucent canvas with a huge clock in the HERO zone and labeled CROWN / FIELD placeholders. The canvas persists until the user presses Esc.
 
-**Architecture:** Eww runs as a systemd-user daemon. Hyprland's `bind`/`bindr` calls `eww open dashboard` on press and `eww close dashboard` on release. The Eww window is overlay-layer (gtk-layer-shell), full-screen, draws a dark veil + a clock label that polls `date(1)` every second. A shared `palette.css` defines StandardOS color tokens that future waves will reuse from Eww, hyprlock, and regreet.
+**Architecture:** Eww runs as a systemd-user daemon. Hyprland's `bind` on Super+RETURN dispatches both `eww open dashboard` and `submap canvas-open`; inside the `canvas-open` submap, `bind` on Esc dispatches `eww close dashboard` and `submap reset`. The Eww window is overlay-layer (gtk-layer-shell), full-screen, draws a dark veil + a clock label that polls `date(1)` every second. A shared `palette.css` defines StandardOS color tokens that future waves will reuse from Eww, hyprlock, and regreet.
 
 **Tech Stack:** NixOS + home-manager, Eww (ElKowar's Wacky Widgets, GTK 3 + Yuck/SCSS), Hyprland.
 
@@ -790,7 +790,7 @@ Wave 0 is complete when ALL of these are true:
 - [ ] `waybar/todonow.md` items #5 and #7 reference the spec and waves.
 - [ ] `git -C /etc/nixos/home status -s` returns empty.
 
-Anything left for Wave 1: the canvas fade-in/out animation (spec §5.2 mentioned ~150ms; Wave 0 ships with no transition — the canvas snaps on and off). This is acceptable for v0 because the canvas is a peek; if 150ms fade-in proves valuable in practice, Wave 1 can add it without disturbing the substrate.
+Anything left for Wave 1: the canvas fade-in/out animation (spec §5.2 mentioned ~150ms; Wave 0 ships with no transition — the canvas snaps on and off). This is acceptable for v0 because the canvas persists until dismissed; if 150ms fade-in proves valuable in practice, Wave 1 can add it without disturbing the substrate.
 
 ---
 

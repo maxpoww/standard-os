@@ -41,6 +41,7 @@ in
     ewwPackage = lib.mkOption {
       type = lib.types.package;
       default = pkgs.eww;
+      defaultText = lib.literalExpression "pkgs.eww";
       description = "Eww package providing the daemon binary.";
     };
   };
@@ -92,7 +93,7 @@ in
         # manual intervention. The next config edit + restart fixes the
         # parse error.
         Restart = "always";
-        RestartSec = 1;
+        RestartSec = "1";
       };
     };
   };

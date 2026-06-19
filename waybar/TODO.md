@@ -84,8 +84,8 @@ for the maintenance contract.
   (persistent — not hold-to-peek, not toggle, decision reversed mid-
   flight after physical test). CROWN / HERO / FIELD zone layout drawn
   as placeholders; HERO holds a 96pt clock polling `date(1)` every
-  second. Eww daemon runs as `systemd --user
-  services.standardos-canvas` bound to graphical-session.target.
+  second. Eww daemon runs as a systemd-user unit
+  `standardos-canvas.service` bound to graphical-session.target.
   **Hint:** new module `modules/widgets-canvas.nix` mirrors the waybar.nix
   out-of-store-symlink pattern — edit `/etc/nixos/home/widgets/eww/*` and
   `systemctl --user restart standardos-canvas.service` to iterate without
