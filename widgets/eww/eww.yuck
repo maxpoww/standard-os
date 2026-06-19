@@ -37,11 +37,22 @@
     :class "widget-date"
     :text today))
 
-;; FIELD zone placeholder — will hold smaller info widgets in Wave 1+.
-(defwidget field-placeholder []
-  (label
-    :class "zone-placeholder"
-    :text "FIELD"))
+;; FIELD: calendar card. Eww's built-in (calendar) is interactive — the
+;; user can click ← / → to navigate months. Today is highlighted by GTK
+;; default; SCSS styles the typography to match the canvas palette.
+;; Props omitted intentionally — GTK defaults give us day names + heading
+;; + no week numbers, which is what we want. If you need to tweak,
+;; eww's accepted props (varies by version) are :day :month :year
+;; :show-heading :show-day-names :show-week-numbers. Add them ONLY
+;; after verifying the running eww version supports them with a quick
+;; `eww logs` check after restart.
+(defwidget calendar-card []
+  (box
+    :class "widget-calendar"
+    :orientation "vertical"
+    :halign "center"
+    :valign "center"
+    (calendar)))
 
 ;; The canvas root: a vertical box with three zones, edge-padded by 5%
 ;; per spec §3.
@@ -65,14 +76,17 @@
       :valign "center"
       :vexpand true
       (clock-hero))
-    ;; FIELD — bottom row, fixed height, will become a responsive wrap
-    ;; container in Wave 1+.
+    ;; FIELD — bottom row, horizontal flex of small info widgets.
+    ;; Wave 1: calendar; Task 4 adds notes; future waves grow this row.
     (box
+      :class "field-row"
       :orientation "horizontal"
       :halign "center"
       :valign "end"
+      :space-evenly false
+      :spacing 24
       :vexpand false
-      (field-placeholder))))
+      (calendar-card))))
 
 ;; The dashboard window: overlay layer, full-screen on the focused
 ;; monitor (Wave 0 ships single-monitor; multi-monitor decision deferred

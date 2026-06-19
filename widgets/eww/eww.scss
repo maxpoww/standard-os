@@ -45,6 +45,40 @@ window.dashboard {
   opacity: 0.85;
 }
 
+/* FIELD container — horizontal flex of small widgets, breathing room
+   between cards. */
+.field-row {
+  padding: 24px 0;
+}
+
+/* Calendar card outer container. */
+.widget-calendar {
+  background-color: @opt-surface-parent;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+/* GTK calendar typography — match canvas palette. The :selected
+   pseudo applies to today and to the user's clicked day. */
+.widget-calendar calendar {
+  color: @opt-text-on-dark;
+  font-size: 12pt;
+  font-weight: 400;
+}
+
+.widget-calendar calendar:selected {
+  background-color: @opt-blue-state;
+  color: @opt-text-on-dark;
+  border-radius: 4px;
+}
+
+.widget-calendar calendar.header {
+  color: @opt-text-on-dark;
+  font-size: 13pt;
+  font-weight: 500;
+  opacity: 0.95;
+}
+
 /* Vertical zone container: CROWN at top, HERO in middle, FIELD at bottom. */
 .canvas-root {
   padding: 5% 5%;
