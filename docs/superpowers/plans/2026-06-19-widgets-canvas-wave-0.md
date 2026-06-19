@@ -701,25 +701,32 @@ Modify `/etc/nixos/home/waybar/TODO.md` — at the top of the DONE section (imme
 ```markdown
 - **2026-06-19** — **widgets-canvas Wave 0: dashboard substrate + clock.**
   New surface class shipped: the canvas, Eww-rendered, full-screen
-  translucent overlay, summoned by holding Super+Return. CROWN / HERO /
-  FIELD zone layout drawn as placeholders; HERO holds a 96pt clock
-  polling `date(1)` every second. Eww daemon runs as
-  `systemd --user services.standardos-canvas` bound to
-  graphical-session.target.
+  translucent overlay opened on Super+RETURN and dismissed on Esc
+  (persistent — not hold-to-peek, not toggle, decision reversed mid-
+  flight after physical test). CROWN / HERO / FIELD zone layout drawn
+  as placeholders; HERO holds a 96pt clock polling `date(1)` every
+  second. Eww daemon runs as `systemd --user
+  services.standardos-canvas` bound to graphical-session.target.
   **Hint:** new module `modules/widgets-canvas.nix` mirrors the waybar.nix
   out-of-store-symlink pattern — edit `/etc/nixos/home/widgets/eww/*` and
   `systemctl --user restart standardos-canvas.service` to iterate without
   a rebuild.
-  **Hint:** Hyprland binds at `hypr/modules/Binds.conf`: `bind` fires on
-  RETURN press, `bindr` on release. Both invoke `eww open|close
-  dashboard`. The daemon must be up before press; graphical-session
-  binding handles that.
+  **Hint:** Hyprland binds at `hypr/modules/Binds.conf` use a `submap`
+  pattern: default-submap `bind` on $mainMod+RETURN dispatches both
+  `exec eww open dashboard` AND `submap canvas-open`; inside the
+  canvas-open submap, `bind` on ESCAPE dispatches `exec eww close
+  dashboard` AND `submap reset`. The daemon must be up before press;
+  graphical-session binding handles that.
   **Hint:** spec at `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
   Wave 0 plan at `docs/superpowers/plans/2026-06-19-widgets-canvas-wave-0.md`.
   Waves 1–5 (catalog widgets, lock, greeter) are separate plans.
   **Hint:** palette tokens at `/etc/nixos/home/widgets/palette.css`
   mirror waybar/style.css §50-126 — future hyprlock + regreet work
   reads from the same file.
+  **Hint:** home.nix at `/etc/nixos/home.nix` is OUTSIDE the
+  `/etc/nixos/home` git worktree; its `services.standardosCanvas.enable
+  = true;` line lives on disk but is not tracked. Existing repo
+  pattern.
 ```
 
 - [ ] **Step 4: Update todonow.md (back-reference, signal shipping)**
