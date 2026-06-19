@@ -30,7 +30,7 @@
 | `/etc/nixos/home/widgets/eww/eww.yuck` | Create | Eww canvas root. Declares the clock poll variable, the `clock-hero` widget, and the `dashboard` window with the three zones. |
 | `/etc/nixos/home/modules/widgets-canvas.nix` | Create | Home-manager module. Installs `pkgs.eww`, mkOutOfStoreSymlinks the three config files into `~/.config/eww/`, and runs `eww daemon` as a systemd-user service bound to graphical-session.target. |
 | `/etc/nixos/home.nix` | Modify | Add `./home/modules/widgets-canvas.nix` to imports and `services.standardosCanvas.enable = true;`. |
-| `/etc/nixos/home/hypr/modules/Binds.conf` | Modify | Add `bind` + `bindr` for `$mainMod, RETURN` calling `eww open dashboard` / `eww close dashboard`. |
+| `/etc/nixos/home/hypr/modules/Binds.conf` | Modify | Add two `bind` dispatches on `$mainMod, RETURN` (`exec eww open dashboard` + `submap canvas-open`), plus a `canvas-open` submap with two `bind` dispatches on ESCAPE (`exec eww close dashboard` + `submap reset`). |
 | `/etc/nixos/home/waybar/TODO.md` | Modify | Add DONE entry after Wave 0 ships with two Hint lines (spec path + plan path). |
 | `/etc/nixos/home/waybar/todonow.md` | Modify | Mark items #5 and #7 as "in flight (Wave 0)" with a back-reference to TODO.md. |
 
@@ -603,7 +603,7 @@ Run:
 grep -nE "RETURN|Return" /etc/nixos/home/hypr/modules/Binds.conf
 ```
 
-Expected: only the two new lines (`bind` + `bindr`) reference RETURN. No prior bindings exist for Super+Return. If any other line binds it, resolve the conflict before proceeding.
+Expected: only the new RETURN-binding lines from this task reference RETURN, plus the ESCAPE bindings under the new `canvas-open` submap. No prior bindings exist for Super+Return. If any other line binds it, resolve the conflict before proceeding.
 
 - [ ] **Step 4: Rebuild and reload Hyprland**
 
@@ -628,11 +628,13 @@ Expected: at least two RETURN entries (one `exec eww open dashboard`, one `subma
 cd /etc/nixos/home
 git add hypr/modules/Binds.conf
 git commit -m "$(cat <<'EOF'
-hypr/binds: Super+RETURN holds the StandardOS widget canvas (Dashboard)
+hypr/binds: Super+RETURN opens the StandardOS widget canvas (Dashboard); Esc dismisses
 
-bind on press → `eww open dashboard`; bindr on release → `eww close
-dashboard`. The held-key window is the canvas's peek-and-release
-contract per spec §2.1.
+Two `bind` dispatches on press: `exec eww open dashboard` enters the
+canvas; `submap canvas-open` enters the submap. Inside `canvas-open`,
+Esc dispatches `exec eww close dashboard` + `submap reset`. The canvas
+persists between open and dismiss per spec §2.1 — no held key, no
+toggle.
 
 Keybind is intentionally undocumented inside the OS (no help line, no
 tooltip surface) — widgets sit above the mouse floor; the keyboard is
