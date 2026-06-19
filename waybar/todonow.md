@@ -45,17 +45,15 @@ system/clipboard daemons, control-panel row, per-window context surfacing).
    surfacing and add camera + screen-share peers. Non-negotiable for
    video calls and for the user trusting the OS.
 
-5. **Themed login + lock screen** — swaylock + greeter (regreet /
-   tuigreet) re-skinned to share the OPTIONS pill aesthetic (same
-   surfaces, same hover, same dark/light adaptation via glass-mode).
-   First and last surface the user sees every day; if the grammar
-   breaks at the lock veil, the whole illusion does.
+5. **Themed login + lock screen** — Wave 4 + Wave 5 of the widgets-canvas
+   plan series. Substrate shipped 2026-06-19 (Wave 0); Lock and Greeter
+   are independent follow-ups. Spec:
+   `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
 
 6. **Workspaces navigator** — richer workspaces surface beyond the
    current `ws-current` + `ws-1..9` button row. Design door is open;
    the user has the vision in head.
 
-7. **Widgets** — a new surface class alongside pills. Design door is
-   open; the user has the vision in head. (Note for future me: this is
-   the user's vision of widgets, *not* the GNOME/KDE desktop-canvas
-   widget — don't assume. Wait for the spec.)
+7. **Widgets** — Wave 0 (substrate + clock) shipped 2026-06-19. Waves 1–3
+   add the rest of the 12-widget Dashboard catalog. Spec:
+   `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
