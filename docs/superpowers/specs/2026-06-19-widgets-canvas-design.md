@@ -43,7 +43,7 @@ closes the instant the user lets go.
 
 | Surface | When it appears | Persistence | Interaction | Auth |
 |---|---|---|---|---|
-| **Dashboard** | User holds Super+Return | While key held; release closes | Pure peek — no clicks while held | None (already in session) |
+| **Dashboard** | User presses Super+Return | Until user presses Esc | Read-mostly during v0; clicks pass through to underlying windows (canvas window is non-focusable) | None (already in session) |
 | **Lock screen** | `loginctl lock-session`, idle timer (off by default), lid-close (configurable) | Until auth succeeds or hibernate | Password input + read-only widgets | PAM password |
 | **Greeter** | Boot if autologin off; after explicit logout | Until auth + session choice | User-pick (if >1 user) + password input | PAM password |
 
@@ -69,18 +69,34 @@ Three rules that follow from this table:
 Hyprland bindings:
 
 ```
-bindn = SUPER, RETURN, exec, eww open dashboard
-bindr = SUPER, RETURN, exec, eww close dashboard
+bind = $mainMod, RETURN, exec, eww open dashboard
+bind = $mainMod, RETURN, submap, canvas-open
+
+submap = canvas-open
+bind = , ESCAPE, exec, eww close dashboard
+bind = , ESCAPE, submap, reset
+submap = reset
 ```
+
+Press Super+RETURN to open the canvas; press **Esc** to dismiss it. The
+canvas persists between open and Esc — no holding, no second-press
+toggle. The Esc binding lives inside a Hyprland *submap* so it only
+intercepts Esc while the canvas is open; outside the canvas-open state,
+Esc is its normal application key.
 
 The keybind is **not** advertised. Mouse users have no path to the canvas.
 This is a deliberate philosophy choice: widgets sit *above* pillar 6's floor.
-A user who never presses Super+Return experiences no degradation, the same
+A user who never presses Super+RETURN experiences no degradation, the same
 way a macOS user can ignore Cmd+Space their whole life. The canvas is the
 quiet invitation, not the floor.
 
-Single key, hold-to-peek. No tap-to-stick state machine in v0; if it proves
-useful later, add it then.
+**Why persistent + Esc instead of hold-to-peek.** The first draft of this
+spec specified hold-Super+RETURN-to-peek; on physical test the user found
+the chord uncomfortable to hold while reading widgets. Persistent +
+Esc-to-dismiss matches how macOS Notification Center, iOS Today, and
+Windows 11 widgets all behave — open it, sit with it, dismiss when
+done. The lock and greeter surfaces also persist until auth, so the
+Dashboard's interaction model is now a clean superset across surfaces.
 
 ### 2.2 Trigger mechanism (Lock)
 

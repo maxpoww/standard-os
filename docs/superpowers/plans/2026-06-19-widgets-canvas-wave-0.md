@@ -568,19 +568,32 @@ Modify `/etc/nixos/home/hypr/modules/Binds.conf`: between the existing `bindl = 
 
 ```hyprlang
 # ───────────────────────────────────────────────────────────────
-# StandardOS widget canvas — Super+Return holds the Dashboard.
+# StandardOS widget canvas — Super+RETURN opens the Dashboard;
+# the canvas persists until Esc dismisses it.
 # ───────────────────────────────────────────────────────────────
-# `bind` fires on key press, `bindr` on release. Holding the chord
-# keeps the canvas open between the two events. The eww daemon
-# (services.standardosCanvas) must be running for these to do
-# anything; the service is graphical-session-bound, so by the time
-# the user can press a keybind the daemon is up.
+# Opening Super+RETURN dispatches `eww open dashboard` AND enters the
+# `canvas-open` submap. Inside the submap, Esc dispatches the close
+# AND resets back to the default submap. Outside the submap, Esc is
+# its normal application key — apps never lose their Esc when the
+# canvas is closed.
+#
+# This is NOT hold-to-peek and NOT toggle (pressing Super+RETURN a
+# second time does not close — the user reaches for Esc).
+#
+# The eww daemon (services.standardosCanvas) must be running for
+# these to do anything; the service is graphical-session-bound, so
+# by the time the user can press a keybind the daemon is up.
 #
 # These keybinds are NOT advertised. Per the spec, widgets sit above
 # pillar 6's mouse floor — mouse users have no path to the canvas,
 # the keyboard is the only door.
-bind  = $mainMod, RETURN, exec, eww open dashboard
-bindr = $mainMod, RETURN, exec, eww close dashboard
+bind = $mainMod, RETURN, exec, eww open dashboard
+bind = $mainMod, RETURN, submap, canvas-open
+
+submap = canvas-open
+bind = , ESCAPE, exec, eww close dashboard
+bind = , ESCAPE, submap, reset
+submap = reset
 ```
 
 - [ ] **Step 3: Verify Super+Return is not already bound**
@@ -604,10 +617,10 @@ hyprctl reload
 Expected: rebuild succeeds; `hyprctl reload` returns `ok`. Check the keybinding registered:
 
 ```bash
-hyprctl binds | grep -B1 -A2 "RETURN"
+hyprctl binds | grep -B1 -A2 "RETURN\|ESCAPE"
 ```
 
-Expected: two entries listed — one with `release: 0` (press, the `bind`) and one with `release: 1` (release, the `bindr`). Both dispatchers are `exec`, arguments `eww open dashboard` / `eww close dashboard`.
+Expected: at least two RETURN entries (one `exec eww open dashboard`, one `submap canvas-open`) and at least two ESCAPE entries inside the `canvas-open` submap (one `exec eww close dashboard`, one `submap reset`). Hyprland's `submap` listing may report them grouped under the `canvas-open` submap.
 
 - [ ] **Step 5: Commit**
 
@@ -646,7 +659,7 @@ Expected: commit succeeds; `git status` clean.
 
 - [ ] **Step 1: User-acceptance test (the only test that matters for this Wave)**
 
-Hold `Super + Return`.
+Press `Super + Return`.
 
 **Expected:**
 - The screen veils with a dark translucent overlay (~85% opacity black per `@canvas-veil`).
@@ -654,12 +667,14 @@ Hold `Super + Return`.
 - The text "CROWN" appears small, dim, top center.
 - The text "FIELD" appears small, dim, bottom center.
 - The bar at the top remains visible (it's not part of the underlying session that gets veiled; deferred-decision §9.2 — current default is "bar stays").
+- The veil **stays** — release of the key chord does not close it.
 
-Release `Super + Return`.
+Press `Esc`.
 
 **Expected:**
 - The veil disappears immediately.
 - The underlying session is interactive again.
+- A subsequent `Esc` outside the canvas-open state behaves normally (apps that consume Esc still get it).
 
 If the canvas does not appear:
 - `journalctl --user -u standardos-canvas.service -n 50` for daemon-side errors.
@@ -758,8 +773,9 @@ Expected: empty output. Tree is clean; Wave 0 is fully shipped across 4 commits 
 Wave 0 is complete when ALL of these are true:
 
 - [ ] `systemctl --user status standardos-canvas.service` is `active (running)`.
-- [ ] Holding `Super+Return` shows a full-screen dark veil with CROWN / HERO / FIELD placeholders + a 96pt clock in HERO.
-- [ ] Releasing `Super+Return` closes the canvas immediately.
+- [ ] Pressing `Super+Return` shows a full-screen dark veil with CROWN / HERO / FIELD placeholders + a 96pt clock in HERO; veil persists after the chord is released.
+- [ ] Pressing `Esc` closes the canvas immediately.
+- [ ] Esc outside the canvas-open submap behaves normally (apps still receive it).
 - [ ] The clock updates at least once per second.
 - [ ] No regression in: bar pills, launcher (Super+SPACE), window switcher, workspace navigation, hardware keys (XF86 family).
 - [ ] `~/.config/eww/*` files resolve via `readlink -f` to `/etc/nixos/home/widgets/*` (out-of-store symlinks intact).
