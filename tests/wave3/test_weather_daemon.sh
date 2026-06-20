@@ -41,6 +41,16 @@ check "canonicalize snow"           "$(condition_canonicalize 'Light snow')"    
 check "canonicalize storm"          "$(condition_canonicalize 'Thunderstorm')"        "storm"
 check "canonicalize unknown→clear"  "$(condition_canonicalize 'Volcanic ash plume')"  "clear"
 
+# clear-night path — override _canvas_hour to simulate 22h00 (after sunset)
+_canvas_hour() { echo 22; }
+check "canonicalize clear@22h → clear-night" \
+    "$(condition_canonicalize 'Clear')" "clear-night"
+
+# day path — 14h00
+_canvas_hour() { echo 14; }
+check "canonicalize clear@14h → clear"      \
+    "$(condition_canonicalize 'Clear')" "clear"
+
 # --- one_fetch (full integration with mocked curl) ---
 out="$(STANDARDOS_WEATHER_CITY=Mendoza one_fetch)"
 check "one_fetch returns JSON cond"  "$(printf '%s' "$out" | jq -r .cond)"  "partly-cloudy"

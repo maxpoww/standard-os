@@ -25,6 +25,10 @@ mkdir -p "$(dirname "$CACHE")"
 POLL_INTERVAL="${WEATHER_POLL_INTERVAL:-600}"
 CITY="${STANDARDOS_WEATHER_CITY:-Mendoza}"
 
+_canvas_hour() {
+    date +%-H
+}
+
 condition_canonicalize() {
     # wttr.in condition strings → canonical codes for the canvas's
     # illustration set. Order matters: "Light snow" must match snow
@@ -40,7 +44,7 @@ condition_canonicalize() {
             # Day vs night: check current hour. wttr.in doesn't tell us
             # directly; rely on local clock as good-enough.
             local h
-            h=$(date +%-H)
+            h=$(_canvas_hour)
             if (( h < 7 || h >= 20 )); then echo clear-night
             else echo clear
             fi

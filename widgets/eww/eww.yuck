@@ -44,6 +44,7 @@
 ;; Weather — daemon writes /tmp/waybar-cache/weather.json; canvas reads
 ;; the parsed fields via jq on a 60 s cadence. Daemon: services.weatherDaemon
 ;; (modules/weather-daemon.nix). Wave 3 Task 2.
+;; Staleness detection: if (now - fetched) > 3600 s, fall back to placeholders.
 (defpoll weather-cond :interval "60s" :initial "clear"
   `jq -r '.cond  // "clear"' /tmp/waybar-cache/weather.json 2>/dev/null || echo clear`)
 (defpoll weather-temp :interval "60s" :initial "—°"
@@ -56,6 +57,9 @@
   `jq -r '.hum   // "—%"' /tmp/waybar-cache/weather.json 2>/dev/null || echo "—%"`)
 (defpoll weather-city :interval "300s" :initial "—"
   `jq -r '.city  // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
+(defpoll weather-fetched :interval "60s" :initial "0"
+  `jq -r '.fetched // 0' /tmp/waybar-cache/weather.json 2>/dev/null || echo 0`)
+(defpoll now-epoch :interval "60s" :initial "0" `date +%s`)
 
 ;; Media — playerctl best-effort.
 (defpoll media-source :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh source`)
@@ -163,10 +167,11 @@
 ;; the visual lives in CSS via background-image data URIs or in label fonts).
 ;; The condition strings: clear · partly-cloudy · cloudy · rain · snow · storm · clear-night.
 (defwidget weather-illust [cond]
-  (box :class {"weather-illust weather-illust-" + cond}
+  (box :class {"weather-illust weather-illust-" + (now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear" : cond}
        :orientation "horizontal" :halign "center" :valign "center"
     (label :class "weather-illust-glyph" :text
-      {cond == "clear" ? "☀"
+      {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "☀"
+       : cond == "clear" ? "☀"
        : cond == "partly-cloudy" ? "⛅"
        : cond == "cloudy" ? "☁"
        : cond == "rain" ? "🌧"
@@ -182,11 +187,11 @@
          :vexpand true :valign "fill"
       (weather-illust :cond {weather-cond == "" ? "clear" : weather-cond})
       (box :class "cw-info" :orientation "vertical" :space-evenly false :valign "center"
-        (label :class "cw-temp" :text weather-temp :halign "start")
-        (label :class "cw-city" :text {weather-city == "—" ? "MENDOZA" : weather-city} :halign "start")
+        (label :class "cw-temp" :text {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "—°" : weather-temp} :halign "start")
+        (label :class "cw-city" :text {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : (weather-city == "—" ? "MENDOZA" : weather-city)} :halign "start")
         (label :class "cw-desc" :text "Current conditions" :halign "start")
         (label :class "cw-lohi"
-               :text {"↑ " + weather-hi + "  ↓ " + weather-lo + "  ·  " + weather-hum + " hum"}
+               :text {"↑ " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : weather-hi) + "  ↓ " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : weather-lo) + "  ·  " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—%" : weather-hum) + " hum"}
                :halign "start")))
     ;; divider
     (box :class "cw-divider" :vexpand false)
