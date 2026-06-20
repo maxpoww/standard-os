@@ -41,15 +41,21 @@
 ;; Workspaces — Hyprland-aware via the existing workspace daemon's cache.
 (defpoll ws-current :interval "500ms" :initial "1" `cat /tmp/waybar-cache/ws-current 2>/dev/null || echo 1`)
 
-;; Weather — wttr.in defpoll, pipe-separated output. 10 minutes is plenty.
-(defpoll weather-raw
-  :interval "600s"
-  :initial "clear|—°|—|—|—%"
-  `/etc/nixos/home/widgets/scripts/canvas-weather.sh`)
-
-;; Parse the pipe-separated values via Eww's string ops.
-(defvar weather-cond-default "clear")
-;; index 0..4 = COND, TEMP, HI, LO, HUM
+;; Weather — daemon writes /tmp/waybar-cache/weather.json; canvas reads
+;; the parsed fields via jq on a 60 s cadence. Daemon: services.weatherDaemon
+;; (modules/weather-daemon.nix). Wave 3 Task 2.
+(defpoll weather-cond :interval "60s" :initial "clear"
+  `jq -r '.cond  // "clear"' /tmp/waybar-cache/weather.json 2>/dev/null || echo clear`)
+(defpoll weather-temp :interval "60s" :initial "—°"
+  `jq -r '.temp  // "—°"' /tmp/waybar-cache/weather.json 2>/dev/null || echo "—°"`)
+(defpoll weather-hi   :interval "60s" :initial "—"
+  `jq -r '.hi    // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
+(defpoll weather-lo   :interval "60s" :initial "—"
+  `jq -r '.lo    // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
+(defpoll weather-hum  :interval "60s" :initial "—%"
+  `jq -r '.hum   // "—%"' /tmp/waybar-cache/weather.json 2>/dev/null || echo "—%"`)
+(defpoll weather-city :interval "300s" :initial "—"
+  `jq -r '.city  // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
 
 ;; Media — playerctl best-effort.
 (defpoll media-source :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh source`)
@@ -174,13 +180,13 @@
     ;; weather (top 2/3)
     (box :class "cw-weather" :orientation "horizontal" :space-evenly false :spacing 14
          :vexpand true :valign "fill"
-      (weather-illust :cond {weather-raw == "" ? "clear" : (arraylength(jq(weather-raw, "split(\"|\")")) >= 1 ? (jq(weather-raw, "split(\"|\")[0]")) : "clear")})
+      (weather-illust :cond {weather-cond == "" ? "clear" : weather-cond})
       (box :class "cw-info" :orientation "vertical" :space-evenly false :valign "center"
-        (label :class "cw-temp" :text {jq(weather-raw, "split(\"|\")[1]")} :halign "start")
-        (label :class "cw-city" :text "MENDOZA" :halign "start")
+        (label :class "cw-temp" :text weather-temp :halign "start")
+        (label :class "cw-city" :text {weather-city == "—" ? "MENDOZA" : weather-city} :halign "start")
         (label :class "cw-desc" :text "Current conditions" :halign "start")
         (label :class "cw-lohi"
-               :text {"↑ " + (jq(weather-raw, "split(\"|\")[2]")) + "  ↓ " + (jq(weather-raw, "split(\"|\")[3]")) + "  ·  " + (jq(weather-raw, "split(\"|\")[4]")) + " hum"}
+               :text {"↑ " + weather-hi + "  ↓ " + weather-lo + "  ·  " + weather-hum + " hum"}
                :halign "start")))
     ;; divider
     (box :class "cw-divider" :vexpand false)

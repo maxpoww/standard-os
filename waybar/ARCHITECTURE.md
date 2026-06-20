@@ -67,6 +67,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **hypr-context-daemon** | `waybar-hypr-context-daemon.service` | `waybar/scripts/hypr-context-daemon.sh` (bundled in `waybar-scripts`) | `/tmp/waybar-cache/{ws-current, ws-1..9, window, has-window, win-close, win-minimize, win-swap-right, win-move-trigger, win-move-1..9, win-move-new, hypr-context.json}` | RTMIN+10 (per-pill caches only — `hypr-context.json` consumers use inotify) |
 | **hypr-bg-daemon** | `waybar-hypr-bg-daemon.service` | `waybar/scripts/hypr-bg-daemon.sh` (bundled in `waybar-scripts`) | `/tmp/glass-mode` (single line, `light` \| `dark`), `/tmp/hypr-edge-bg/bg_<hex>.png` (color cache), `/tmp/hypr-edge-bg/waypaper-luminance.json` | none — inotify-driven from `hypr-context.json` + waypaper config |
 | **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/{notif-bell, notif-profile, notif-action-{1,2,3}}` | RTMIN+12 |
+| **weather-daemon** | `weather-daemon.service` (via `home/modules/weather-daemon.nix`) | `home/scripts/weather-daemon.sh` | `/tmp/waybar-cache/weather.json` | — (canvas re-reads on 60 s defpoll; weather doesn't need signal push) |
 
 notif-daemon also maintains the persistent journal at
 `~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable
