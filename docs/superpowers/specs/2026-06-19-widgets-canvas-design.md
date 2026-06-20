@@ -149,9 +149,13 @@ declare a zone; the canvas places them.
 
 Three anatomy rules:
 
-1. **HERO holds exactly one widget.** Competing for focus defeats the zone.
-   By surface convention: lock = clock; greeter = clock; Dashboard = clock by
-   default, user-switchable post-v0.
+1. **HERO holds the focal composition.** One widget per surface, OR a
+   single composite frame that groups closely related widgets (e.g.
+   clock + weather; battery + storage + perf rings). By surface convention:
+   lock = clock; greeter = clock; Dashboard = the destination trio
+   (clock+weather merged · media-MEGA · stacked vitals+perf rings).
+   Competing for focus across UNRELATED widgets still defeats the zone —
+   the trio works because each frame holds widgets that read together.
 2. **CROWN and FIELD wrap responsively** based on monitor width. On 1366×768
    the FIELD fits ~3 widgets; on 4K it fits 7+.
 3. **The veil is dark by construction.** All widgets emit `light` (white)
@@ -159,6 +163,15 @@ Three anatomy rules:
    — the wallpaper-blur-and-dim veil reads dark even when the wallpaper is
    bright. This is intentional: widgets are legible without any per-widget
    adaptation logic.
+
+   **Frames are translucent grey** (`opt-surface-parent`); text on frames
+   is always white (`opt-text-on-dark`). Where the canvas borrows the
+   macOS device-battery look — a near-black card holding a row of
+   bright-stroke rings — that "dark card" is still `opt-surface-parent`
+   rather than a new black surface. The macOS pattern is approximated by
+   the high-contrast ring strokes against the translucent grey, not by a
+   different background. No light cards (white surface with dark text)
+   anywhere on the Dashboard.
 
 Canvas safe margins: ~5 % on each screen edge so widgets don't kiss the
 monitor border.
@@ -204,6 +217,16 @@ unimplementable or boring in practice, drop it during plan time and pick a
 replacement. Spec defines intent; the list can drift by ~20 % without
 re-specing.
 
+**Visual variants ship in Wave 2.** Widget #6 (`weather`) carries an
+illustration set (7 SVG/glyph icons keyed by condition code: clear ·
+partly-cloudy · cloudy · rain · snow · storm · clear-night). Widgets #10
+(`battery-card`) and #11 (`system-stats`) compose into a stacked rings
+frame in HERO right (vitals on top, live perf on bottom). Widgets #1
+(`clock`) and #6 (`weather`) merge into a single HERO-left frame
+(weather 2/3, clock 1/3, vertical split). The compositions are
+Dashboard-only; on Lock and Greeter each widget renders independently
+per §7's TOML.
+
 ---
 
 ## 5. Visual identity
@@ -218,7 +241,10 @@ from pills.
   applied as larger card backgrounds, not small pills.
 - Same 4 motions (pulse / glow / breathe / flash) applied to widget elements
   that signal health (battery-card breathes violet at 100 %, pulses orange
-  under 10 %; pomodoro breathes during an active focus block).
+  under 10 %; pomodoro breathes during an active focus block). One scoped
+  fifth verb — **sun-pulse** (opacity 0.85 ↔ 1.0 over 4.5 s) — applies only
+  to the weather widget's sun illustration. Slow and calm; atmospheric
+  texture for the canvas's nature element, not a state signal.
 - Same pin lifecycle — a widget signaling an event that wants persistent
   attention paints `opt-pin-violet | opt-pin-green | opt-pin-orange` until the
   user opens the canvas (the open *is* the acknowledgement).
@@ -259,6 +285,10 @@ from pills.
   display widgets (clock, date, notes preview) stay calm.
   The `quick-toggles` row is the one exception — it's a strip of pills
   mirrored, so it carries the bar's full hover/pushed grammar.
+- **No light cards on Dashboard.** White surface with dark text would
+  fracture the canvas's dark-veil identity. The macOS-Today aesthetic is
+  approximated through typography, density, and frame language — not by
+  switching surface color.
 
 ---
 

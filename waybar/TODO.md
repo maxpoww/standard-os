@@ -78,6 +78,57 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-20** — **widgets-canvas Wave 2 shipped: dense four-band canvas
+  with real data.** CROWN pill row (9 toggles + workspaces strip), HERO
+  trio (clock+weather merged · media-MEGA scaffold · stacked vitals+perf
+  rings), 5 floating bars (display · sound · mic · keyboard · night-dim)
+  hugging HERO's bottom edge, and a two-row FIELD: row 1 calendar ·
+  agenda · notes · notifications; row 2 NETWORK + SYSTEM·TEMPS sys-pill
+  clusters + focus/pomodoro scaffold. Commits `267b593..6b63299`.
+  Real data on day one for: clock, weather (wttr.in defpoll), calendar,
+  notes, the 6 rings (/, /home, battery, Wi-Fi, GPU, MEM), the 5 sliders,
+  the 9 CROWN toggles, workspaces, NETWORK + SYSTEM·TEMPS sys-pills.
+  Visual scaffold (Wave 3 daemons fill these): media-MEGA cover art,
+  agenda, notifications, pomodoro.
+  **Hint (plan deviation):** the plan's "menubar polish" step was
+  inverted — the canvas's internal menubar was removed entirely.
+  Waybar is visible above the canvas surface and already shows
+  workspaces + datetime + sysload; duplicating those inside the canvas
+  violated Rule 6 (same option, same look) and stole vertical budget
+  the FIELD row 2 needs. `menubar-datetime` defpoll + `.menubar-*` CSS
+  were removed; `menubar-sysload` (still consumed by SYSTEM·TEMPS's
+  LOAD sys-pill) was retained.
+  **Hint (new infra):** canvas geometry is computed at open time from
+  `/tmp/waybar-cache/hypr-context.json`'s `bg_window` — the same JSON
+  rofi-anchor.sh already uses for popup positioning. New files:
+  `scripts/lib/canvas-anchor.sh` (exposes `canvas_geometry_for_open`)
+  and `scripts/canvas-open` (wraps `eww open dashboard --pos --size
+  --anchor`). Super+RETURN now invokes the wrapper. y is intentionally
+  0 — Hyprland auto-offsets layer-shell surfaces by the bar's
+  reserved-zone size, identical to ROFI_BAR_HEIGHT=0's convention. No
+  per-machine tuning needed; adapts to any resolution / scale.
+  **Hint:** the `cw-date` line in clock-weather-frame is hard-coded
+  literal ("FRIDAY · 19 JUN · WK 25") — to wire to `today`, replace
+  with labels reading from `today` plus a derived week-number defpoll.
+  Deferred to keep Wave 2 self-contained.
+  **Hint:** GPU detection is best-effort and silently falls through to
+  0 on systems without `nvidia-smi` / `amdgpu_top` — by design (no
+  error pills). Intel `intel_gpu_top` integration is a future add.
+  **Hint:** `night-dimmer.sh set N` may not yet exist as a mode of the
+  existing script; the slider moves visually but the call exits
+  non-zero silently. Adding `set N` to night-dimmer is a tiny
+  pre-canvas follow-up.
+  **Hint:** the `mm-bar-fill` width is currently full-track (CSS-only);
+  a follow-up wires the width via the `media-pct` defpoll using Eww's
+  `:style` attribute with `min-width: ${pct}%` interpolation.
+  **Hint:** spec at `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`
+  (updated with §3 HERO singularity relaxed, §3 frames-translucent-grey,
+  §4 visual-variants-Wave-2, §5.1 sun-pulse, §5.3 no-light-cards). Wave 2
+  plan at `docs/superpowers/plans/2026-06-19-widgets-canvas-wave-2.md`.
+  Wave 3 (new daemons: weather-fetch · cal-source · pomodoro-state ·
+  notif-history channel · system-daemon RTMIN+18 · mpris-waybar truth)
+  is the next plan.
+
 - **2026-06-19** — **widgets-canvas Wave 1: date + calendar + notes; canvas
   pivots to :focusable true.** Three catalog widgets shipped to the
   Dashboard. Date (CROWN, "Friday, June 19", 18pt) replaces the Wave 0

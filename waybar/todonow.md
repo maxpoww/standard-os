@@ -54,8 +54,11 @@ system/clipboard daemons, control-panel row, per-window context surfacing).
    current `ws-current` + `ws-1..9` button row. Design door is open;
    the user has the vision in head.
 
-7. **Widgets** — Waves 0 + 1 shipped 2026-06-19 (substrate, clock, date,
-   calendar, notes-preview). Waves 2–3 add the remaining Dashboard
-   catalog widgets (quick-toggles, battery-card, media-player, weather,
-   agenda, pomodoro, notifications-list, system-stats). Spec:
-   `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
+7. **Widgets** — Dashboard catalog progression:
+   - Wave 0 (substrate + clock) — DONE 2026-06-19
+   - Wave 1 (date · calendar · notes) — DONE 2026-06-19
+   - Wave 2 (dense four-band canvas with real data) — DONE 2026-06-20
+   - Wave 3 (new daemons: weather-fetch · cal-source · pomodoro-state ·
+     notif-history channel · system-daemon RTMIN+18 · mpris-waybar truth) — TODO
+
+   Spec: `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.
