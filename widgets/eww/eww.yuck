@@ -1,132 +1,97 @@
 ;; ─────────────────────────────────────────────────────────────────────
 ;;  StandardOS widget canvas — Eww root.
 ;;
-;;  Wave 0: the dashboard window with three zones (CROWN / HERO / FIELD)
-;;  drawn as labeled placeholders, plus a clock label in HERO that polls
-;;  date(1) every second.
+;;  Wave 2: five-band dense layout.
+;;    menubar (thin top strip)
+;;    CROWN strip (pill toggles + workspaces)
+;;    HERO trio (clock+weather · media-MEGA · stacked 6-ring frames)
+;;    bars row (5 floating sliders, tight to HERO)
+;;    FIELD row 1 (calendar / agenda / notes / notifications)
+;;    FIELD row 2 (network / system+temps / focus)
 ;;
-;;  Future waves replace the placeholders with real widgets (see
-;;  docs/superpowers/specs/2026-06-19-widgets-canvas-design.md).
+;;  Wave 2 Task 1: structural shell + menubar only.
+;;  Subsequent tasks fill the empty containers.
 ;; ─────────────────────────────────────────────────────────────────────
 
-;; Time data — polled every second. `date(1)` is the cheapest possible
-;; source; locale comes from the user's environment.
+;; ── Data sources ──
+
+;; Time + date (existing from Wave 1).
 (defpoll time
   :interval "1s"
   :initial "--:--"
   `date +'%H:%M'`)
 
-;; Date data — polled every minute. Format matches "Friday, June 19".
-;; %A = full weekday name, %B = full month name, %-d = day-of-month
-;; without leading zero.
 (defpoll today
   :interval "60s"
   :initial "—"
   `date +'%A, %B %-d'`)
 
-;; Notes preview — last 8 lines of the user's notes file. If the file
-;; doesn't exist, the poll command exits non-zero and Eww's `:initial`
-;; value is used (an empty-state hint).
-(defpoll notes-preview
+;; Menubar — compact "FRI · 19 JUN · 22:14" centerline.
+(defpoll menubar-datetime
+  :interval "30s"
+  :initial "— · — · --:--"
+  `date +'%a · %-d %b · %H:%M' | tr '[:lower:]' '[:upper:]'`)
+
+;; Menubar — sys-load right-side string.
+(defpoll menubar-sysload
   :interval "5s"
-  :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
-  `tail -n 8 ~/.config/standardos/notes.md 2>/dev/null || echo 'Notes file not yet created.\nWrite to ~/.config/standardos/notes.md'`)
+  :initial "LOAD — — —"
+  `/etc/nixos/home/widgets/scripts/canvas-sysload.sh`)
 
-;; HERO widget: the huge clock. The only widget shipped in Wave 0.
-(defwidget clock-hero []
-  (label
-    :class "widget-clock-hero"
-    :text time))
+;; ── Widgets ──
 
-;; CROWN: the date. Replaces the Wave 0 placeholder.
-;; Matches "Friday, June 19" — full weekday + month + day.
-(defwidget date-crown []
-  (label
-    :class "widget-date"
-    :text today))
+(defwidget menubar []
+  (centerbox :class "menubar"
+    ;; left: workspaces placeholder (Task 2 wires up real workspaces)
+    (label :class "menubar-ws-placeholder" :text "1 2 3 4 5 6 7 8 9" :halign "start")
+    ;; center: datetime
+    (label :class "menubar-datetime" :text menubar-datetime :halign "center")
+    ;; right: sys-load
+    (label :class "menubar-sysload" :text menubar-sysload :halign "end")))
 
-;; FIELD: calendar card. Eww's built-in (calendar) is interactive — the
-;; user can click ← / → to navigate months. Today is highlighted by GTK
-;; default; SCSS styles the typography to match the canvas palette.
-;; Props omitted intentionally — GTK defaults give us day names + heading
-;; + no week numbers, which is what we want. If you need to tweak,
-;; eww's accepted props (varies by version) are :day :month :year
-;; :show-heading :show-day-names :show-week-numbers. Add them ONLY
-;; after verifying the running eww version supports them with a quick
-;; `eww logs` check after restart.
-(defwidget calendar-card []
-  (box
-    :class "widget-calendar"
-    :orientation "vertical"
-    :halign "center"
-    :valign "center"
-    (calendar)))
+(defwidget crown-container []
+  (box :class "crown-container-empty" :orientation "horizontal" :vexpand false
+    (label :text "" :class "zone-placeholder")))
 
-;; FIELD: notes card. Read-only preview of the last 8 lines of
-;; ~/.config/standardos/notes.md. Editing happens out-of-band — open
-;; the file in your editor of choice. A future wave adds inline
-;; capture once the configuration-widget input pattern is established.
-(defwidget notes-card []
-  (box
-    :class "widget-notes"
-    :orientation "vertical"
-    :halign "fill"
-    :valign "center"
-    (label
-      :class "widget-notes-heading"
-      :text "Notes")
-    (label
-      :class "widget-notes-body"
-      :text notes-preview
-      :wrap true
-      :limit-width 40)))
+(defwidget hero-trio []
+  (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
+    (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))
+    (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))
+    (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))))
 
-;; The canvas root: a vertical box with three zones, edge-padded by 5%
-;; per spec §3.
+(defwidget bars-row []
+  (box :class "bars-row-empty" :orientation "horizontal" :space-evenly true
+    (label :text "" :class "zone-placeholder")))
+
+(defwidget field-row-1 []
+  (box :class "field-row-empty" :orientation "horizontal" :space-evenly false :spacing 10
+    (label :text "" :class "zone-placeholder")))
+
+(defwidget field-row-2 []
+  (box :class "field-row-empty" :orientation "horizontal" :space-evenly false :spacing 10
+    (label :text "" :class "zone-placeholder")))
+
+;; ── Canvas root ──
+
 (defwidget canvas []
-  (box
-    :class "canvas-root"
-    :orientation "vertical"
-    :space-evenly false
-    ;; CROWN — top, fixed height roughly 15% of the canvas.
-    (box
-      :orientation "horizontal"
-      :halign "center"
-      :valign "start"
-      :vexpand false
-      (date-crown))
-    ;; HERO — vertical center, fills available space, holds exactly one
-    ;; widget (the clock).
-    (box
-      :orientation "horizontal"
-      :halign "center"
-      :valign "center"
-      :vexpand true
-      (clock-hero))
-    ;; FIELD — bottom row, horizontal flex of small info widgets.
-    ;; Wave 1: calendar + notes. Future waves grow this row.
-    (box
-      :class "field-row"
-      :orientation "horizontal"
-      :halign "center"
-      :valign "end"
-      :space-evenly false
-      :spacing 24
-      :vexpand false
-      (calendar-card)
-      (notes-card))))
+  (box :class "canvas-root"
+       :orientation "vertical"
+       :space-evenly false
+       :spacing 8
+    (menubar)
+    (crown-container)
+    ;; HERO + bars are nested together so the bars hug HERO bottom edge.
+    (box :class "hero-bars-block" :orientation "vertical" :space-evenly false :spacing 4 :vexpand true
+      (hero-trio)
+      (bars-row))
+    (field-row-1)
+    (field-row-2)))
 
-;; The dashboard window: overlay layer, full-screen on the focused
-;; monitor (Wave 0 ships single-monitor; multi-monitor decision deferred
-;; per spec §9.1).
+;; ── Window ──
+
 (defwindow dashboard
   :monitor 0
-  :geometry (geometry
-              :x "0%"
-              :y "0%"
-              :width "100%"
-              :height "100%"
-              :anchor "center")
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :height "100%" :anchor "center")
   :stacking "overlay"
   :exclusive false
   :focusable true

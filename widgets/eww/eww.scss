@@ -1,9 +1,8 @@
 /*
  * StandardOS widget canvas — Eww styles.
- * Imports the shared StandardOS palette and styles the Dashboard window.
  *
- * Wave 0: dark veil + three zone placeholders + clock in HERO.
- * Wave 1+ adds per-widget card styles.
+ * Wave 2: dense layout — menubar / CROWN / HERO trio / bars / FIELD rows.
+ * Wave 2 Task 1: root shell + menubar. Subsequent tasks add per-widget styles.
  */
 
 @import "../palette.css";
@@ -16,96 +15,61 @@
 /* The full-screen dashboard window: dark veil over the underlying session. */
 window.dashboard {
   background-color: @canvas-veil;
-  font-family: "MesloLGS NF", "Symbols Nerd Font Mono", sans-serif;
+  font-family: "MesloLGS NF", "Symbols Nerd Font Mono", monospace;
 }
 
-/* Wave 0 placeholders for CROWN and FIELD (future widgets fill these). */
-.zone-placeholder {
-  color: @canvas-zone-label;
-  font-size: 11pt;
-  font-weight: 300;
-  letter-spacing: 2px;
-  padding: 24px;
+/* Canvas root: five-band vertical stack. Padding ~3% on each edge so the
+   bands don't kiss the monitor border (was 5% in Wave 1; tighter now to
+   accommodate the dense content). */
+.canvas-root {
+  padding: 24px 28px;
 }
 
-/* HERO clock: the only place the 96pt scale appears (spec §5.2). */
-.widget-clock-hero {
+/* HERO + bars block — small inner gap so bars hug HERO bottom edge. */
+.hero-bars-block {
+  margin-bottom: 4px;
+}
+
+/* Menubar — thin top strip. Workspaces left, datetime center, sysload right. */
+.menubar {
+  font-size: 9pt;
   color: @opt-text-on-dark;
-  font-size: 96pt;
-  font-weight: 200;
-  letter-spacing: -2px;
-}
-
-/* CROWN date — full weekday + month + day; sits above the HERO clock. */
-.widget-date {
-  color: @opt-text-on-dark;
-  font-size: 18pt;
-  font-weight: 300;
-  letter-spacing: 0.5px;
-  opacity: 0.85;
-}
-
-/* FIELD container — horizontal flex of small widgets, breathing room
-   between cards. */
-.field-row {
-  padding: 24px 0;
-}
-
-/* Calendar card outer container. */
-.widget-calendar {
-  background-color: @opt-surface-parent;
-  border-radius: 12px;
-  padding: 16px 20px;
-}
-
-/* GTK calendar typography — match canvas palette. The :selected
-   pseudo applies to today and to the user's clicked day. */
-.widget-calendar calendar {
-  color: @opt-text-on-dark;
-  font-size: 12pt;
-  font-weight: 400;
-}
-
-.widget-calendar calendar:selected {
-  background-color: @opt-blue-state;
-  color: @opt-text-on-dark;
-  border-radius: 4px;
-}
-
-.widget-calendar calendar.header {
-  color: @opt-text-on-dark;
-  font-size: 13pt;
-  font-weight: 500;
-  opacity: 0.95;
-}
-
-/* Notes card — read-only preview of last 8 lines. */
-.widget-notes {
-  background-color: @opt-surface-parent;
-  border-radius: 12px;
-  padding: 16px 20px;
-  min-width: 280px;
-  max-width: 360px;
-}
-
-.widget-notes-heading {
-  color: @opt-text-on-dark;
-  font-size: 11pt;
-  font-weight: 500;
+  opacity: 0.65;
   letter-spacing: 1px;
-  opacity: 0.6;
-  margin-bottom: 8px;
+  padding: 0 6px 4px 6px;
 }
 
-.widget-notes-body {
-  color: @opt-text-on-dark;
-  font-size: 12pt;
-  font-weight: 400;
-  opacity: 0.85;
+.menubar-datetime {
+  font-weight: 500;
+  letter-spacing: 2px;
+}
+
+.menubar-sysload {
   font-family: "MesloLGS NF", monospace;
 }
 
-/* Vertical zone container: CROWN at top, HERO in middle, FIELD at bottom. */
-.canvas-root {
-  padding: 5% 5%;
+.menubar-ws-placeholder {
+  /* Task 2 replaces this with a real workspaces widget. */
+  font-family: "MesloLGS NF", monospace;
+}
+
+/* Empty zone placeholders — temporarily visible until Tasks 2-8 fill them. */
+.zone-placeholder {
+  color: @canvas-zone-label;
+  font-size: 9pt;
+  letter-spacing: 2px;
+  padding: 12px;
+}
+
+.crown-container-empty,
+.hero-slot-placeholder,
+.bars-row-empty,
+.field-row-empty {
+  background-color: rgba(128, 128, 128, 0.08);
+  border-radius: 12px;
+  min-height: 32px;
+}
+
+.hero-slot-placeholder {
+  min-height: 140px;
 }
