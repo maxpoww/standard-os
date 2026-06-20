@@ -19,3 +19,6 @@ Thumbs.db
 # Per-machine Claude permission allowlists (CLAUDE.md / PLAN.md / skills/ ARE tracked)
 .claude/settings.local.json
 **/.claude/settings.local.json
+
+# Visual brainstorming mockups (transient, regenerated per session)
+.superpowers/
