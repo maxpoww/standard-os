@@ -315,3 +315,57 @@ window.dashboard {
   color: @opt-text-on-dark;
   font-size: 11pt;
 }
+
+/* Rings stack — vertical stack of two framed cards, each holding 3 rings. */
+.rings-stack {
+  min-width: 220px;
+}
+
+.rings-card {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  padding: 10px 14px;
+  min-height: 68px;
+}
+
+.ring-cell {
+  min-width: 60px;
+  padding: 2px;
+}
+
+.ring-fill {
+  min-width: 46px;
+  min-height: 46px;
+  background-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Per-ring fill color via class. */
+.ring-fill-disk    { color: @opt-green; }
+.ring-fill-battery { color: @opt-green; }
+.ring-fill-wifi    { color: @opt-blue-state; }
+.ring-fill-gpu     { color: @opt-violet; }
+.ring-fill-mem     { color: @opt-orange; }
+
+.ring-glyph {
+  color: @opt-text-on-dark;
+  font-size: 11pt;
+}
+.ring-pct {
+  font-size: 9pt;
+  color: @opt-text-on-dark;
+}
+.ring-lbl {
+  font-size: 6pt;
+  color: @opt-text-on-dark;
+  opacity: 0.55;
+  letter-spacing: 1px;
+}
+
+/* Battery breathe at 100%. */
+.ring-fill-battery {
+  animation: opt-breathe 3.2s ease-in-out infinite;
+}
+@keyframes opt-breathe {
+  0%, 100% { opacity: 1.0; }
+  50%      { opacity: 0.78; }
+}

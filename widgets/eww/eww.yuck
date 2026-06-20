@@ -71,6 +71,19 @@
 (defpoll media-len    :interval "5s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh len`)
 (defpoll media-pct    :interval "1s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-media.sh pct`)
 
+;; Ring stats — 6 polls, varying cadences.
+(defpoll ring-disk-root  :interval "60s" :initial "0" `/etc/nixos/home/widgets/scripts/canvas-disk.sh /`)
+(defpoll ring-disk-home  :interval "60s" :initial "0" `/etc/nixos/home/widgets/scripts/canvas-disk.sh /home`)
+;; Battery reuses the existing waybar battery script (parses % from its JSON-ish output).
+(defpoll ring-battery    :interval "15s" :initial "0"
+  `/etc/nixos/home/waybar/scripts/battery.sh 2>/dev/null | sed -E 's/.*"tooltip":"([0-9]+)%.*/\1/' || echo 0`)
+(defpoll ring-wifi-bars  :interval "10s" :initial "▯▯▯▯" `/etc/nixos/home/widgets/scripts/canvas-wifi.sh bars`)
+(defpoll ring-wifi-pct   :interval "10s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-wifi.sh pct`)
+(defpoll ring-gpu        :interval "5s"  :initial "0" `/etc/nixos/home/widgets/scripts/canvas-gpu.sh pct`)
+(defpoll ring-gpu-temp   :interval "10s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-gpu.sh temp`)
+(defpoll ring-mem        :interval "5s"  :initial "0" `/etc/nixos/home/widgets/scripts/canvas-mem.sh pct`)
+(defpoll ring-mem-used   :interval "10s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-mem.sh used`)
+
 ;; ── Widgets ──
 
 (defwidget menubar []
@@ -190,11 +203,45 @@
         (button :class "opt-mini" :onclick "true" "󰋗")
         (button :class "opt-mini" :onclick "true" "󰒮")))))
 
+;; ring-cell — a single ring with a percent label below and a small lbl underneath.
+;; Eww doesn't render SVG circles directly; we use a custom progress widget
+;; via `(circular-progress)` which is GTK-native.
+(defwidget ring-cell [value glyph pct-text lbl-text klass]
+  (box :class "ring-cell" :orientation "vertical" :space-evenly false :spacing 1 :halign "center"
+    (overlay
+      (circular-progress
+        :value value
+        :class {"ring-fill ring-fill-" + klass}
+        :thickness 7
+        :start-at 75)
+      (label :class "ring-glyph" :text glyph))
+    (label :class "ring-pct" :text pct-text)
+    (label :class "ring-lbl" :text lbl-text)))
+
+(defwidget rings-stack-frame []
+  (box :class "rings-stack" :orientation "vertical" :space-evenly true :spacing 8
+    ;; Vitals card: / · /home · Battery
+    (box :class "rings-card" :orientation "horizontal" :space-evenly true
+      (ring-cell :value ring-disk-root :glyph "" :pct-text {ring-disk-root + "%"}
+                 :lbl-text "/ root"  :klass "disk")
+      (ring-cell :value ring-disk-home :glyph "󱂵" :pct-text {ring-disk-home + "%"}
+                 :lbl-text "/home"   :klass "disk")
+      (ring-cell :value ring-battery   :glyph "⚡" :pct-text {ring-battery + "%"}
+                 :lbl-text "Battery" :klass "battery"))
+    ;; Live perf card: Wi-Fi · GPU · MEM
+    (box :class "rings-card" :orientation "horizontal" :space-evenly true
+      (ring-cell :value ring-wifi-pct  :glyph "📶" :pct-text ring-wifi-bars
+                 :lbl-text "Wi-Fi"     :klass "wifi")
+      (ring-cell :value ring-gpu       :glyph "G"  :pct-text {ring-gpu + "%"}
+                 :lbl-text {"GPU · " + ring-gpu-temp + "°"} :klass "gpu")
+      (ring-cell :value ring-mem       :glyph "M"  :pct-text {ring-mem + "%"}
+                 :lbl-text {"MEM · " + ring-mem-used}       :klass "mem"))))
+
 (defwidget hero-trio []
   (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
     (clock-weather-frame)
     (media-mega-frame)
-    (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))))
+    (rings-stack-frame)))
 
 (defwidget bars-row []
   (box :class "bars-row-empty" :orientation "horizontal" :space-evenly true
