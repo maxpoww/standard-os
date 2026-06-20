@@ -78,6 +78,31 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-20** — **canvas Esc dismiss made reliable + on-canvas × button.**
+  The submap-Esc chain previously stacked two `bind` lines on the same
+  ESCAPE key (`exec eww close dashboard` + `submap reset`); in practice
+  only one fired and the user got orphaned in the canvas with no working
+  keyboard path (had to reboot 2026-06-20). Consolidated to one bind →
+  one script (`scripts/canvas-close`) that resets the submap FIRST (so
+  the keyboard is always recoverable) then closes the eww window. Added
+  a small × button at the top-right corner of the canvas (translucent
+  surface, brightens on hover) that invokes the same script — a mouse
+  recovery path the user explicitly chose over a `Super+Esc` safety
+  keybind. NOT a discovery affordance; the keyboard remains the canonical
+  door.
+  **Hint:** the script does `hyprctl dispatch submap reset` before
+  `eww close dashboard` (with `exec` on the latter) — submap reset is
+  cheap and synchronous, so even if eww IPC is slow the user's keyboard
+  is back to normal before the window finishes vanishing.
+  **Hint:** the close button lives in an `overlay` wrapping the
+  `canvas-root` box (not inside the crown row). Halign "end" valign
+  "start" + the `.canvas-close-wrap` margin (18px 22px) puts it inside
+  the canvas's edge padding, visually belonging to the surface.
+  **Hint:** `hyprctl -j devices` does NOT expose `active_submap` — that
+  field is gone (or never was). To smoke-test the close chain from a
+  shell, dispatch `submap canvas-open`, run `canvas-open`, then run
+  `canvas-close`; `eww active-windows` going empty is the proof.
+
 - **2026-06-20** — **widgets-canvas Wave 2 shipped: dense four-band canvas
   with real data.** CROWN pill row (9 toggles + workspaces strip), HERO
   trio (clock+weather merged · media-MEGA scaffold · stacked vitals+perf

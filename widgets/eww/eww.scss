@@ -25,6 +25,28 @@ window.dashboard {
   padding: 24px 28px;
 }
 
+/* Canvas close affordance — top-right × button. Backup path for the
+   Esc binding (the canonical close). Sits within the canvas edge
+   padding so it visually belongs to the surface rather than the
+   monitor bezel. Frame language: translucent grey, no hard border,
+   subtle at rest, brightens on hover. */
+.canvas-close-wrap {
+  margin: 18px 22px 0 0;
+}
+.canvas-close {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 4px 10px 6px 10px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13pt;
+  font-weight: 400;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.canvas-close:hover {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.95);
+}
+
 /* HERO + bars block — small inner gap so bars hug HERO bottom edge. */
 .hero-bars-block {
   margin-bottom: 4px;

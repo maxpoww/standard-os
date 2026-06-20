@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# canvas-close — dismiss the StandardOS Dashboard.
+#
+# Two invocation paths, identical action:
+#   1. Hyprland Esc binding in submap canvas-open (hypr/modules/Binds.conf)
+#   2. The on-canvas × button at the top-right (widgets/eww/eww.yuck)
+#
+# Both must (a) reset Hyprland's submap so app-Esc works again, and
+# (b) close the eww dashboard window. Doing both in one script avoids
+# any reliance on Hyprland firing multiple binds for the same key —
+# the failure mode that orphaned the canvas on 2026-06-20.
+#
+# Submap reset runs FIRST so the keyboard is always recoverable even
+# if the eww IPC is briefly slow; the window vanishes a beat later.
+
+set -uo pipefail
+
+hyprctl dispatch submap reset >/dev/null
+exec eww close dashboard

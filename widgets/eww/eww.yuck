@@ -366,19 +366,32 @@
     (field-focus-card)))
 
 ;; ── Canvas root ──
+;;
+;; Wrapped in an overlay so a small × close button can float in the
+;; top-right corner. The button is a recovery affordance for the Esc
+;; binding (the canonical close mechanism) — if the user ever finds
+;; themselves with the canvas open and no working keyboard path,
+;; the button is the guaranteed escape. Click target is the same
+;; canvas-close script the Esc bind invokes.
 
 (defwidget canvas []
-  (box :class "canvas-root"
-       :orientation "vertical"
-       :space-evenly false
-       :spacing 8
-    (crown-container)
-    ;; HERO + bars are nested together so the bars hug HERO bottom edge.
-    (box :class "hero-bars-block" :orientation "vertical" :space-evenly false :spacing 4 :vexpand true
-      (hero-trio)
-      (bars-row))
-    (field-row-1)
-    (field-row-2)))
+  (overlay
+    (box :class "canvas-root"
+         :orientation "vertical"
+         :space-evenly false
+         :spacing 8
+      (crown-container)
+      ;; HERO + bars are nested together so the bars hug HERO bottom edge.
+      (box :class "hero-bars-block" :orientation "vertical" :space-evenly false :spacing 4 :vexpand true
+        (hero-trio)
+        (bars-row))
+      (field-row-1)
+      (field-row-2))
+    (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
+      (button :class "canvas-close"
+              :tooltip "Dismiss (Esc)"
+              :onclick "/etc/nixos/home/scripts/canvas-close"
+        "✕"))))
 
 ;; ── Window ──
 
