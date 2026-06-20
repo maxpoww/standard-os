@@ -97,6 +97,15 @@
 (defpoll bar-night   :interval "2s" :initial "0"
   `cat /tmp/night-dimmer-strength 2>/dev/null || echo 0`)
 
+;; Wave 1 notes preview — kept exactly as Wave 1 implemented it.
+(defpoll notes-preview
+  :interval "5s"
+  :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
+  `tail -n 8 ~/.config/standardos/notes.md 2>/dev/null || echo 'Notes file not yet created.\nWrite to ~/.config/standardos/notes.md'`)
+
+;; Today's focal date number (e.g. "19") for the calendar card.
+(defpoll today-day :interval "60s" :initial "—" `date +'%-d'`)
+
 ;; ── Widgets ──
 
 (defwidget menubar []
@@ -283,9 +292,41 @@
     (opt-slider :klass "night"    :label-text "NIGHT-DIM" :icon-l "🌃" :icon-r "☀"  :value bar-night
                 :onchange "/etc/nixos/home/waybar/scripts/night-dimmer.sh set {} >/dev/null 2>&1 || true")))
 
+(defwidget field-cal-card []
+  (box :class "field-card field-cal" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (label :class "field-lk" :text "JUNE" :halign "start")
+    (box :orientation "horizontal" :space-evenly false :spacing 5 :halign "start"
+      (label :class "field-cal-weekday" :text "Friday")
+      (label :class "field-cal-day" :text today-day))
+    (calendar :class "field-cal-grid")))
+
+(defwidget field-agenda-card []
+  (box :class "field-card field-agenda" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (label :class "field-lk" :text "TODAY · NO EVENTS" :halign "start")
+    (label :class "field-empty" :text "Agenda will populate once cal-source lands (Wave 3)."
+           :wrap true :limit-width 28 :halign "start")))
+
+(defwidget field-notes-card []
+  (box :class "field-card field-notes" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (box :class "field-notes-top" :orientation "horizontal" :space-evenly false
+      (label :class "field-lk" :text "# NOTES" :halign "start" :hexpand true)
+      (label :class "field-notes-ts" :text "EDITED" :halign "end"))
+    (label :class "field-notes-body" :text notes-preview :wrap true :limit-width 32 :halign "start")))
+
+(defwidget field-notif-card []
+  (box :class "field-card field-notif" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (box :class "field-notif-top" :orientation "horizontal" :space-evenly false
+      (label :class "field-lk" :text "NOTIFICATIONS · 0" :halign "start" :hexpand true)
+      (label :class "field-notif-clear" :text "CLEAR" :halign "end"))
+    (label :class "field-empty" :text "No notifications.\nHistory ships with the notif-daemon channel (Wave 3)."
+           :wrap true :limit-width 32 :halign "start")))
+
 (defwidget field-row-1 []
-  (box :class "field-row-empty" :orientation "horizontal" :space-evenly false :spacing 10
-    (label :text "" :class "zone-placeholder")))
+  (box :class "field-row-1" :orientation "horizontal" :space-evenly true :spacing 10
+    (field-cal-card)
+    (field-agenda-card)
+    (field-notes-card)
+    (field-notif-card)))
 
 (defwidget field-row-2 []
   (box :class "field-row-empty" :orientation "horizontal" :space-evenly false :spacing 10

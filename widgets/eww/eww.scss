@@ -427,3 +427,76 @@ window.dashboard {
   color: @opt-text-on-dark;
 }
 .opt-slider-icon-r { opacity: 0.55; }
+
+/* FIELD row 1 — four cards side by side. */
+.field-row-1 { padding: 4px 0; }
+
+.field-card {
+  background-color: @opt-surface-parent;
+  border-radius: 12px;
+  padding: 11px;
+  min-height: 96px;
+}
+
+.field-lk {
+  font-size: 7pt;
+  letter-spacing: 2px;
+  color: @opt-text-on-dark;
+  opacity: 0.35;
+}
+
+.field-empty {
+  font-size: 8pt;
+  color: @opt-text-on-dark;
+  opacity: 0.40;
+  font-style: normal;
+}
+
+/* Calendar — Wave 1 styles carry, plus the JUNE+19 label row. */
+.field-cal-weekday { font-size: 9pt; color: @opt-text-on-dark; opacity: 0.75; }
+.field-cal-day {
+  font-size: 18pt;
+  font-weight: 300;
+  color: @opt-text-on-dark;
+}
+
+.field-cal-grid {
+  color: @opt-text-on-dark;
+  font-size: 10pt;
+  font-weight: 400;
+}
+.field-cal-grid calendar:selected {
+  background-color: @opt-blue-state;
+  color: @opt-text-on-dark;
+  border-radius: 4px;
+}
+.field-cal-grid calendar.header {
+  color: @opt-text-on-dark;
+  font-size: 11pt;
+  opacity: 0.95;
+}
+
+/* Notes — Bear-style; first line of preview reads as the title (CSS hint
+   only — the label is monospace mono so the user's first H1 already shines). */
+.field-notes-top { margin-bottom: 4px; }
+.field-notes-ts {
+  font-size: 7pt;
+  color: @opt-text-on-dark;
+  opacity: 0.30;
+  letter-spacing: 1px;
+}
+.field-notes-body {
+  font-size: 9pt;
+  color: @opt-text-on-dark;
+  opacity: 0.65;
+  font-family: "MesloLGS NF", monospace;
+}
+
+/* Notifications scaffold. */
+.field-notif-top { margin-bottom: 4px; }
+.field-notif-clear {
+  font-size: 7pt;
+  color: @opt-text-on-dark;
+  opacity: 0.30;
+  letter-spacing: 1px;
+}
