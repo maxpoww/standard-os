@@ -106,6 +106,11 @@ emit_battery() {
     pct=$(<"$bat/capacity")
     state=$(<"$bat/status")
     state_lc="${state,,}"  # Discharging → discharging
+    # "Not charging" is the kernel's way of saying "full + on AC, not drawing power"
+    # — semantically full, not unknown. Map it before the regex filter.
+    case "$state_lc" in
+        "not charging") state_lc=full ;;
+    esac
     [[ "$state_lc" =~ ^(charging|discharging|full|unknown)$ ]] || state_lc=unknown
 
     # time_remaining: only meaningful while charging/discharging.

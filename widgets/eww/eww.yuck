@@ -131,9 +131,12 @@
   `jq -r '.temp // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
 (defpoll sp-fan      :interval "5s"  :initial "—"
   `jq -r '.fan_rpm // "—"' /tmp/waybar-cache/sys-temp 2>/dev/null || echo —`)
-(defpoll sp-uptime   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh uptime`)
-(defpoll sp-procs    :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh procs`)
-(defpoll sp-boot     :interval "60s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh boot`)
+(defpoll sp-uptime   :interval "30s" :initial "—"
+  `awk '{ s=$1; d=int(s/86400); h=int((s%86400)/3600); m=int((s%3600)/60); printf "%dd %dh %dm\n", d, h, m }' /proc/uptime`)
+(defpoll sp-procs    :interval "10s" :initial "—"
+  `ls -1 /proc 2>/dev/null | grep -c '^[0-9]\+$' || echo 0`)
+(defpoll sp-boot     :interval "60s" :initial "—"
+  `who -b 2>/dev/null | awk '{print $3" "$4}' || echo —`)
 
 ;; ── Widgets ──
 
