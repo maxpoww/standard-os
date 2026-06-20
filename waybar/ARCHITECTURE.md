@@ -68,6 +68,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **hypr-bg-daemon** | `waybar-hypr-bg-daemon.service` | `waybar/scripts/hypr-bg-daemon.sh` (bundled in `waybar-scripts`) | `/tmp/glass-mode` (single line, `light` \| `dark`), `/tmp/hypr-edge-bg/bg_<hex>.png` (color cache), `/tmp/hypr-edge-bg/waypaper-luminance.json` | none — inotify-driven from `hypr-context.json` + waypaper config |
 | **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/{notif-bell, notif-profile, notif-action-{1,2,3}}` | RTMIN+12 |
 | **weather-daemon** | `weather-daemon.service` (via `home/modules/weather-daemon.nix`) | `home/scripts/weather-daemon.sh` | `/tmp/waybar-cache/weather.json` | — (canvas re-reads on 60 s defpoll; weather doesn't need signal push) |
+| **system-daemon** | `system-daemon.service` (via `home/modules/system-daemon.nix`) | `home/scripts/system-daemon.sh` | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp, disk-root, disk-home}` | RTMIN+18 (dedup at writer; 2 s poll loop reading `/proc`, `/sys/class/hwmon`, `/sys/class/power_supply/BAT*`, `nvidia-smi`) |
 
 notif-daemon also maintains the persistent journal at
 `~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable
@@ -81,7 +82,6 @@ pick.
 
 | Daemon | Concern | Will write | Signal | Trigger source |
 |---|---|---|---|---|
-| **system-daemon** | CPU, GPU, memory, battery, thermal | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp}` | RTMIN+18 | polling `/proc/loadavg`, `nvidia-smi`, `/sys/class/power_supply/BAT0/*`, `/sys/class/hwmon/*/temp1_input` at 2 s |
 | **network-daemon** | WiFi + ethernet + VPN state | `/tmp/waybar-cache/net-{wifi, eth, vpn, link}` | RTMIN+13 | `nmcli monitor` (event push) + initial state from `nmcli -t device,connection show` |
 | **bluetooth-daemon** | BT state, paired devices, scan results | `/tmp/waybar-cache/bt-{state, devices, scanning}` | RTMIN+13 | `dbus-monitor --system "type='signal',interface='org.bluez.*'"` |
 | **audio-daemon** | Default sink, volume, mute, playing-apps count | `/tmp/waybar-cache/audio-{sink, volume, mute, streams}` | RTMIN+14 | `pw-mon --color=never` filtered to `^changed:` |
@@ -103,7 +103,7 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 | RTMIN+15 | clipboard-daemon (planned) | Selection/clipboard |
 | RTMIN+16 | media-daemon (reserved) | MPRIS / cava |
 | RTMIN+17 | context-daemon (planned) | Hardware-button reflection, 4-s transient timer |
-| RTMIN+18 | system-daemon (planned) | CPU/GPU/memory/battery/temp (was on RTMIN+12 before notif-daemon claimed it 2026-06-06) |
+| RTMIN+18 | system-daemon (live) | CPU/GPU/memory/battery/temp/disk-root/disk-home (was on RTMIN+12 before notif-daemon claimed it 2026-06-06; shipped Wave 3 Task 3) |
 | RTMIN+19..+30 | **FREE** | future expansion |
 
 When picking a signal: read this table, take the next free one, edit this table in the same commit. The Linux kernel guarantees RTMIN through RTMIN+30 are safe for application use.
@@ -264,7 +264,8 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ~ `opt-pushed` adoption — class defined; not yet applied to `shader-paper`, `shader-newspaper`, `night-dimmer`, `dictate.recording` (those still use legacy paint)
 - ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
 - ~ Dimmed class rename to `opt-dimmed` — now safe (workspace-daemon migration landed via hypr-context unification 2026-06-13); class is still `.inactive` pending the rename pass
-- ✗ system-daemon, network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — none of the planned daemons exist yet
+- ✓ system-daemon (RTMIN+18) — shipped Wave 3 Task 3; writes sys-{cpu,gpu,mem,battery,temp,disk-root,disk-home}; replaces canvas-{cpu,gpu,mem,disk}.sh scaffolds
+- ✗ network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — planned daemons not yet implemented
 - ✗ context-daemon (hardware-button reflection, RTMIN+17) — designed; not yet implemented
 - ✓ Composite-module pattern with inotify on `/tmp/waybar-cache/` — `hypr-bg-daemon` is the reference impl (`inotifywait -m -q --format '%w%f' -e close_write,moved_to`, filtered by basename to `hypr-context.json` and the waypaper config)
 

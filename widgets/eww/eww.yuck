@@ -71,18 +71,28 @@
 (defpoll media-len    :interval "5s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh len`)
 (defpoll media-pct    :interval "1s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-media.sh pct`)
 
-;; Ring stats — 6 polls, varying cadences.
-(defpoll ring-disk-root  :interval "60s" :initial "0" `/etc/nixos/home/widgets/scripts/canvas-disk.sh /`)
-(defpoll ring-disk-home  :interval "60s" :initial "0" `/etc/nixos/home/widgets/scripts/canvas-disk.sh /home`)
-;; Battery reuses the existing waybar battery script (parses % from its JSON-ish output).
-(defpoll ring-battery    :interval "15s" :initial "0"
-  `/etc/nixos/home/waybar/scripts/battery.sh 2>/dev/null | sed -E 's/.*"tooltip":"([0-9]+)%.*/\1/' || echo 0`)
-(defpoll ring-wifi-bars  :interval "10s" :initial "▯▯▯▯" `/etc/nixos/home/widgets/scripts/canvas-wifi.sh bars`)
-(defpoll ring-wifi-pct   :interval "10s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-wifi.sh pct`)
-(defpoll ring-gpu        :interval "5s"  :initial "0" `/etc/nixos/home/widgets/scripts/canvas-gpu.sh pct`)
-(defpoll ring-gpu-temp   :interval "10s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-gpu.sh temp`)
-(defpoll ring-mem        :interval "5s"  :initial "0" `/etc/nixos/home/widgets/scripts/canvas-mem.sh pct`)
-(defpoll ring-mem-used   :interval "10s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-mem.sh used`)
+;; Ring stats — read from system-daemon's sys-* caches.
+;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
+;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
+;; system-daemon (modules/system-daemon.nix, Wave 3 Task 3).
+(defpoll ring-disk-root :interval "60s" :initial "0"
+  `jq -r '.pct // 0' /tmp/waybar-cache/sys-disk-root 2>/dev/null || echo 0`)
+(defpoll ring-disk-home :interval "60s" :initial "0"
+  `jq -r '.pct // 0' /tmp/waybar-cache/sys-disk-home 2>/dev/null || echo 0`)
+(defpoll ring-battery :interval "15s" :initial "0"
+  `jq -r '.pct // 0' /tmp/waybar-cache/sys-battery 2>/dev/null || echo 0`)
+(defpoll ring-wifi-bars :interval "10s" :initial "▯▯▯▯"
+  `/etc/nixos/home/widgets/scripts/canvas-wifi.sh bars`)   ;; wifi stays
+(defpoll ring-wifi-pct  :interval "10s" :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-wifi.sh pct`)    ;; (network daemon = Wave 4)
+(defpoll ring-gpu       :interval "5s" :initial "0"
+  `jq -r '.pct // 0' /tmp/waybar-cache/sys-gpu 2>/dev/null || echo 0`)
+(defpoll ring-gpu-temp  :interval "10s" :initial "—"
+  `jq -r '.temp // "—"' /tmp/waybar-cache/sys-gpu 2>/dev/null || echo —`)
+(defpoll ring-mem       :interval "5s" :initial "0"
+  `jq -r '.pct // 0' /tmp/waybar-cache/sys-mem 2>/dev/null || echo 0`)
+(defpoll ring-mem-used  :interval "10s" :initial "—"
+  `jq -r '.used // "—"' /tmp/waybar-cache/sys-mem 2>/dev/null || echo —`)
 
 ;; Slider current values — polled at 1 s while canvas is open.
 ;; brightnessctl reports as percent of max via -m.
@@ -115,9 +125,12 @@
 (defpoll sp-vpn   :interval "10s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-net.sh vpn`)
 
 ;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
-(defpoll sp-cpu      :interval "2s"  :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh pct`)
-(defpoll sp-cpu-temp :interval "5s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh temp`)
-(defpoll sp-fan      :interval "5s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh fan`)
+(defpoll sp-cpu      :interval "2s"  :initial "—"
+  `jq -r '.pct // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
+(defpoll sp-cpu-temp :interval "5s"  :initial "—"
+  `jq -r '.temp // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
+(defpoll sp-fan      :interval "5s"  :initial "—"
+  `jq -r '.fan_rpm // "—"' /tmp/waybar-cache/sys-temp 2>/dev/null || echo —`)
 (defpoll sp-uptime   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh uptime`)
 (defpoll sp-procs    :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh procs`)
 (defpoll sp-boot     :interval "60s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh boot`)

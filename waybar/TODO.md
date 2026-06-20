@@ -59,8 +59,6 @@ for the maintenance contract.
   Event-driven via `nmcli monitor`.
 - **Bluetooth daemon** (RTMIN+13) — paired devices, scan, connect, device
   battery. Event-driven via `dbus-monitor`.
-- **System daemon** (RTMIN+18) — CPU / GPU / memory / temp. Polled at 2 s.
-  (RTMIN+12 went to notif-daemon 2026-06-06; see ARCHITECTURE.md.)
 - **Clipboard daemon** (RTMIN+15) — selection-aware text-operation options.
   `wl-paste --watch` for events.
 - **Control panel row** — second waybar instance for control-panel-style depth.
@@ -153,6 +151,16 @@ for the maintenance contract.
   Wave 3 (new daemons: weather-fetch · cal-source · pomodoro-state ·
   notif-history channel · system-daemon RTMIN+18 · mpris-waybar truth)
   is the next plan.
+
+- **2026-06-20** — **system-daemon shipped (RTMIN+18).** Replaces the
+  Wave 2 scaffolds canvas-{cpu,gpu,mem,disk}.sh with a single 2-s poll
+  daemon writing /tmp/waybar-cache/sys-{cpu,gpu,mem,battery,temp,disk-*}.
+  Canvas rings + SYSTEM·TEMPS sys-pills now read these caches via cheap
+  cat | jq -r. Future bar pillar-6 pills consume the same caches.
+  **Hint:** GPU detection is one-shot at daemon start (nvidia-smi probe);
+  if the user replaces a GPU at runtime the daemon needs a restart.
+  Wave 3 ships nvidia metrics only; intel/amd land in a follow-up
+  (the `kind` field reports the detection so the canvas can choose).
 
 - **2026-06-19** — **widgets-canvas Wave 1: date + calendar + notes; canvas
   pivots to :focusable true.** Three catalog widgets shipped to the
