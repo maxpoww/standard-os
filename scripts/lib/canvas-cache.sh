@@ -33,7 +33,7 @@ cache_write_atomic() {
     local content="$2"
     _CANVAS_CACHE_COUNTER=$((_CANVAS_CACHE_COUNTER + 1))
     local tmp="${target}.tmp.$$.${_CANVAS_CACHE_COUNTER}"
-    printf '%s' "$content" > "$tmp" || return 1
+    printf '%s' "$content" > "$tmp" || { rm -f "$tmp"; return 1; }
     mv -f "$tmp" "$target" || { rm -f "$tmp"; return 1; }
     return 0
 }
