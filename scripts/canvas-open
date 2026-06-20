@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# canvas-open — open the StandardOS Dashboard with workarea geometry
+# computed at invocation time. Wired to Super+RETURN via
+# hypr/modules/Binds.conf.
+#
+# Computation is delegated to lib/canvas-anchor.sh, which reads
+# hypr-context.json's bg_window field — the same data source rofi
+# popups use via lib/rofi-anchor.sh. One source of truth for "where
+# things go" across the distro.
+
+set -uo pipefail
+
+source /etc/nixos/home/scripts/lib/canvas-anchor.sh
+
+read -r x y w h < <(canvas_geometry_for_open)
+
+exec eww open dashboard \
+    --pos  "${x}x${y}" \
+    --size "${w}x${h}" \
+    --anchor "top left"

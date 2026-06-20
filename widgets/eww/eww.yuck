@@ -382,12 +382,14 @@
 
 ;; ── Window ──
 
-;; Geometry: pinned to the bottom edge of the screen so it never overflows
-;; below. Height 978 logical (1000 - 22 waybar) leaves the bar visible +
-;; interactive at the top.
+;; Geometry: the canonical opener is /etc/nixos/home/scripts/canvas-open,
+;; which passes monitor-aware --pos / --size / --anchor at runtime so the
+;; surface fills the workarea below the waybar on any hardware. The
+;; values below are the fallback used if someone invokes `eww open
+;; dashboard` directly without the wrapper.
 (defwindow dashboard
   :monitor 0
-  :geometry (geometry :x "0" :y "0" :width "100%" :height "978px" :anchor "bottom center")
+  :geometry (geometry :x "0" :y "0" :width "100%" :height "100%" :anchor "top center")
   :stacking "overlay"
   :exclusive false
   :focusable true
