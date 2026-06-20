@@ -73,3 +73,61 @@ window.dashboard {
 .hero-slot-placeholder {
   min-height: 140px;
 }
+
+/* CROWN strip — pill toggles + workspaces, horizontal row. */
+.crown-strip {
+  padding: 2px 0;
+}
+
+/* opt-pill — base capsule pill (30 px radius). */
+.opt-pill {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  padding: 4px 11px;
+  color: @opt-text-on-dark;
+  font-size: 9pt;
+  font-weight: 400;
+}
+.opt-pill.state-blue { background-color: @opt-blue-state; }
+.opt-pill-glyph { font-size: 10pt; }
+.opt-pill-label { font-size: 9pt; }
+
+/* opt-swap — two-segment capsule: parent surface left, child surface right. */
+.opt-swap {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  color: @opt-text-on-dark;
+  font-size: 9pt;
+}
+.opt-swap.state-blue .opt-swap-rhs { background-color: @opt-blue-state; }
+.opt-swap-lhs { padding: 4px 8px 4px 11px; }
+.opt-swap-rhs {
+  padding: 4px 11px 4px 8px;
+  background-color: @opt-surface-child;
+  color: @opt-text-on-dark;
+  border-radius: 0 30px 30px 0;
+  opacity: 0.95;
+}
+.opt-swap-glyph { font-size: 10pt; }
+
+/* Workspaces strip — small round chips. */
+.ws-strip {
+  margin-left: 8px;
+}
+.ws {
+  background-color: @opt-surface-parent;
+  border-radius: 50%;
+  min-width: 20px;
+  min-height: 20px;
+  color: @opt-text-on-dark;
+  font-size: 8pt;
+  font-family: "MesloLGS NF", monospace;
+  opacity: 0.55;
+}
+.ws.act {
+  background-color: @opt-blue-state;
+  opacity: 1;
+}
+
+/* Empty placeholder shrink — CROWN no longer needs it. */
+.crown-container-empty { background-color: transparent; }

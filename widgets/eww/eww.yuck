@@ -38,6 +38,19 @@
   :initial "LOAD — — —"
   `/etc/nixos/home/widgets/scripts/canvas-sysload.sh`)
 
+;; Toggle states — each polls a small script that reads the bar's cache.
+(defpoll toggle-dnd       :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh dnd`)
+(defpoll toggle-dictate   :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh dictate`)
+(defpoll toggle-night     :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh night`)
+(defpoll toggle-warm      :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh warm`)
+(defpoll toggle-paper     :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh paper`)
+(defpoll toggle-newspaper :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh newspaper`)
+(defpoll toggle-wifi      :interval "5s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh wifi`)
+(defpoll toggle-focus     :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh focus`)
+
+;; Workspaces — Hyprland-aware via the existing workspace daemon's cache.
+(defpoll ws-current :interval "500ms" :initial "1" `cat /tmp/waybar-cache/ws-current 2>/dev/null || echo 1`)
+
 ;; ── Widgets ──
 
 (defwidget menubar []
@@ -49,9 +62,43 @@
     ;; right: sys-load
     (label :class "menubar-sysload" :text menubar-sysload :halign "end")))
 
+(defwidget toggle-pill [name glyph label state on-click]
+  (eventbox :onclick on-click
+    (box :class {state == "on" ? "opt-pill state-blue" : "opt-pill"}
+         :orientation "horizontal" :space-evenly false :spacing 5
+      (label :class "opt-pill-glyph" :text glyph)
+      (label :class "opt-pill-label" :text label))))
+
+(defwidget toggle-swap [name glyph title state rhs on-click]
+  (eventbox :onclick on-click
+    (box :class {state == "on" ? "opt-swap state-blue" : "opt-swap"}
+         :orientation "horizontal" :space-evenly false
+      (box :class "opt-swap-lhs" :orientation "horizontal" :spacing 5
+        (label :class "opt-swap-glyph" :text glyph)
+        (label :class "opt-swap-title" :text title))
+      (box :class "opt-swap-rhs"
+        (label :text rhs)))))
+
+(defwidget crown-workspaces []
+  (box :class "ws-strip" :orientation "horizontal" :space-evenly false :spacing 4
+    (box :class {ws-current == "1" ? "ws act" : "ws"} (label :text "1"))
+    (box :class {ws-current == "2" ? "ws act" : "ws"} (label :text "2"))
+    (box :class {ws-current == "3" ? "ws act" : "ws"} (label :text "3"))
+    (box :class {ws-current == "4" ? "ws act" : "ws"} (label :text "4"))
+    (box :class {ws-current == "5" ? "ws act" : "ws"} (label :text "5"))))
+
 (defwidget crown-container []
-  (box :class "crown-container-empty" :orientation "horizontal" :vexpand false
-    (label :text "" :class "zone-placeholder")))
+  (box :class "crown-strip" :orientation "horizontal" :space-evenly false :spacing 6 :halign "center"
+    (toggle-swap :name "wifi"   :glyph "󰖩"  :title "Wi-Fi"   :state toggle-wifi    :rhs "Home"   :on-click "nm-connection-editor &")
+    (toggle-swap :name "focus"  :glyph "󰂛"  :title "Focus"   :state toggle-focus   :rhs "DND"    :on-click "/etc/nixos/home/waybar/scripts/lib/pill.sh; notif-click dnd")
+    (toggle-pill :name "dict"   :glyph "󰍬"  :label "Dictate" :state toggle-dictate :on-click "dictate-toggle")
+    (toggle-pill :name "bt"     :glyph ""  :label ""        :state "off"          :on-click "blueman-manager &")
+    (toggle-pill :name "drop"   :glyph "󰀂"  :label ""        :state "off"          :on-click "true")
+    (toggle-pill :name "night"  :glyph "󰽢"  :label "Night"   :state toggle-night   :on-click "/etc/nixos/home/waybar/scripts/night-dimmer.sh click")
+    (toggle-pill :name "warm"   :glyph "󰈸"  :label "Warm"    :state toggle-warm    :on-click "/etc/nixos/home/waybar/scripts/warm-cycle.sh click")
+    (toggle-pill :name "paper"  :glyph "󰈚"  :label "Paper"   :state toggle-paper   :on-click "/etc/nixos/home/waybar/scripts/shader-toggle.sh paper")
+    (toggle-pill :name "news"   :glyph "󰎕"  :label "News"    :state toggle-newspaper :on-click "/etc/nixos/home/waybar/scripts/shader-toggle.sh newspaper")
+    (crown-workspaces)))
 
 (defwidget hero-trio []
   (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
