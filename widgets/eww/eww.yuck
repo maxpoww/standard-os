@@ -1,16 +1,12 @@
 ;; ─────────────────────────────────────────────────────────────────────
 ;;  StandardOS widget canvas — Eww root.
 ;;
-;;  Wave 2: five-band dense layout.
-;;    menubar (thin top strip)
+;;  Wave 2: dense layout (waybar serves as the top strip).
 ;;    CROWN strip (pill toggles + workspaces)
 ;;    HERO trio (clock+weather · media-MEGA · stacked 6-ring frames)
 ;;    bars row (5 floating sliders, tight to HERO)
 ;;    FIELD row 1 (calendar / agenda / notes / notifications)
 ;;    FIELD row 2 (network / system+temps / focus)
-;;
-;;  Wave 2 Task 1: structural shell + menubar only.
-;;  Subsequent tasks fill the empty containers.
 ;; ─────────────────────────────────────────────────────────────────────
 
 ;; ── Data sources ──
@@ -26,13 +22,7 @@
   :initial "—"
   `date +'%A, %B %-d'`)
 
-;; Menubar — compact "FRI · 19 JUN · 22:14" centerline.
-(defpoll menubar-datetime
-  :interval "30s"
-  :initial "— · — · --:--"
-  `date +'%a · %-d %b · %H:%M' | tr '[:lower:]' '[:upper:]'`)
-
-;; Menubar — sys-load right-side string.
+;; LOAD avg — feeds the SYSTEM·TEMPS sys-pill cluster.
 (defpoll menubar-sysload
   :interval "5s"
   :initial "LOAD — — —"
@@ -106,16 +96,23 @@
 ;; Today's focal date number (e.g. "19") for the calendar card.
 (defpoll today-day :interval "60s" :initial "—" `date +'%-d'`)
 
-;; ── Widgets ──
+;; Network sys-pills (FIELD row 2 NETWORK card).
+(defpoll sp-down  :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh down`)
+(defpoll sp-up    :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh up`)
+(defpoll sp-ssid  :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh ssid`)
+(defpoll sp-ip    :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh ip`)
+(defpoll sp-dns   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh dns`)
+(defpoll sp-vpn   :interval "10s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-net.sh vpn`)
 
-(defwidget menubar []
-  (centerbox :class "menubar"
-    ;; left: workspaces placeholder (Task 2 wires up real workspaces)
-    (label :class "menubar-ws-placeholder" :text "1 2 3 4 5 6 7 8 9" :halign "start")
-    ;; center: datetime
-    (label :class "menubar-datetime" :text menubar-datetime :halign "center")
-    ;; right: sys-load
-    (label :class "menubar-sysload" :text menubar-sysload :halign "end")))
+;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
+(defpoll sp-cpu      :interval "2s"  :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh pct`)
+(defpoll sp-cpu-temp :interval "5s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh temp`)
+(defpoll sp-fan      :interval "5s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh fan`)
+(defpoll sp-uptime   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh uptime`)
+(defpoll sp-procs    :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh procs`)
+(defpoll sp-boot     :interval "60s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-cpu.sh boot`)
+
+;; ── Widgets ──
 
 (defwidget toggle-pill [name glyph label state on-click]
   (eventbox :onclick on-click
@@ -328,9 +325,45 @@
     (field-notes-card)
     (field-notif-card)))
 
+(defwidget sys-pill [k v]
+  (box :class "sys-pill" :orientation "horizontal" :space-evenly false :spacing 4
+    (label :class "sys-pill-k" :text k)
+    (label :class "sys-pill-v" :text v)))
+
+(defwidget field-net-card []
+  (box :class "field-card field-net" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (label :class "field-lk" :text "NETWORK" :halign "start")
+    (box :class "sys-pill-cluster" :orientation "horizontal" :space-evenly false :spacing 5
+      (sys-pill :k "↓" :v sp-down)
+      (sys-pill :k "↑" :v sp-up)
+      (sys-pill :k "SSID" :v sp-ssid)
+      (sys-pill :k "IP" :v sp-ip)
+      (sys-pill :k "DNS" :v sp-dns)
+      (sys-pill :k "VPN" :v sp-vpn))))
+
+(defwidget field-sys-card []
+  (box :class "field-card field-sys" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (label :class "field-lk" :text "SYSTEM · TEMPS" :halign "start")
+    (box :class "sys-pill-cluster" :orientation "horizontal" :space-evenly false :spacing 5
+      (sys-pill :k "CPU" :v {sp-cpu + "% · " + sp-cpu-temp})
+      (sys-pill :k "FAN" :v sp-fan)
+      (sys-pill :k "LOAD" :v menubar-sysload)
+      (sys-pill :k "UP" :v sp-uptime)
+      (sys-pill :k "PROC" :v sp-procs)
+      (sys-pill :k "BOOT" :v sp-boot))))
+
+(defwidget field-focus-card []
+  (box :class "field-card field-focus" :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
+    (label :class "field-lk" :text "FOCUS · POM —/—" :halign "center")
+    (label :class "field-focus-big" :text "—:—" :halign "center")
+    (label :class "field-empty" :text "Pomodoro daemon ships in Wave 3."
+           :wrap true :limit-width 22 :halign "center")))
+
 (defwidget field-row-2 []
-  (box :class "field-row-empty" :orientation "horizontal" :space-evenly false :spacing 10
-    (label :text "" :class "zone-placeholder")))
+  (box :class "field-row-2" :orientation "horizontal" :space-evenly false :spacing 10
+    (field-net-card)
+    (field-sys-card)
+    (field-focus-card)))
 
 ;; ── Canvas root ──
 
@@ -339,7 +372,6 @@
        :orientation "vertical"
        :space-evenly false
        :spacing 8
-    (menubar)
     (crown-container)
     ;; HERO + bars are nested together so the bars hug HERO bottom edge.
     (box :class "hero-bars-block" :orientation "vertical" :space-evenly false :spacing 4 :vexpand true
@@ -350,9 +382,12 @@
 
 ;; ── Window ──
 
+;; Geometry: pinned to the bottom edge of the screen so it never overflows
+;; below. Height 978 logical (1000 - 22 waybar) leaves the bar visible +
+;; interactive at the top.
 (defwindow dashboard
   :monitor 0
-  :geometry (geometry :x "0%" :y "0%" :width "100%" :height "100%" :anchor "center")
+  :geometry (geometry :x "0" :y "0" :width "100%" :height "978px" :anchor "bottom center")
   :stacking "overlay"
   :exclusive false
   :focusable true

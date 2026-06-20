@@ -30,29 +30,6 @@ window.dashboard {
   margin-bottom: 4px;
 }
 
-/* Menubar — thin top strip. Workspaces left, datetime center, sysload right. */
-.menubar {
-  font-size: 9pt;
-  color: @opt-text-on-dark;
-  opacity: 0.65;
-  letter-spacing: 1px;
-  padding: 0 6px 4px 6px;
-}
-
-.menubar-datetime {
-  font-weight: 500;
-  letter-spacing: 2px;
-}
-
-.menubar-sysload {
-  font-family: "MesloLGS NF", monospace;
-}
-
-.menubar-ws-placeholder {
-  /* Task 2 replaces this with a real workspaces widget. */
-  font-family: "MesloLGS NF", monospace;
-}
-
 /* Empty zone placeholders — temporarily visible until Tasks 2-8 fill them. */
 .zone-placeholder {
   color: @canvas-zone-label;
@@ -500,3 +477,39 @@ window.dashboard {
   opacity: 0.30;
   letter-spacing: 1px;
 }
+
+/* FIELD row 2 — three cards. */
+.field-row-2 { padding: 4px 0; }
+
+.field-net,
+.field-sys { min-width: 240px; }
+.field-focus { min-width: 120px; }
+
+.sys-pill-cluster {
+  /* Allow wrapping when narrow — Eww box doesn't wrap natively, so this
+     stays one row; designers can split into multiple boxes if needed at
+     polish time. */
+}
+
+.sys-pill {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  padding: 4px 10px;
+}
+.sys-pill-k {
+  font-size: 7pt;
+  letter-spacing: 1px;
+  color: @opt-text-on-dark;
+  opacity: 0.35;
+}
+.sys-pill-v {
+  font-size: 8pt;
+  color: @opt-text-on-dark;
+}
+
+.field-focus-big {
+  font-size: 20pt;
+  font-weight: 300;
+  color: @opt-text-on-dark;
+}
+
