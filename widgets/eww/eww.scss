@@ -230,3 +230,88 @@ window.dashboard {
   color: @opt-text-on-dark;
   opacity: 0.45;
 }
+
+/* Media-MEGA frame — pill-radius parent surface, vertical column. */
+.media-mega {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  padding: 14px 18px;
+  min-height: 140px;
+}
+
+.mm-cover {
+  min-width: 88px;
+  min-height: 88px;
+  border-radius: 14px;
+  /* Gradient placeholder until Wave 3's mpris-truth wires real cover. */
+  background-image: linear-gradient(135deg,
+    rgba(217, 179, 255, 0.50) 0%,
+    rgba(110, 150, 255, 0.50) 50%,
+    rgba(179, 255, 179, 0.40) 100%);
+}
+
+.mm-src {
+  font-size: 7pt;
+  letter-spacing: 3px;
+  color: @opt-text-on-dark;
+  opacity: 0.35;
+}
+.mm-title {
+  font-size: 12pt;
+  color: @opt-text-on-dark;
+}
+.mm-artist {
+  font-size: 9pt;
+  color: @opt-text-on-dark;
+  opacity: 0.55;
+}
+.mm-album {
+  font-size: 8pt;
+  color: @opt-text-on-dark;
+  opacity: 0.35;
+}
+
+.mm-extras { margin-top: 4px; }
+.mm-extras .opt-pill {
+  font-size: 7pt;
+  padding: 3px 8px;
+}
+
+/* Progress bar — thin, parent-translucent track, child-bright fill. */
+.mm-progress { margin-top: 4px; }
+.mm-time {
+  font-size: 7pt;
+  color: @opt-text-on-dark;
+  opacity: 0.45;
+  font-family: "MesloLGS NF", monospace;
+}
+.mm-bar {
+  min-height: 3px;
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+.mm-bar-fill {
+  min-height: 3px;
+  background-color: @opt-text-on-dark;
+  border-radius: 2px;
+  /* Width gets wired via inline style in a future iteration; for now full-track. */
+}
+
+/* Transport row. */
+.mm-transport-row { margin-top: 4px; }
+.mm-tx-btn {
+  font-size: 14pt;
+  color: @opt-text-on-dark;
+  padding: 0 6px;
+}
+.mm-tx-play { font-size: 18pt; }
+
+/* opt-mini — small circular control button. */
+.opt-mini {
+  background-color: @opt-surface-parent;
+  border-radius: 50%;
+  min-width: 22px;
+  min-height: 22px;
+  color: @opt-text-on-dark;
+  font-size: 11pt;
+}

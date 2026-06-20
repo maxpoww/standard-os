@@ -61,6 +61,16 @@
 (defvar weather-cond-default "clear")
 ;; index 0..4 = COND, TEMP, HI, LO, HUM
 
+;; Media — playerctl best-effort.
+(defpoll media-source :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh source`)
+(defpoll media-title  :interval "2s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh title`)
+(defpoll media-artist :interval "2s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh artist`)
+(defpoll media-album  :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh album`)
+(defpoll media-status :interval "1s" :initial "⏵" `/etc/nixos/home/widgets/scripts/canvas-media.sh status`)
+(defpoll media-pos    :interval "1s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh pos`)
+(defpoll media-len    :interval "5s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh len`)
+(defpoll media-pct    :interval "1s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-media.sh pct`)
+
 ;; ── Widgets ──
 
 (defwidget menubar []
@@ -150,10 +160,40 @@
         (label :text "FRIDAY" :halign "start" :class "cw-date-line")
         (label :text "19 JUN · WK 25" :halign "start" :class "cw-date-line-sub")))))
 
+(defwidget media-mega-frame []
+  (box :class "media-mega" :orientation "vertical" :space-evenly false :spacing 7
+    ;; top: cover + meta
+    (box :class "mm-top" :orientation "horizontal" :space-evenly false :spacing 14
+      (box :class "mm-cover")
+      (box :class "mm-meta" :orientation "vertical" :space-evenly false :spacing 2 :hexpand true
+        (label :class "mm-src"   :text media-source :halign "start")
+        (label :class "mm-title" :text media-title  :halign "start")
+        (label :class "mm-artist" :text media-artist :halign "start")
+        (label :class "mm-album" :text media-album  :halign "start")
+        (box :class "mm-extras" :orientation "horizontal" :space-evenly false :spacing 6
+          (button :class "opt-pill mm-extra"           :onclick "playerctl shuffle Toggle" "󰓦 Shuffle")
+          (button :class "opt-pill state-blue mm-extra" :onclick "playerctl loop Toggle"    "󰑖 Repeat")
+          (button :class "opt-pill mm-extra"           :onclick "true"                     "󰋗 Lyrics"))))
+    ;; progress row
+    (box :class "mm-progress" :orientation "horizontal" :space-evenly false :spacing 6 :valign "center"
+      (label :class "mm-time" :text media-pos)
+      (box :class "mm-bar" :hexpand true
+        (box :class "mm-bar-fill" :hexpand false))
+      (label :class "mm-time" :text media-len))
+    ;; transport row
+    (box :class "mm-transport-row" :orientation "horizontal" :space-evenly false
+      (box :class "mm-transport" :orientation "horizontal" :space-evenly false :spacing 12 :hexpand true :halign "start"
+        (button :class "mm-tx-btn" :onclick "playerctl previous" "⏮")
+        (button :class "mm-tx-btn mm-tx-play" :onclick "playerctl play-pause" media-status)
+        (button :class "mm-tx-btn" :onclick "playerctl next" "⏭"))
+      (box :class "mm-controls-r" :orientation "horizontal" :space-evenly false :spacing 6 :halign "end"
+        (button :class "opt-mini" :onclick "true" "󰋗")
+        (button :class "opt-mini" :onclick "true" "󰒮")))))
+
 (defwidget hero-trio []
   (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
     (clock-weather-frame)
-    (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))
+    (media-mega-frame)
     (box :class "hero-slot-placeholder" :hexpand true (label :text "" :class "zone-placeholder"))))
 
 (defwidget bars-row []
