@@ -131,3 +131,102 @@ window.dashboard {
 
 /* Empty placeholder shrink — CROWN no longer needs it. */
 .crown-container-empty { background-color: transparent; }
+
+/* HERO trio — three frames side by side. */
+.hero-slot-placeholder {
+  /* Tasks 4 & 5 replace these. */
+  min-height: 140px;
+}
+
+/* Clock+weather merged frame — pill-radius parent surface, vertical split. */
+.cw-card {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  padding: 16px 20px;
+  min-height: 140px;
+}
+
+.cw-weather {
+  padding-bottom: 6px;
+}
+
+.cw-divider {
+  min-height: 1px;
+  background-color: rgba(255, 255, 255, 0.10);
+  margin: 0 4px;
+}
+
+.cw-clock {
+  padding-top: 6px;
+}
+
+.weather-illust { min-width: 58px; min-height: 58px; }
+.weather-illust-glyph {
+  font-size: 36pt;
+  color: @opt-yellow-pin;
+}
+
+/* Sun-pulse motion (spec §5.1 addendum from Wave 2 design §8.4). */
+.weather-illust-clear .weather-illust-glyph {
+  animation: sun-pulse 4.5s ease-in-out infinite;
+}
+@keyframes sun-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1.00; }
+}
+
+/* Storm flash — one of the spec §5.1 four verbs, scoped to the bolt. */
+.weather-illust-storm .weather-illust-glyph {
+  color: @opt-yellow-pin;
+  animation: opt-flash 2.0s ease-in-out infinite;
+}
+@keyframes opt-flash {
+  0%, 90%, 100% { opacity: 1.0; }
+  92%           { opacity: 0.4; }
+  94%           { opacity: 1.0; }
+}
+
+/* Weather typography. */
+.cw-temp {
+  font-size: 32pt;
+  font-weight: 300;
+  color: @opt-text-on-dark;
+  letter-spacing: -2px;
+}
+.cw-city {
+  font-size: 9pt;
+  letter-spacing: 2px;
+  color: @opt-text-on-dark;
+  opacity: 0.65;
+}
+.cw-desc {
+  font-size: 9pt;
+  color: @opt-text-on-dark;
+  opacity: 0.65;
+}
+.cw-lohi {
+  font-size: 8pt;
+  color: @opt-text-on-dark;
+  opacity: 0.55;
+  letter-spacing: 1px;
+}
+
+/* Clock typography (smaller than Wave 1's 96pt). */
+.cw-clock-text {
+  font-size: 28pt;
+  font-weight: 200;
+  letter-spacing: -1px;
+  color: @opt-text-on-dark;
+}
+.cw-date-line {
+  font-size: 8pt;
+  letter-spacing: 2px;
+  color: @opt-text-on-dark;
+  opacity: 0.65;
+}
+.cw-date-line-sub {
+  font-size: 8pt;
+  letter-spacing: 2px;
+  color: @opt-text-on-dark;
+  opacity: 0.45;
+}
