@@ -369,3 +369,61 @@ window.dashboard {
   0%, 100% { opacity: 1.0; }
   50%      { opacity: 0.78; }
 }
+
+/* Floating bars — 5 sliders, no card wrapper, tight under HERO. */
+.bars-row { padding: 4px 0 0 0; }
+
+.opt-slider-wrap {
+  padding-top: 12px;
+  min-width: 0;
+}
+
+.opt-slider-label-row {
+  padding: 0 6px 2px 6px;
+}
+.opt-slider-label {
+  font-size: 7pt;
+  letter-spacing: 1.5px;
+  color: @opt-text-on-dark;
+  opacity: 0.35;
+}
+.opt-slider-pct {
+  font-size: 7pt;
+  color: @opt-text-on-dark;
+  opacity: 0.55;
+}
+
+/* The native GTK scale, styled to look like a pill track. */
+.opt-slider {
+  /* trough is the pill background; highlight is the fill. */
+  min-height: 22px;
+  min-width: 80px;
+}
+.opt-slider trough {
+  background-color: @opt-surface-parent;
+  border-radius: 30px;
+  min-height: 22px;
+}
+.opt-slider trough highlight {
+  background-color: @opt-hover-bright;
+  border-radius: 30px;
+  min-height: 22px;
+}
+/* Hide the slider handle — canvas sliders use direct-click positioning. */
+.opt-slider slider {
+  background-color: transparent;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Icons overlaid on each end of the slider. */
+.opt-slider-icons {
+  padding: 0 12px;
+  pointer-events: none;
+}
+.opt-slider-icon-l,
+.opt-slider-icon-r {
+  font-size: 10pt;
+  color: @opt-text-on-dark;
+}
+.opt-slider-icon-r { opacity: 0.55; }
