@@ -331,11 +331,27 @@
       (label :class "field-cal-day" :text today-day))
     (calendar :class "field-cal-grid")))
 
+;; Agenda — driven by cal-source-daemon (Wave 3 Task 7).
+;; Cache /tmp/waybar-cache/agenda.json; v0 source ~/.config/standardos/calendars/*.ics.
+(defpoll agenda-events :interval "30s" :initial "[]"
+  `jq -c '.events // []' /tmp/waybar-cache/agenda.json 2>/dev/null || echo "[]"`)
+(defpoll agenda-today-count :interval "30s" :initial "0"
+  `jq -r '.today_count // 0' /tmp/waybar-cache/agenda.json 2>/dev/null || echo 0`)
+
+(defwidget field-agenda-event [summary start-text minutes-until]
+  (box :class {minutes-until < 30 ? "field-agenda-row field-agenda-imminent" : "field-agenda-row"}
+       :orientation "horizontal" :space-evenly false :spacing 6
+    (label :class "field-agenda-when"    :text start-text :halign "start")
+    (label :class "field-agenda-summary" :text summary    :halign "start" :hexpand true)))
+
 (defwidget field-agenda-card []
   (box :class "field-card field-agenda" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text "TODAY · NO EVENTS" :halign "start")
-    (label :class "field-empty" :text "Agenda will populate once cal-source lands (Wave 3)."
-           :wrap true :limit-width 28 :halign "start")))
+    (label :class "field-lk"
+           :text {agenda-today-count == "0" ? "TODAY · NO EVENTS" : ("TODAY · " + agenda-today-count + " EVENT" + (agenda-today-count == "1" ? "" : "S"))}
+           :halign "start")
+    (box :class "field-agenda-list" :orientation "vertical" :space-evenly false :spacing 4
+      (for e in {agenda-events}
+        (field-agenda-event :summary {e.summary} :start-text {e.start_text} :minutes-until {e.minutes_until})))))
 
 (defwidget field-notes-card []
   (box :class "field-card field-notes" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true

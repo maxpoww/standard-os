@@ -71,6 +71,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **system-daemon** | `system-daemon.service` (via `home/modules/system-daemon.nix`) | `home/scripts/system-daemon.sh` | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp, disk-root, disk-home}` | RTMIN+18 (dedup at writer; 2 s poll loop reading `/proc`, `/sys/class/hwmon`, `/sys/class/power_supply/BAT*`, `nvidia-smi`) |
 | **notif-history-channel** | `notif-history-channel.service` (via `home/modules/notif-history-channel.nix`) | `home/scripts/notif-history-channel.sh` | `/tmp/waybar-cache/notif-history.json` (shape: `{count, entries[10], updated}`) | RTMIN+12 (shared with notif-daemon — connectivity-style shared-signal pattern; one signal refreshes all notif consumers) |
 | **pomodoro-daemon** | `pomodoro-daemon.service` (via `home/modules/pomodoro-daemon.nix`) | `home/scripts/pomodoro-daemon.sh` | `/tmp/waybar-cache/pomodoro.json` (shape: `{state, remaining_seconds, remaining_text, block_kind, blocks_completed_today, blocks_target}`) | RTMIN+19 (dedup at writer; fires only when remaining_text changes — once per second during active block) |
+| **cal-source-daemon** | `cal-source-daemon.service` (via `home/modules/cal-source-daemon.nix`) | `home/scripts/cal-source-daemon.sh` | `/tmp/waybar-cache/agenda.json` (shape: `{events[≤8], today_count, next_minutes_until, updated}`) | RTMIN+20 (5 min poll over `~/.config/standardos/calendars/*.ics`; dedup at writer — no signal unless agenda actually changes) |
 
 notif-daemon also maintains the persistent journal at
 `~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable
@@ -106,7 +107,9 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 | RTMIN+16 | media-daemon (reserved) | MPRIS / cava |
 | RTMIN+17 | context-daemon (planned) | Hardware-button reflection, 4-s transient timer |
 | RTMIN+18 | system-daemon (live) | CPU/GPU/memory/battery/temp/disk-root/disk-home (was on RTMIN+12 before notif-daemon claimed it 2026-06-06; shipped Wave 3 Task 3) |
-| RTMIN+19..+30 | **FREE** | future expansion |
+| RTMIN+19 | pomodoro-daemon (live, Wave 3 Task 5) | Focus-block state machine — fires when remaining_text changes (~1 Hz during active blocks) |
+| RTMIN+20 | cal-source-daemon (live, Wave 3 Task 7) | Local ICS → agenda — fires on 5-min poll only when agenda content changes |
+| RTMIN+21..+30 | **FREE** | future expansion |
 
 When picking a signal: read this table, take the next free one, edit this table in the same commit. The Linux kernel guarantees RTMIN through RTMIN+30 are safe for application use.
 
