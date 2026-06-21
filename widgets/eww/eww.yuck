@@ -72,6 +72,13 @@
   :initial `{"active":false,"player":"","source_label":"","title":"","artist":"","album":"","status":"","status_glyph":"⏵","pos_sec":0,"len_sec":0,"pct":0,"pos_text":"—:—","len_text":"—:—","art_path":"","updated":0}`
   `/etc/nixos/home/widgets/scripts/canvas-mpris-listen`)
 
+;; Ring SVG regenerator — canvas-rings-gen.sh writes per-ring SVG to
+;; /tmp/canvas-rings/<name>.<tick>.svg, prints the tick. The tick gets
+;; interpolated into ring-cell's (image :path) so the path string differs
+;; each cycle, defeating GTK Image's path-keyed cache.
+(defpoll ring-tick :interval "5s" :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-rings-gen.sh`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -281,17 +288,14 @@
         (button :class "opt-mini" :onclick "true" "󰋗")
         (button :class "opt-mini" :onclick "true" "󰒮")))))
 
-;; ring-cell — a single ring with a percent label below and a small lbl underneath.
-;; Eww doesn't render SVG circles directly; we use a custom progress widget
-;; via `(circular-progress)` which is GTK-native.
-(defwidget ring-cell [value glyph pct-text lbl-text klass]
+;; ring-cell — image-based Apple-Watch-style ring (SVG written by
+;; canvas-rings-gen.sh, refreshed every 5s via ring-tick). The :ring-name
+;; param selects which SVG to load. Center label overlays via (overlay).
+(defwidget ring-cell [ring-name glyph pct-text lbl-text]
   (box :class "ring-cell" :orientation "vertical" :space-evenly false :spacing 1 :halign "center"
     (overlay
-      (circular-progress
-        :value value
-        :class {"ring-fill ring-fill-" + klass}
-        :thickness 7
-        :start-at 75)
+      (image :path {"/tmp/canvas-rings/" + ring-name + "." + ring-tick + ".svg"}
+             :image-width 46 :image-height 46)
       (label :class "ring-glyph" :text glyph))
     (label :class "ring-pct" :text pct-text)
     (label :class "ring-lbl" :text lbl-text)))
@@ -314,20 +318,14 @@
   (box :class "rings-stack" :orientation "vertical" :space-evenly true :spacing 8
     ;; Vitals card: / · /home · Battery
     (box :class "rings-card" :orientation "horizontal" :space-evenly true
-      (ring-cell :value ring-disk-root :glyph "" :pct-text {ring-disk-root + "%"}
-                 :lbl-text "/ root"  :klass "disk")
-      (ring-cell :value ring-disk-home :glyph "󱂵" :pct-text {ring-disk-home + "%"}
-                 :lbl-text "/home"   :klass "disk")
-      (ring-cell :value ring-battery   :glyph "⚡" :pct-text {ring-battery + "%"}
-                 :lbl-text "Battery" :klass "battery"))
+      (ring-cell :ring-name "disk-root" :glyph "" :pct-text {ring-disk-root + "%"} :lbl-text "/ root")
+      (ring-cell :ring-name "disk-home" :glyph "󱂵" :pct-text {ring-disk-home + "%"} :lbl-text "/home")
+      (ring-cell :ring-name "battery"   :glyph "⚡" :pct-text {ring-battery + "%"}   :lbl-text "Battery"))
     ;; Live perf card: Wi-Fi · GPU · MEM
     (box :class "rings-card" :orientation "horizontal" :space-evenly true
-      (ring-cell :value ring-wifi-pct  :glyph "📶" :pct-text ring-wifi-bars
-                 :lbl-text "Wi-Fi"     :klass "wifi")
-      (ring-cell :value ring-gpu       :glyph "G"  :pct-text {ring-gpu + "%"}
-                 :lbl-text {"GPU · " + ring-gpu-temp + "°"} :klass "gpu")
-      (ring-cell :value ring-mem       :glyph "M"  :pct-text {ring-mem + "%"}
-                 :lbl-text {"MEM · " + ring-mem-used}       :klass "mem"))))
+      (ring-cell :ring-name "wifi" :glyph "" :pct-text ring-wifi-bars            :lbl-text "Wi-Fi")
+      (ring-cell :ring-name "gpu"  :glyph "G" :pct-text {ring-gpu + "%"}          :lbl-text {"GPU · " + ring-gpu-temp + "°"})
+      (ring-cell :ring-name "mem"  :glyph "M" :pct-text {ring-mem + "%"}          :lbl-text {"MEM · " + ring-mem-used}))))
 
 (defwidget hero-trio []
   ;; Proportional widths via min-width hints + hexpand: clock-weather ~1.05fr,
