@@ -117,6 +117,18 @@
 ;; Today's focal date number (e.g. "19") for the calendar card.
 (defpoll today-day :interval "60s" :initial "—" `date +'%-d'`)
 
+;; Today's weekday name (e.g. "Friday") for the calendar card.
+(defpoll today-weekday :interval "60s" :initial "—" `date +'%A'`)
+
+;; Month name (uppercase) for the calendar card label.
+(defpoll today-month :interval "300s" :initial "—" `date +'%B' | tr '[:lower:]' '[:upper:]'`)
+
+;; Heatmap — 6 rows × 7 cols of {day, klass}. Klass: muted|""|t1|t2|t3|today.
+;; Intensity is currently date-hashed (visual scaffold); wire to real density
+;; (commits, notif count, agenda events) in a future pass.
+(defpoll heatmap-rows :interval "300s" :initial "[]"
+  `/etc/nixos/home/widgets/scripts/canvas-heatmap.sh`)
+
 ;; Notif-history — derived from notif-os-daemon's JSONL journal by
 ;; notif-history-channel. Wave 3 Task 4.
 (defpoll notif-count :interval "5s" :initial "0"
@@ -186,23 +198,23 @@
     (toggle-pill :name "news"   :glyph "󰎕"  :label "News"    :state toggle-newspaper :on-click "/etc/nixos/home/waybar/scripts/shader-toggle.sh newspaper")
     (crown-workspaces)))
 
-;; Weather illustration — 7 SVG-class conditions, selected by string match.
-;; Each is a unicode-glyph + colored circle composition (no SVG file load —
-;; the visual lives in CSS via background-image data URIs or in label fonts).
+;; Weather illustration — 7 SVG files in widgets/svg/, picked by condition.
+;; Sun pulses (sun-pulse keyframe in eww.scss); storm flashes the bolt.
 ;; The condition strings: clear · partly-cloudy · cloudy · rain · snow · storm · clear-night.
 (defwidget weather-illust [cond]
-  (box :class {"weather-illust weather-illust-" + (now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear" : cond}
-       :orientation "horizontal" :halign "center" :valign "center"
-    (label :class "weather-illust-glyph" :text
-      {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "☀"
-       : cond == "clear" ? "☀"
-       : cond == "partly-cloudy" ? "⛅"
-       : cond == "cloudy" ? "☁"
-       : cond == "rain" ? "🌧"
-       : cond == "snow" ? "❄"
-       : cond == "storm" ? "⛈"
-       : cond == "clear-night" ? "🌙"
-       : "☀"})))
+  (box :class {"weather-illust weather-illust-" + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear" : cond)}
+       :halign "center" :valign "center"
+    (image :path {"/etc/nixos/home/widgets/svg/weather-" +
+                  ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear"
+                   : cond == "clear" ? "clear"
+                   : cond == "partly-cloudy" ? "partly-cloudy"
+                   : cond == "cloudy" ? "cloudy"
+                   : cond == "rain" ? "rain"
+                   : cond == "snow" ? "snow"
+                   : cond == "storm" ? "storm"
+                   : cond == "clear-night" ? "clear-night"
+                   : "clear") + ".svg"}
+           :image-width 58 :image-height 58)))
 
 (defwidget clock-weather-frame []
   (box :class "cw-card" :orientation "vertical" :space-evenly false :spacing 8 :vexpand true
@@ -232,9 +244,15 @@
        :orientation "vertical" :space-evenly false :spacing 7
     ;; top: cover + meta
     (box :class "mm-top" :orientation "horizontal" :space-evenly false :spacing 14
-      (image :class "mm-art"
-             :path {mpris-snapshot.art_path ?: ""}
-             :image-width 92 :image-height 92)
+      (overlay
+        ;; Fallback layer — gradient + ♪ glyph, shows when art_path empty.
+        (box :class "mm-art-fallback" :halign "center" :valign "center"
+          (label :class "mm-art-glyph" :text "♪"))
+        ;; Real art on top — covers fallback when path resolves. When art_path
+        ;; is empty, point at a 1×1 transparent SVG (eww (image) errors on "").
+        (image :class "mm-art"
+               :path {mpris-snapshot.art_path == "" ? "/etc/nixos/home/widgets/svg/_blank.svg" : mpris-snapshot.art_path}
+               :image-width 92 :image-height 92))
       (box :class "mm-meta" :orientation "vertical" :space-evenly false :spacing 2 :hexpand true
         (label :class "mm-src"   :text {mpris-snapshot.source_label} :halign "start")
         (label :class "mm-title" :text {mpris-snapshot.title}        :halign "start")
@@ -310,10 +328,13 @@
                  :lbl-text {"MEM · " + ring-mem-used}       :klass "mem"))))
 
 (defwidget hero-trio []
+  ;; Proportional widths via min-width hints + hexpand: clock-weather ~1.05fr,
+  ;; media-MEGA ~1.45fr (widest), rings-stack ~0.95fr (narrowest). See mockup
+  ;; grid-template-columns at zz-design-approved.html.
   (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
-    (clock-weather-frame)
-    (media-mega-frame)
-    (rings-stack-frame)))
+    (box :class "hero-slot hero-slot-cw"    :hexpand true (clock-weather-frame))
+    (box :class "hero-slot hero-slot-media" :hexpand true (media-mega-frame))
+    (box :class "hero-slot hero-slot-rings" :hexpand true (rings-stack-frame))))
 
 (defwidget bars-row []
   (box :class "bars-row" :orientation "horizontal" :space-evenly true :spacing 6
@@ -328,13 +349,27 @@
     (opt-slider :klass "night"    :label-text "NIGHT-DIM" :icon-l "🌃" :icon-r "☀"  :value bar-night
                 :onchange "/etc/nixos/home/waybar/scripts/night-dimmer.sh set {} >/dev/null 2>&1 || true")))
 
+(defwidget heat-row [row]
+  (box :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
+    (for c in {row}
+      (label :class {"heat-d " + c.klass} :text {c.day}))))
+
 (defwidget field-cal-card []
   (box :class "field-card field-cal" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text "JUNE" :halign "start")
-    (box :orientation "horizontal" :space-evenly false :spacing 5 :halign "start"
-      (label :class "field-cal-weekday" :text "Friday")
+    (label :class "field-lk" :text today-month :halign "start")
+    (box :orientation "horizontal" :space-evenly false :spacing 5 :halign "start" :valign "end"
+      (label :class "field-cal-weekday" :text today-weekday)
       (label :class "field-cal-day" :text today-day))
-    (calendar :class "field-cal-grid")))
+    (box :class "heat" :orientation "vertical" :space-evenly false :spacing 2
+      ;; Header row: weekday initials
+      (box :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
+        (label :class "heat-h" :text "S") (label :class "heat-h" :text "M")
+        (label :class "heat-h" :text "T") (label :class "heat-h" :text "W")
+        (label :class "heat-h" :text "T") (label :class "heat-h" :text "F")
+        (label :class "heat-h" :text "S"))
+      ;; 6 weeks of 7 cells via nested for over heatmap-rows
+      (for row in {heatmap-rows}
+        (heat-row :row {row})))))
 
 ;; Agenda — driven by cal-source-daemon (Wave 3 Task 7).
 ;; Cache /tmp/waybar-cache/agenda.json; v0 source ~/.config/standardos/calendars/*.ics.
@@ -345,9 +380,14 @@
 
 (defwidget field-agenda-event [summary start-text minutes-until]
   (box :class {minutes-until < 30 ? "field-agenda-row field-agenda-imminent" : "field-agenda-row"}
-       :orientation "horizontal" :space-evenly false :spacing 6
-    (label :class "field-agenda-when"    :text start-text :halign "start")
-    (label :class "field-agenda-summary" :text summary    :halign "start" :hexpand true)))
+       :orientation "horizontal" :space-evenly false :spacing 7 :valign "start"
+    (box :class {minutes-until < 30 ? "agenda-dot agenda-dot-orange"
+                : minutes-until < 120 ? "agenda-dot agenda-dot-blue"
+                : minutes-until < 480 ? "agenda-dot agenda-dot-green"
+                : "agenda-dot agenda-dot-violet"} :valign "start")
+    (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
+      (label :class "field-agenda-when"    :text start-text :halign "start")
+      (label :class "field-agenda-summary" :text summary    :halign "start" :wrap true))))
 
 (defwidget field-agenda-card []
   (box :class "field-card field-agenda" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
@@ -366,11 +406,12 @@
     (label :class "field-notes-body" :text notes-preview :wrap true :limit-width 32 :halign "start")))
 
 (defwidget field-notif-row [app title body]
-  (box :class "field-notif-row" :orientation "vertical" :space-evenly false :spacing 0
-    (box :orientation "horizontal" :space-evenly false :spacing 6
+  (box :class "field-notif-row" :orientation "horizontal" :space-evenly false :spacing 7 :valign "start"
+    (box :class "notif-dot notif-dot-violet" :valign "start")
+    (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
       (label :class "field-notif-app"   :text app   :halign "start")
-      (label :class "field-notif-title" :text title :halign "start" :hexpand true))
-    (label :class "field-notif-body"    :text body  :halign "start" :wrap true :limit-width 32)))
+      (label :class "field-notif-title" :text title :halign "start" :wrap true :limit-width 36)
+      (label :class "field-notif-body"  :text body  :halign "start" :wrap true :limit-width 36))))
 
 (defwidget field-notif-card []
   (box :class "field-card field-notif" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
@@ -429,11 +470,24 @@
 (defpoll pom-target   :interval "60s" :initial "4"
   `jq -r '.blocks_target // 4' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 4`)
 
+(defwidget pom-dot [n]
+  ;; Filled when n ≤ pom-done; ghost otherwise. Up to 8 supported.
+  (box :class {n * 1 <= pom-done * 1 ? "pom-dot pom-dot-done" : "pom-dot"}))
+
 (defwidget field-focus-card []
   (box :class {"field-card field-focus field-focus-" + pom-state} :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
     (label :class "field-lk"
            :text {"FOCUS · POM " + pom-done + "/" + pom-target} :halign "center")
     (label :class "field-focus-big" :text pom-text :halign "center")
+    (box :class "pom-dots" :orientation "horizontal" :space-evenly false :spacing 4 :halign "center"
+      (pom-dot :n "1")
+      (pom-dot :n "2")
+      (pom-dot :n "3")
+      (pom-dot :n "4")
+      (pom-dot :n "5")
+      (pom-dot :n "6")
+      (pom-dot :n "7")
+      (pom-dot :n "8"))
     (box :class "field-focus-ctrls" :orientation "horizontal" :space-evenly true :halign "center"
       (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl start" "Start")
       (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl skip"  "Skip")
