@@ -47,9 +47,6 @@ for the maintenance contract.
 
 ## NEXT
 
-- **Brightness module** — `XF86MonBrightnessUp/Down`, transient only (no
-  permanent state). Tests the "transient with no permanent home" half of
-  pillar 6.
 - **Media player module (MPRIS)** — permanent when a player exists, lives in
   USER zone (bound to focused work). `XF86AudioPlay/Pause/Next/Prev` reflects
   on the existing pill. Implementation source: `/home/max/mpris-waybar/` rewrite.
@@ -81,6 +78,29 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-20** — **brightness-daemon (RTMIN+21) — canvas DISPLAY slider
+  + XF86 keys read/write through cache truth.** Wave-3-pattern daemon
+  owns `/tmp/waybar-cache/brightness.json`; `brightnessctl-set` wrapper
+  is the single writer (called by Hyprland `XF86MonBrightness{Up,Down}`
+  binds and by the canvas slider's `:onchange`). Replaces direct
+  `brightnessctl` forks from the canvas slider's defpoll (1 s shell-out
+  → cache read) and consolidates the ad-hoc
+  `~/.config/hypr/scripts/brightness.sh` shim into the wrapper.
+  Night-dim shader teardown above the 2 % floor preserved verbatim — it's
+  user-initiated, so it lives in the wrapper, not the daemon. Pillar 6
+  transient-only framing in the original NEXT entry was superseded by
+  Wave 2: the canvas DISPLAY slider IS the permanent home now; v0 ships
+  with no transient bar surfacing (keyboard discoverability remains
+  opt-in per OPTIONS philosophy).
+  **Hint:** Daemon SIGUSR1 hook (sent by the wrapper post-`brightnessctl`)
+  shortens wrapper→cache latency below the 1 s baseline poll. Best-effort —
+  if the signal races mid-poll, the next 1 s tick catches up regardless.
+  **Hint:** RTMIN+21 newly claimed from the FREE pool; signal table in
+  `waybar/ARCHITECTURE.md` is now authoritative through +21; +22..+30 free.
+  **Hint:** spec at
+  `docs/superpowers/specs/2026-06-20-brightness-daemon-design.md`;
+  plan at `docs/superpowers/plans/2026-06-20-brightness-daemon.md`.
 
 - **2026-06-20** — **`inactive` → `opt-dimmed` class rename.** The dimmed
   CSS class is now `.opt-dimmed`, matching the `opt-*` naming convention
