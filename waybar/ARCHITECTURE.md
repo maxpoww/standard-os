@@ -70,6 +70,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **weather-daemon** | `weather-daemon.service` (via `home/modules/weather-daemon.nix`) | `home/scripts/weather-daemon.sh` | `/tmp/waybar-cache/weather.json` | — (canvas re-reads on 60 s defpoll; weather doesn't need signal push) |
 | **system-daemon** | `system-daemon.service` (via `home/modules/system-daemon.nix`) | `home/scripts/system-daemon.sh` | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp, disk-root, disk-home}` | RTMIN+18 (dedup at writer; 2 s poll loop reading `/proc`, `/sys/class/hwmon`, `/sys/class/power_supply/BAT*`, `nvidia-smi`) |
 | **notif-history-channel** | `notif-history-channel.service` (via `home/modules/notif-history-channel.nix`) | `home/scripts/notif-history-channel.sh` | `/tmp/waybar-cache/notif-history.json` (shape: `{count, entries[10], updated}`) | RTMIN+12 (shared with notif-daemon — connectivity-style shared-signal pattern; one signal refreshes all notif consumers) |
+| **pomodoro-daemon** | `pomodoro-daemon.service` (via `home/modules/pomodoro-daemon.nix`) | `home/scripts/pomodoro-daemon.sh` | `/tmp/waybar-cache/pomodoro.json` (shape: `{state, remaining_seconds, remaining_text, block_kind, blocks_completed_today, blocks_target}`) | RTMIN+19 (dedup at writer; fires only when remaining_text changes — once per second during active block) |
 
 notif-daemon also maintains the persistent journal at
 `~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable

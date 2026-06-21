@@ -397,12 +397,26 @@
       (sys-pill :k "PROC" :v sp-procs)
       (sys-pill :k "BOOT" :v sp-boot))))
 
+;; Pomodoro — driven by pomodoro-daemon (Wave 3 Task 5).
+;; Cache /tmp/waybar-cache/pomodoro.json; commands via pomodoroctl.
+(defpoll pom-state    :interval "1s" :initial "idle"
+  `jq -r '.state // "idle"' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo idle`)
+(defpoll pom-text     :interval "1s" :initial "—:—"
+  `jq -r '.remaining_text // "—:—"' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo "—:—"`)
+(defpoll pom-done     :interval "5s" :initial "0"
+  `jq -r '.blocks_completed_today // 0' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 0`)
+(defpoll pom-target   :interval "60s" :initial "4"
+  `jq -r '.blocks_target // 4' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 4`)
+
 (defwidget field-focus-card []
-  (box :class "field-card field-focus" :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
-    (label :class "field-lk" :text "FOCUS · POM —/—" :halign "center")
-    (label :class "field-focus-big" :text "—:—" :halign "center")
-    (label :class "field-empty" :text "Pomodoro daemon ships in Wave 3."
-           :wrap true :limit-width 22 :halign "center")))
+  (box :class {"field-card field-focus field-focus-" + pom-state} :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
+    (label :class "field-lk"
+           :text {"FOCUS · POM " + pom-done + "/" + pom-target} :halign "center")
+    (label :class "field-focus-big" :text pom-text :halign "center")
+    (box :class "field-focus-ctrls" :orientation "horizontal" :space-evenly true :halign "center"
+      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl start" "Start")
+      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl skip"  "Skip")
+      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl stop"  "Stop"))))
 
 (defwidget field-row-2 []
   (box :class "field-row-2" :orientation "horizontal" :space-evenly false :spacing 10

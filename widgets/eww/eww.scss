@@ -546,3 +546,13 @@ window.dashboard {
   color: @opt-text-on-dark;
 }
 
+@keyframes pom-breathe {
+  0%   { opacity: 1.0; }
+  50%  { opacity: 0.78; }
+  100% { opacity: 1.0; }
+}
+.field-focus-running .field-focus-big {
+  animation: pom-breathe 3.2s ease-in-out infinite;
+}
+.field-focus-ctrls { padding-top: 4px; }
+

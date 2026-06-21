@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# pomodoroctl — CLI shim over the pomodoro-daemon FIFO. Provides the
+# same one-line ergonomics as mprisctl / dictate-toggle.
+#
+# Usage:
+#   pomodoroctl start [seconds]   # default 25*60
+#   pomodoroctl stop
+#   pomodoroctl skip
+#   pomodoroctl reset
+#   pomodoroctl status            # prints the current cache JSON
+set -euo pipefail
+FIFO="/run/user/${UID:-$(id -u)}/standardos-pomodoro.fifo"
+CACHE=/tmp/waybar-cache/pomodoro.json
+
+case "${1:-}" in
+    status)
+        cat "$CACHE" 2>/dev/null || echo '{"state":"idle"}'
+        ;;
+    start|stop|skip|reset)
+        if [[ ! -p "$FIFO" ]]; then
+            echo "pomodoroctl: daemon FIFO missing ($FIFO). Is pomodoro-daemon.service running?" >&2
+            exit 1
+        fi
+        echo "$@" > "$FIFO"
+        ;;
+    *)
+        echo "usage: pomodoroctl {start [seconds]|stop|skip|reset|status}" >&2
+        exit 2
+        ;;
+esac
