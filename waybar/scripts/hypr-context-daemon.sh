@@ -126,7 +126,7 @@ flush() {
     pill_write "ws-current" "$ws_current" "opt-pill dark opt-plus opt-swap"
 
     # ws-1..9: drawer siblings. Current and occupied both render the number on
-    # a parent surface; .inactive on non-current occupied slots dims them;
+    # a parent surface; .opt-dimmed on non-current occupied slots dims them;
     # empty slots collapse via .empty.
     local i
     for i in 1 2 3 4 5 6 7 8 9; do
@@ -134,7 +134,7 @@ flush() {
             if [[ $i -eq $ws_current ]]; then
                 pill_write "ws-$i" "$i" "opt-pill dark"
             else
-                pill_write "ws-$i" "$i" "opt-pill dark inactive"
+                pill_write "ws-$i" "$i" "opt-pill dark opt-dimmed"
             fi
         else
             pill_write "ws-$i" "" "opt-pill empty"

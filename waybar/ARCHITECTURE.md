@@ -268,7 +268,7 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ✓ Tooltip popup styling — `tooltip` selector matches pill aesthetic
 - ~ `opt-pushed` adoption — class defined; not yet applied to `shader-paper`, `shader-newspaper`, `night-dimmer`, `dictate.recording` (those still use legacy paint)
 - ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
-- ~ Dimmed class rename to `opt-dimmed` — now safe (workspace-daemon migration landed via hypr-context unification 2026-06-13); class is still `.inactive` pending the rename pass
+- ✓ Dimmed class renamed `.inactive` → `.opt-dimmed` 2026-06-20 — single-pass sweep across `style.css` (selector + header table), `waybar/scripts/hypr-context-daemon.sh` (emitter), and prose docs; visual behavior unchanged (still `opacity: 0.45` on the same selectors, same emit conditions)
 - ✓ system-daemon (RTMIN+18) — shipped Wave 3 Task 3; writes sys-{cpu,gpu,mem,battery,temp,disk-root,disk-home}; replaces canvas-{cpu,gpu,mem,disk}.sh scaffolds
 - ✓ notif-history-channel (RTMIN+12, shared) — shipped Wave 3 Task 4; derives canvas-shaped JSON from notif-os-daemon's JSONL journal; canvas notifications card reads real entries
 - ✗ network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — planned daemons not yet implemented

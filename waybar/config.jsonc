@@ -438,7 +438,7 @@
   // showing the WS number; hover swaps to the canonical "+" face with the
   // opt-pulse-plus beat, matching the apps launcher and win-move-new under
   // Rule 6). Children: ws-1..9 (opt-pill-child baseline; the current one is
-  // peer-equal — dimmed via .inactive, not state-colored).
+  // peer-equal — dimmed via .opt-dimmed, not state-colored).
   "group/workspaces": {
     "orientation": "inherit",
     "drawer": {

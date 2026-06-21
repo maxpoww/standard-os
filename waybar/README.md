@@ -205,7 +205,7 @@ Dimmed is not "off" (`opt-no`) and not "absent" (`.empty`). It is **occupied, no
 - A paired Bluetooth device that exists in the cluster but isn't the active sink: dimmed.
 - A network connection profile saved but not connected right now: dimmed.
 
-Implemented in CSS as `.inactive` (the class wired into the workspace daemon). The rule's vocabulary name is *dimmed*; the implementation class is `.inactive` for backward compatibility until the daemon migrates to Nix.
+Implemented in CSS as `.opt-dimmed` (the class wired into the workspace daemon). The rule's vocabulary name is *dimmed* and the wired class matches — renamed from `.inactive` 2026-06-20 after the daemon's migration to Nix landed.
 
 ---
 

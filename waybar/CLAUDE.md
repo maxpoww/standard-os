@@ -154,7 +154,7 @@ CSS: `box-shadow: inset 0 2px 5px @opt-pushed-shadow` (single soft top-inset sha
 
 ### Dimmed (occupied, not selected)
 
-A peer item that exists but is not the focus. Reduced opacity (0.45), surface unchanged, no state color. Implemented in `style.css` as `.inactive` — the class the workspace daemon already writes for `ws-1..9` when those workspaces have windows but aren't current. The semantic vocabulary name is **dimmed**; the wired class is `.inactive`. Rename to `.opt-dimmed` is deferred until the workspace daemon migrates from `~/.config/waybar/scripts/` to a Nix-managed script — cross-repo coupling would break dimming during the transition window otherwise.
+A peer item that exists but is not the focus. Reduced opacity (0.45), surface unchanged, no state color. Implemented in `style.css` as `.opt-dimmed` — the class the workspace daemon writes for `ws-1..9` when those workspaces have windows but aren't current. The semantic vocabulary name is **dimmed**; the wired class matches (renamed from `.inactive` 2026-06-20 after the workspace daemon migrated to Nix via the hypr-context unification — cross-repo coupling that previously blocked the rename is gone).
 
 ### The hover system (one mechanism, one place)
 

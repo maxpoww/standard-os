@@ -22,10 +22,10 @@
                               calm, no motion — the eye stays, the CPU doesn't)
        Pushed (0/1):         .opt-pushed                    (toggle ON — the ONLY
                              carrier of a border anywhere in OPTIONS)
-       Dimmed (0/1):         .inactive                      (peer occupied but not
-                             selected; semantic vocabulary name is "dimmed",
-                             implementation class kept as .inactive until the
-                             workspace daemon migrates to Nix)
+       Dimmed (0/1):         .opt-dimmed                    (peer occupied but not
+                             selected; renamed from .inactive 2026-06-20 after
+                             the workspace daemon migrated to Nix via the
+                             hypr-context unification)
        Tone override (rare): .opt-tone-red | .opt-tone-yellow | .opt-tone-blue
        Swap (0/1):           .opt-swap-<kind>               (rest→hover face)
        Action (0/1):         .opt-plus                      (canonical "+" — same-option
@@ -449,15 +449,13 @@ window#waybar .opt-pill-child.opt-plus.opt-swap.light:hover label {
 }
 
 /* ── Dimmed (peer occupied but not selected) ─────────────────────────────── */
-/* Semantic vocabulary name is "dimmed" (see README → Dimmed). Implementation
-   class is .inactive — the class the workspace daemon already writes for
-   ws-1..9 when those workspaces have windows but aren't the current one.
-   Rename to .opt-dimmed is deferred until workspace-daemon migrates from
-   ~/.config/waybar/scripts/ to a Nix-managed script (cross-repo coupling
-   would break dimming during the transition window otherwise). */
+/* Wired class is .opt-dimmed (renamed from .inactive 2026-06-20). The
+   workspace daemon writes this for ws-1..9 when those workspaces have
+   windows but aren't the current one. Semantic vocabulary name is "dimmed"
+   (see README → Dimmed). */
 
-window#waybar .opt-pill-child.inactive,
-window#waybar .opt-pill.inactive {
+window#waybar .opt-pill-child.opt-dimmed,
+window#waybar .opt-pill.opt-dimmed {
     opacity: 0.45;
 }
 

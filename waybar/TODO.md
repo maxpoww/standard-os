@@ -72,9 +72,6 @@ for the maintenance contract.
   `wl-paste --watch` for events.
 - **Control panel row** — second waybar instance for control-panel-style depth.
   Destination for transient pills' "go away to" target after their 4 s expires.
-- **`inactive` → `opt-dimmed` rename** — now safe; the workspace daemon is
-  Nix-managed (via the hypr-context unification 2026-06-13). Single-pass
-  CSS + emitter rename.
 - **Per-window context surfacing** — focused-window class drives a silent
   swap of per-window options (e.g. text-app focused → format-text cluster
   appears in USER zone). Silent appearance per maintenance rule 4.
@@ -84,6 +81,28 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-20** — **`inactive` → `opt-dimmed` class rename.** The dimmed
+  CSS class is now `.opt-dimmed`, matching the `opt-*` naming convention
+  used for every other modifier (`opt-pin-*`, `opt-pushed`, `opt-swap-*`,
+  `opt-plus`, `opt-tone-*`). Single atomic pass across the wired sources:
+  `waybar/style.css` (selector + header table comment),
+  `waybar/scripts/hypr-context-daemon.sh` (the only emitter, line 137 of
+  the ws-1..9 loop), `waybar/config.jsonc` (group/workspaces comment),
+  plus prose updates in `waybar/README.md` (Dimmed §), `waybar/CLAUDE.md`
+  (Dimmed §), and `waybar/ARCHITECTURE.md` (backlog row → ✓ shipped).
+  Visual behavior unchanged — same selectors, same `opacity: 0.45`, same
+  emit conditions. The rename was previously deferred (see CLAUDE.md
+  history) because the workspace daemon lived in `~/.config/waybar/scripts/`
+  outside Nix, so a class rename meant cross-repo coupling. The
+  2026-06-13 hypr-context unification moved the emitter into
+  `waybar/scripts/hypr-context-daemon.sh` (Nix-bundled via
+  `waybar-scripts`), which made the rename a single-commit operation.
+  **Hint:** The historical hint at the 2026-05-28 opt-pushed DONE entry
+  still says "stays as `.inactive` until daemon migrates to Nix" — left
+  intact as a record of the constraint that was true at that date.
+  **Hint:** Verification = workspace dimming visually unchanged after
+  `nixos-rebuild switch` + restarts of waybar + waybar-hypr-context-daemon.
 
 - **2026-06-20** — **canvas Esc dismiss made reliable + on-canvas × button.**
   The submap-Esc chain previously stacked two `bind` lines on the same
