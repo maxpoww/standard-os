@@ -1,56 +1,43 @@
 /*
- * StandardOS widget canvas — Eww styles.
+ * StandardOS widget canvas -- Eww styles.
  *
- * Wave 2: dense layout — menubar / CROWN / HERO trio / bars / FIELD rows.
- * Wave 2 Task 1: root shell + menubar. Subsequent tasks add per-widget styles.
+ * NOTE on @-references: eww uses grass-rs to parse .scss, and grass rejects
+ * GTK's `@varname` property-value syntax (it tries to interpret `@` as a
+ * SASS at-rule). Use raw rgba() throughout -- this file does NOT @import the
+ * shared palette.css (which uses @define-color). Token values mirror
+ * /etc/nixos/home/widgets/palette.css; bump those in lockstep.
+ *
+ * Canvas frames use a stronger surface alpha than the shared waybar token
+ * (0.55 vs 0.30) because the dashboard's full-screen veil over a busy desktop
+ * needs more contrast than waybar's narrow strip does.
  */
-
-@import "../palette.css";
 
 /* Reset GTK defaults so Eww starts from neutral ground. */
 * {
   all: unset;
 }
 
-/* The full-screen dashboard window: dark veil + two radial gradients for
- * subtle atmosphere (mockup zz-design-approved.html). Without this the
- * canvas reads flat; with it, the eye finds the HERO band naturally. */
+/* The full-screen dashboard window: dark veil + radial gradient atmosphere. */
 window.dashboard {
-  background-color: @canvas-veil;
+  background-color: rgba(6, 6, 12, 0.92);
   background-image:
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.025), transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(255,255,255,0.015), transparent 60%);
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.025), transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(255, 255, 255, 0.015), transparent 60%);
   font-family: "MesloLGS NF", "Symbols Nerd Font Mono", monospace;
 }
 
-/* Canvas root: five-band vertical stack. Padding ~3% on each edge so the
-   bands don't kiss the monitor border (was 5% in Wave 1; tighter now to
-   accommodate the dense content). */
 .canvas-root {
   padding: 24px 28px;
 }
 
-/* HERO trio proportional widths — mockup grid-template-columns 1.05fr 1.45fr 0.95fr.
- * Eww has no CSS grid, so we approximate via min-width on the three slots. */
-.hero-slot-cw    { min-width: 320px; }
-.hero-slot-media { min-width: 440px; }
-.hero-slot-rings { min-width: 290px; }
-
-/* Canvas close affordance — top-right × button. Backup path for the
-   Esc binding (the canonical close). Sits within the canvas edge
-   padding so it visually belongs to the surface rather than the
-   monitor bezel. Frame language: translucent grey, no hard border,
-   subtle at rest, brightens on hover. */
-.canvas-close-wrap {
-  margin: 18px 22px 0 0;
-}
+/* Canvas close affordance -- top-right x button. */
+.canvas-close-wrap { margin: 18px 22px 0 0; }
 .canvas-close {
   background-color: rgba(255, 255, 255, 0.06);
   border-radius: 16px;
   padding: 4px 10px 6px 10px;
   color: rgba(255, 255, 255, 0.55);
   font-size: 13pt;
-  font-weight: 400;
   transition: background-color 140ms ease, color 140ms ease;
 }
 .canvas-close:hover {
@@ -58,537 +45,376 @@ window.dashboard {
   color: rgba(255, 255, 255, 0.95);
 }
 
-/* HERO + bars block — small inner gap so bars hug HERO bottom edge. */
-.hero-bars-block {
-  margin-bottom: 4px;
+/* HERO + bars block -- small inner gap so bars hug HERO bottom edge. */
+.hero-bars-block { margin-bottom: 4px; }
+
+/* HERO trio proportional widths -- mockup grid-template-columns 1.05fr 1.45fr 0.95fr. */
+.hero-slot-cw    { min-width: 320px; }
+.hero-slot-media { min-width: 440px; }
+.hero-slot-rings { min-width: 290px; }
+
+/* Soft elevation on every frame -- drop-shadow lifts the surface off the veil
+ * without hard borders. Subtle but gives the eye a frame edge to lock onto. */
+.cw-card, .media-mega, .rings-card, .field-card {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
-/* Empty zone placeholders — temporarily visible until Tasks 2-8 fill them. */
-.zone-placeholder {
-  color: @canvas-zone-label;
-  font-size: 9pt;
-  letter-spacing: 2px;
-  padding: 12px;
-}
+/* -- CROWN ----------------------------------------------------------- */
+.crown-strip { padding: 2px 0; }
 
-.crown-container-empty,
-.hero-slot-placeholder,
-.bars-row-empty,
-.field-row-empty {
-  background-color: rgba(128, 128, 128, 0.08);
-  border-radius: 12px;
-  min-height: 32px;
-}
-
-.hero-slot-placeholder {
-  min-height: 140px;
-}
-
-/* CROWN strip — pill toggles + workspaces, horizontal row. */
-.crown-strip {
-  padding: 2px 0;
-}
-
-/* opt-pill — base capsule pill (30 px radius). */
 .opt-pill {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   padding: 4px 11px;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   font-size: 9pt;
-  font-weight: 400;
 }
-.opt-pill.state-blue { background-color: @opt-blue-state; }
+.opt-pill.state-blue { background-color: rgba(110, 150, 255, 0.85); }
 .opt-pill-glyph { font-size: 10pt; }
 .opt-pill-label { font-size: 9pt; }
 
-/* opt-swap — two-segment capsule: parent surface left, child surface right. */
 .opt-swap {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   font-size: 9pt;
 }
-.opt-swap.state-blue .opt-swap-rhs { background-color: @opt-blue-state; }
 .opt-swap-lhs { padding: 4px 8px 4px 11px; }
 .opt-swap-rhs {
   padding: 4px 11px 4px 8px;
-  background-color: @opt-surface-child;
-  color: @opt-text-on-dark;
+  background-color: rgba(170, 170, 170, 0.55);
+  color: rgba(255, 255, 255, 1.0);
   border-radius: 0 30px 30px 0;
-  opacity: 0.95;
 }
+.opt-swap.state-blue .opt-swap-rhs { background-color: rgba(110, 150, 255, 0.85); }
 .opt-swap-glyph { font-size: 10pt; }
 
-/* Workspaces strip — small round chips. */
-.ws-strip {
-  margin-left: 8px;
-}
+/* Workspaces strip. */
+.ws-strip { margin-left: 8px; }
 .ws {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 50%;
   min-width: 20px;
   min-height: 20px;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   font-size: 8pt;
   font-family: "MesloLGS NF", monospace;
   opacity: 0.55;
 }
-.ws.act {
-  background-color: @opt-blue-state;
-  opacity: 1;
-}
+.ws.act { background-color: rgba(110, 150, 255, 0.85); opacity: 1; }
 
-/* Empty placeholder shrink — CROWN no longer needs it. */
-.crown-container-empty { background-color: transparent; }
-
-/* HERO trio — three frames side by side. */
-.hero-slot-placeholder {
-  /* Tasks 4 & 5 replace these. */
-  min-height: 140px;
-}
-
-/* Clock+weather merged frame — pill-radius parent surface, vertical split. */
+/* -- HERO: Clock+Weather merged frame ------------------------------- */
 .cw-card {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   padding: 16px 20px;
   min-height: 140px;
 }
-
-.cw-weather {
-  padding-bottom: 6px;
-}
-
+.cw-weather   { padding-bottom: 6px; }
 .cw-divider {
   min-height: 1px;
-  background-color: rgba(255, 255, 255, 0.10);
+  background-color: rgba(255, 255, 255, 0.12);
   margin: 0 4px;
 }
+.cw-clock     { padding-top: 6px; }
 
-.cw-clock {
-  padding-top: 6px;
-}
-
-/* Weather illust — SVG image picked by condition; size matches the mockup. */
 .weather-illust { min-width: 58px; min-height: 58px; }
-
-/* Sun-pulse motion (spec §5.1 addendum from Wave 2 design §8.4) on the
- * whole SVG slot rather than just the glyph (no glyph anymore). */
-.weather-illust-clear {
-  animation: sun-pulse 4.5s ease-in-out infinite;
-}
+.weather-illust-clear { animation: sun-pulse 4.5s ease-in-out infinite; }
 @keyframes sun-pulse {
-  0%, 100% { opacity: 0.85; }
-  50%      { opacity: 1.00; }
+  0%   { opacity: 0.85; }
+  50%  { opacity: 1.00; }
+  100% { opacity: 0.85; }
 }
-
-/* Storm flash — one of the spec §5.1 four verbs. Applied to the SVG slot. */
-.weather-illust-storm {
-  animation: opt-flash 2.0s ease-in-out infinite;
-}
+.weather-illust-storm { animation: opt-flash 2.0s ease-in-out infinite; }
 @keyframes opt-flash {
-  0%, 90%, 100% { opacity: 1.0; }
-  92%           { opacity: 0.4; }
-  94%           { opacity: 1.0; }
+  0%   { opacity: 1.0; }
+  90%  { opacity: 1.0; }
+  92%  { opacity: 0.4; }
+  94%  { opacity: 1.0; }
+  100% { opacity: 1.0; }
 }
 
-/* Weather typography — mockup uses 44pt for the focal temperature. */
 .cw-temp {
   font-size: 44pt;
   font-weight: 300;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   letter-spacing: -2px;
 }
-.cw-city {
-  font-size: 9pt;
-  letter-spacing: 2px;
-  color: @opt-text-on-dark;
-  opacity: 0.65;
-}
-.cw-desc {
-  font-size: 9pt;
-  color: @opt-text-on-dark;
-  opacity: 0.65;
-}
-.cw-lohi {
-  font-size: 8pt;
-  color: @opt-text-on-dark;
-  opacity: 0.55;
-  letter-spacing: 1px;
-}
+.cw-city { font-size: 9pt; letter-spacing: 2px; color: rgba(255, 255, 255, 0.65); }
+.cw-desc { font-size: 9pt; color: rgba(255, 255, 255, 0.65); }
+.cw-lohi { font-size: 8pt; color: rgba(255, 255, 255, 0.55); letter-spacing: 1px; }
 
-/* Clock typography (smaller than Wave 1's 96pt). */
 .cw-clock-text {
   font-size: 28pt;
   font-weight: 200;
   letter-spacing: -1px;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
 }
-.cw-date-line {
-  font-size: 8pt;
-  letter-spacing: 2px;
-  color: @opt-text-on-dark;
-  opacity: 0.65;
-}
-.cw-date-line-sub {
-  font-size: 8pt;
-  letter-spacing: 2px;
-  color: @opt-text-on-dark;
-  opacity: 0.45;
-}
+.cw-date-line     { font-size: 8pt; letter-spacing: 2px; color: rgba(255, 255, 255, 0.65); }
+.cw-date-line-sub { font-size: 8pt; letter-spacing: 2px; color: rgba(255, 255, 255, 0.45); }
 
-/* Media-MEGA frame — pill-radius parent surface, vertical column. */
+/* -- HERO: Media-MEGA frame ----------------------------------------- */
 .media-mega {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   padding: 14px 18px;
   min-height: 140px;
 }
 
-/* Cover art — overlay of fallback (gradient + ♪) under real image.
- * When art_path resolves, the (image) covers the fallback; when empty,
- * the fallback shows through. */
 .mm-art-fallback {
   min-width: 92px;
   min-height: 92px;
   border-radius: 14px;
   background-image: linear-gradient(135deg,
-    rgba(217, 179, 255, 0.50) 0%,
-    rgba(110, 150, 255, 0.50) 50%,
-    rgba(179, 255, 179, 0.40) 100%);
+    rgba(217, 179, 255, 0.55) 0%,
+    rgba(110, 150, 255, 0.55) 50%,
+    rgba(179, 255, 179, 0.45) 100%);
 }
-.mm-art-glyph {
-  font-size: 26pt;
-  color: rgba(255, 255, 255, 0.85);
-}
-.mm-art {
-  min-width: 92px;
-  min-height: 92px;
-  border-radius: 14px;
-}
+.mm-art-glyph { font-size: 26pt; color: rgba(255, 255, 255, 0.85); }
+.mm-art { min-width: 92px; min-height: 92px; border-radius: 14px; }
 
-.mm-src {
-  font-size: 7pt;
-  letter-spacing: 3px;
-  color: @opt-text-on-dark;
-  opacity: 0.35;
-}
-.mm-title {
-  font-size: 12pt;
-  color: @opt-text-on-dark;
-}
-.mm-artist {
-  font-size: 9pt;
-  color: @opt-text-on-dark;
-  opacity: 0.55;
-}
-.mm-album {
-  font-size: 8pt;
-  color: @opt-text-on-dark;
-  opacity: 0.35;
-}
+.mm-src    { font-size: 7pt; letter-spacing: 3px; color: rgba(255, 255, 255, 0.40); }
+.mm-title  { font-size: 13pt; color: rgba(255, 255, 255, 1.0); }
+.mm-artist { font-size: 10pt; color: rgba(255, 255, 255, 0.65); }
+.mm-album  { font-size: 9pt;  color: rgba(255, 255, 255, 0.40); }
 
 .mm-extras { margin-top: 4px; }
-.mm-extras .opt-pill {
-  font-size: 7pt;
-  padding: 3px 8px;
-}
+.mm-extras .opt-pill { font-size: 8pt; padding: 3px 8px; }
 
-/* Progress bar — thin, parent-translucent track, child-bright fill. */
 .mm-progress { margin-top: 4px; }
 .mm-time {
-  font-size: 7pt;
-  color: @opt-text-on-dark;
-  opacity: 0.45;
+  font-size: 8pt;
+  color: rgba(255, 255, 255, 0.50);
   font-family: "MesloLGS NF", monospace;
 }
 .mm-bar {
-  min-height: 3px;
-  background-color: rgba(255, 255, 255, 0.15);
+  min-height: 4px;
+  background-color: rgba(255, 255, 255, 0.18);
   border-radius: 2px;
 }
 .mm-bar-fill {
-  min-height: 3px;
-  background-color: @opt-text-on-dark;
+  min-height: 4px;
+  background-color: rgba(255, 255, 255, 0.90);
   border-radius: 2px;
-  /* Width: inline :style "min-width: ${pct}%;" interpolated from mpris-snapshot.pct. */
 }
 
-/* Empty collapse — media-MEGA disappears when no player is active.
- * font-size: 0 is mandatory (StandardOS hazard): label glyphs reserve
- * natural width without it, leaving a phantom strip on the canvas. */
+/* Media-MEGA collapse when no player. font-size: 0 mandatory (StandardOS hazard). */
 .media-mega.empty {
   padding: 0; margin: 0;
   min-height: 0;
   opacity: 0;
   font-size: 0;
 }
-.media-mega.empty .mm-art {
+.media-mega.empty .mm-art,
+.media-mega.empty .mm-art-fallback {
   min-width: 0; min-height: 0;
   background-image: none;
 }
 
-/* Transport row. */
 .mm-transport-row { margin-top: 4px; }
-.mm-tx-btn {
-  font-size: 14pt;
-  color: @opt-text-on-dark;
-  padding: 0 6px;
-}
+.mm-tx-btn { font-size: 14pt; color: rgba(255, 255, 255, 1.0); padding: 0 6px; }
 .mm-tx-play { font-size: 18pt; }
 
-/* opt-mini — small circular control button. */
 .opt-mini {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 50%;
   min-width: 22px;
   min-height: 22px;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   font-size: 11pt;
 }
 
-/* Rings stack — vertical stack of two framed cards, each holding 3 rings. */
-.rings-stack {
-  min-width: 220px;
-}
+/* -- HERO: Rings stack ---------------------------------------------- */
+.rings-stack { min-width: 220px; }
 
 .rings-card {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   padding: 10px 14px;
   min-height: 68px;
 }
 
-.ring-cell {
-  min-width: 60px;
-  padding: 2px;
-}
+.ring-cell { min-width: 60px; padding: 2px; }
 
 .ring-fill {
   min-width: 46px;
   min-height: 46px;
-  background-color: rgba(255, 255, 255, 0.10);
+  background-color: rgba(255, 255, 255, 0.20);
+  color: rgba(255, 255, 255, 0.95);
 }
+.ring-fill-disk    { color: rgba(179, 255, 179, 0.95); }
+.ring-fill-battery { color: rgba(179, 255, 179, 0.95); }
+.ring-fill-wifi    { color: rgba(110, 150, 255, 0.95); }
+.ring-fill-gpu     { color: rgba(217, 179, 255, 0.95); }
+.ring-fill-mem     { color: rgba(255, 191, 179, 0.95); }
 
-/* Per-ring fill color via class. */
-.ring-fill-disk    { color: @opt-green; }
-.ring-fill-battery { color: @opt-green; }
-.ring-fill-wifi    { color: @opt-blue-state; }
-.ring-fill-gpu     { color: @opt-violet; }
-.ring-fill-mem     { color: @opt-orange; }
+.ring-glyph { color: rgba(255, 255, 255, 1.0); font-size: 11pt; }
+.ring-pct   { font-size: 9pt; color: rgba(255, 255, 255, 1.0); }
+.ring-lbl   { font-size: 6pt; color: rgba(255, 255, 255, 0.55); letter-spacing: 1px; }
 
-.ring-glyph {
-  color: @opt-text-on-dark;
-  font-size: 11pt;
-}
-.ring-pct {
-  font-size: 9pt;
-  color: @opt-text-on-dark;
-}
-.ring-lbl {
-  font-size: 6pt;
-  color: @opt-text-on-dark;
-  opacity: 0.55;
-  letter-spacing: 1px;
-}
-
-/* Battery breathe at 100%. */
-.ring-fill-battery {
-  animation: opt-breathe 3.2s ease-in-out infinite;
-}
+.ring-fill-battery { animation: opt-breathe 3.2s ease-in-out infinite; }
 @keyframes opt-breathe {
-  0%, 100% { opacity: 1.0; }
-  50%      { opacity: 0.78; }
+  0%   { opacity: 1.0; }
+  50%  { opacity: 0.78; }
+  100% { opacity: 1.0; }
 }
 
-/* Floating bars — 5 sliders, no card wrapper, tight under HERO. */
+/* -- Bars row (5 floating sliders) ---------------------------------- */
 .bars-row { padding: 4px 0 0 0; }
 
-.opt-slider-wrap {
-  padding-top: 12px;
-  min-width: 0;
-}
+.opt-slider-wrap { padding-top: 12px; min-width: 0; }
 
-.opt-slider-label-row {
-  padding: 0 6px 2px 6px;
-}
-.opt-slider-label {
-  font-size: 7pt;
-  letter-spacing: 1.5px;
-  color: @opt-text-on-dark;
-  opacity: 0.35;
-}
-.opt-slider-pct {
-  font-size: 7pt;
-  color: @opt-text-on-dark;
-  opacity: 0.55;
-}
+.opt-slider-label-row { padding: 0 6px 2px 6px; }
+.opt-slider-label { font-size: 7pt; letter-spacing: 1.5px; color: rgba(255, 255, 255, 0.40); }
+.opt-slider-pct   { font-size: 7pt; color: rgba(255, 255, 255, 0.60); }
 
-/* The native GTK scale, styled to look like a pill track. */
-.opt-slider {
-  /* trough is the pill background; highlight is the fill. */
-  min-height: 22px;
-  min-width: 80px;
-}
+.opt-slider { min-height: 22px; min-width: 80px; }
 .opt-slider trough {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   min-height: 22px;
 }
 .opt-slider trough highlight {
-  background-color: @opt-hover-bright;
+  background-color: rgba(255, 255, 255, 0.42);
   border-radius: 30px;
   min-height: 22px;
 }
-/* Hide the slider handle — canvas sliders use direct-click positioning. */
 .opt-slider slider {
   background-color: transparent;
   min-width: 0;
   min-height: 0;
 }
 
-/* Icons overlaid on each end of the slider. */
-.opt-slider-icons {
-  padding: 0 12px;
-  pointer-events: none;
-}
-.opt-slider-icon-l,
-.opt-slider-icon-r {
-  font-size: 10pt;
-  color: @opt-text-on-dark;
-}
-.opt-slider-icon-r { opacity: 0.55; }
+.opt-slider-icons { padding: 0 12px; }
+.opt-slider-icon-l { font-size: 10pt; color: rgba(255, 255, 255, 1.0); }
+.opt-slider-icon-r { font-size: 10pt; color: rgba(255, 255, 255, 0.55); }
 
-/* FIELD row 1 — four cards side by side. */
+/* -- FIELD row 1 ---------------------------------------------------- */
 .field-row-1 { padding: 4px 0; }
 
 .field-card {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 12px;
-  padding: 11px;
-  min-height: 96px;
+  padding: 10px 12px;
+  min-height: 110px;
 }
 
 .field-lk {
   font-size: 7pt;
   letter-spacing: 2px;
-  color: @opt-text-on-dark;
-  opacity: 0.35;
+  color: rgba(255, 255, 255, 0.40);
 }
 
-.field-empty {
-  font-size: 8pt;
-  color: @opt-text-on-dark;
-  opacity: 0.40;
-  font-style: normal;
-}
+.field-empty { font-size: 8pt; color: rgba(255, 255, 255, 0.40); }
 
-/* Calendar card — custom heatmap grid (replaces GTK calendar widget).
- * 6 rows × 7 cols of day cells, intensity-tiered per the mockup. */
-.field-cal-weekday {
-  font-size: 9pt;
-  color: @opt-text-on-dark;
-  opacity: 0.75;
-}
+/* Calendar (heatmap grid) */
+.field-cal-weekday { font-size: 9pt; color: rgba(255, 255, 255, 0.75); }
 .field-cal-day {
   font-size: 22pt;
   font-weight: 300;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   letter-spacing: -1px;
 }
 
-.heat {
-  padding-top: 4px;
-}
-.heat-h {
-  font-size: 7pt;
-  color: rgba(255, 255, 255, 0.30);
-  letter-spacing: 1px;
-}
+.heat { padding-top: 4px; }
+.heat-h { font-size: 7pt; color: rgba(255, 255, 255, 0.30); letter-spacing: 1px; }
 .heat-d {
   font-size: 8pt;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   padding: 2px 0;
   min-width: 18px;
   border-radius: 3px;
   font-family: "MesloLGS NF", monospace;
 }
-.heat-d.muted    { color: rgba(255, 255, 255, 0.15); background-color: transparent; }
-.heat-d.t1       { background-color: rgba(255, 230, 179, 0.15); }
-.heat-d.t2       { background-color: rgba(255, 191, 179, 0.20); }
-.heat-d.t3       { background-color: rgba(255, 179, 179, 0.35); }
-.heat-d.today    { background-color: @opt-blue-state; color: @opt-text-on-dark; }
-
-/* Notes — Bear-style; first line of preview reads as the title (CSS hint
-   only — the label is monospace mono so the user's first H1 already shines). */
-.field-notes-top { margin-bottom: 4px; }
-.field-notes-ts {
-  font-size: 7pt;
-  color: @opt-text-on-dark;
-  opacity: 0.30;
-  letter-spacing: 1px;
+.heat-d.muted    { color: rgba(255, 255, 255, 0.18); background-color: transparent; }
+.heat-d.t1       { background-color: rgba(255, 230, 179, 0.30); }
+.heat-d.t2       { background-color: rgba(255, 191, 179, 0.40); }
+.heat-d.t3       { background-color: rgba(255, 179, 179, 0.55); }
+.heat-d.today {
+  background-color: rgba(110, 150, 255, 0.95);
+  color: rgba(255, 255, 255, 1.0);
+  font-weight: 500;
 }
+
+/* Notes */
+.field-notes-top { margin-bottom: 4px; }
+.field-notes-ts  { font-size: 7pt; color: rgba(255, 255, 255, 0.30); letter-spacing: 1px; }
 .field-notes-body {
   font-size: 9pt;
-  color: @opt-text-on-dark;
-  opacity: 0.65;
+  color: rgba(255, 255, 255, 0.65);
   font-family: "MesloLGS NF", monospace;
 }
 
-/* Notifications — Wave 3 Task 4. */
+/* Notifications */
 .field-notif-top { margin-bottom: 4px; }
 .field-notif-clear {
   background-color: transparent;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 8pt;
   padding: 2px 8px;
   border-radius: 8px;
 }
-.field-notif-clear:hover { background-color: rgba(255,255,255,0.10); color: rgba(255,255,255,0.95); }
+.field-notif-clear:hover { background-color: rgba(255, 255, 255, 0.10); color: rgba(255, 255, 255, 0.95); }
 .field-notif-list { padding-top: 2px; }
 .field-notif-row {
-  padding: 4px 6px;
+  padding: 4px 0;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.field-notif-row:last-child { border-bottom: none; }
+.field-notif-app    { color: rgba(255, 255, 255, 0.45); font-size: 7pt; letter-spacing: 1px; }
+.field-notif-title  { color: rgba(255, 255, 255, 0.95); font-size: 9pt; font-weight: 500; }
+.field-notif-body   { color: rgba(255, 255, 255, 0.60); font-size: 8pt; }
+
+/* Agenda */
+.field-agenda-list { padding-top: 2px; }
+.field-agenda-row {
+  padding: 3px 6px;
   border-radius: 8px;
+  margin-top: 3px;
 }
-.field-notif-row:hover { background-color: rgba(255,255,255,0.04); }
-.field-notif-app    { color: rgba(255,255,255,0.55); font-size: 8pt; }
-.field-notif-title  { color: rgba(255,255,255,0.90); font-size: 10pt; font-weight: 500; }
-.field-notif-body   { color: rgba(255,255,255,0.65); font-size: 9pt; }
+.field-agenda-when    { color: rgba(255, 255, 255, 0.40); font-size: 8pt; letter-spacing: 1px; }
+.field-agenda-summary { color: rgba(255, 255, 255, 1.0); font-size: 10pt; }
 
-/* FIELD row 2 — three cards. */
+.agenda-dot { min-width: 6px; min-height: 6px; border-radius: 50%; margin-top: 7px; }
+.agenda-dot-blue   { background-color: rgba(110, 150, 255, 0.95); }
+.agenda-dot-green  { background-color: rgba(179, 255, 179, 0.85); }
+.agenda-dot-orange { background-color: rgba(255, 191, 179, 0.85); }
+.agenda-dot-violet { background-color: rgba(217, 179, 255, 0.85); }
+
+@keyframes agenda-glow {
+  0%   { box-shadow: inset 0 0 0 1px rgba(150, 130, 255, 0.0); }
+  50%  { box-shadow: inset 0 0 0 1px rgba(150, 130, 255, 0.55); }
+  100% { box-shadow: inset 0 0 0 1px rgba(150, 130, 255, 0.0); }
+}
+.field-agenda-imminent { animation: agenda-glow 2.6s ease-in-out infinite; }
+
+/* Notif dots */
+.notif-dot { min-width: 6px; min-height: 6px; border-radius: 50%; margin-top: 7px; }
+.notif-dot-violet { background-color: rgba(217, 179, 255, 0.95); }
+.notif-dot-blue   { background-color: rgba(110, 150, 255, 0.95); }
+.notif-dot-orange { background-color: rgba(255, 191, 179, 0.95); }
+.notif-dot-green  { background-color: rgba(179, 255, 179, 0.95); }
+
+/* -- FIELD row 2 ---------------------------------------------------- */
 .field-row-2 { padding: 4px 0; }
-
+.field-row-2 .field-card { min-height: 88px; }
 .field-net,
-.field-sys { min-width: 240px; }
-.field-focus { min-width: 120px; }
-
-.sys-pill-cluster {
-  /* Allow wrapping when narrow — Eww box doesn't wrap natively, so this
-     stays one row; designers can split into multiple boxes if needed at
-     polish time. */
-}
+.field-sys   { min-width: 200px; }
+.field-focus { min-width: 140px; }
 
 .sys-pill {
-  background-color: @opt-surface-parent;
+  background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   padding: 4px 10px;
 }
-.sys-pill-k {
-  font-size: 7pt;
-  letter-spacing: 1px;
-  color: @opt-text-on-dark;
-  opacity: 0.35;
-}
-.sys-pill-v {
-  font-size: 8pt;
-  color: @opt-text-on-dark;
-}
+.sys-pill-k { font-size: 7pt; letter-spacing: 1px; color: rgba(255, 255, 255, 0.40); }
+.sys-pill-v { font-size: 8pt; color: rgba(255, 255, 255, 1.0); }
 
 .field-focus-big {
   font-size: 26pt;
   font-weight: 300;
-  color: @opt-text-on-dark;
+  color: rgba(255, 255, 255, 1.0);
   letter-spacing: -1px;
 }
 
@@ -597,81 +423,14 @@ window.dashboard {
   50%  { opacity: 0.78; }
   100% { opacity: 1.0; }
 }
-.field-focus-running .field-focus-big {
-  animation: pom-breathe 3.2s ease-in-out infinite;
-}
+.field-focus-running .field-focus-big { animation: pom-breathe 3.2s ease-in-out infinite; }
 .field-focus-ctrls { padding-top: 4px; }
 
-.field-agenda-list { padding-top: 2px; }
-.field-agenda-row {
-  padding: 3px 6px;
-  border-radius: 8px;
-  margin-top: 3px;
-}
-.field-agenda-when    {
-  color: rgba(255, 255, 255, 0.40);
-  font-size: 8pt;
-  letter-spacing: 1px;
-}
-.field-agenda-summary {
-  color: @opt-text-on-dark;
-  font-size: 10pt;
-}
-
-/* Agenda category dot — colored by time-until per field-agenda-event. */
-.agenda-dot {
-  min-width: 6px;
-  min-height: 6px;
-  border-radius: 50%;
-  margin-top: 7px;
-  margin-right: 1px;
-}
-.agenda-dot-blue   { background-color: @opt-blue-state; }
-.agenda-dot-green  { background-color: @opt-green; }
-.agenda-dot-orange { background-color: @opt-orange; }
-.agenda-dot-violet { background-color: @opt-violet; }
-
-@keyframes agenda-glow {
-  0%, 100% { box-shadow: inset 0 0 0 1px rgba(150, 130, 255, 0.0); }
-  50%      { box-shadow: inset 0 0 0 1px rgba(150, 130, 255, 0.55); }
-}
-.field-agenda-imminent {
-  animation: agenda-glow 2.6s ease-in-out infinite;
-}
-
-/* Notif app dot — uniform violet for now (per-app coloring is a future
- * pass, requires app-name lookup table). */
-.notif-dot {
-  min-width: 6px;
-  min-height: 6px;
-  border-radius: 50%;
-  margin-top: 7px;
-  margin-right: 1px;
-}
-.notif-dot-violet { background-color: @opt-violet; }
-.notif-dot-blue   { background-color: @opt-blue-state; }
-.notif-dot-orange { background-color: @opt-orange; }
-.notif-dot-green  { background-color: @opt-green; }
-
-.field-notif-row {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 4px;
-}
-.field-notif-row:last-child {
-  border-bottom: none;
-}
-
-/* Pomodoro block dots — small filled circles, ghost when not yet earned.
- * 8 rendered always; collapse beyond pom-target via CSS-only inert pattern
- * (no eww iteration variable visible to selector — accept all 8 visible
- * for now, ghost reads as "available block"). */
 .pom-dot {
   min-width: 7px;
   min-height: 7px;
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.15);
 }
-.pom-dot-done {
-  background-color: @opt-violet;
-}
+.pom-dot-done { background-color: rgba(217, 179, 255, 0.95); }
 .pom-dots { padding-top: 4px; }
