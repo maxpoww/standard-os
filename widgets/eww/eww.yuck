@@ -97,7 +97,7 @@
 ;; Slider current values — polled at 1 s while canvas is open.
 ;; brightnessctl reports as percent of max via -m.
 (defpoll bar-display :interval "1s" :initial "50"
-  `brightnessctl -m 2>/dev/null | awk -F, '{ sub("%","",$4); print $4 }' | head -1 || echo 50`)
+  `jq -r '.pct // 50' /tmp/waybar-cache/brightness.json 2>/dev/null || echo 50`)
 (defpoll bar-sound   :interval "1s" :initial "45"
   `wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{ printf "%.0f", $2 * 100 }' || echo 45`)
 (defpoll bar-mic     :interval "1s" :initial "30"
@@ -313,7 +313,7 @@
 (defwidget bars-row []
   (box :class "bars-row" :orientation "horizontal" :space-evenly true :spacing 6
     (opt-slider :klass "display"  :label-text "DISPLAY"   :icon-l "☀" :icon-r "☀☀" :value bar-display
-                :onchange "brightnessctl set {}% >/dev/null 2>&1")
+                :onchange "/etc/nixos/home/scripts/brightnessctl-set set {} >/dev/null 2>&1")
     (opt-slider :klass "sound"    :label-text "SOUND"     :icon-l "🔉" :icon-r "🔊" :value bar-sound
                 :onchange "wpctl set-volume @DEFAULT_AUDIO_SINK@ {}% >/dev/null 2>&1")
     (opt-slider :klass "mic"      :label-text "MIC"       :icon-l "🎙" :icon-r "📶" :value bar-mic
