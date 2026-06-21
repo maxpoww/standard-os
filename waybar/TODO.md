@@ -47,18 +47,20 @@ for the maintenance contract.
 
 ## NEXT
 
-- **Media player module (MPRIS)** — permanent when a player exists, lives in
-  USER zone (bound to focused work). `XF86AudioPlay/Pause/Next/Prev` reflects
-  on the existing pill. Implementation source: `/home/max/mpris-waybar/` rewrite.
-  **Wave 3 Task 6 (canvas-media reads `/tmp/waybar-cache/mpris-*` truth) blocks
-  on this** — the rewrite has reached implementation (`mpris-publisher` exists,
-  writes `mpris-info` composite + glyph caches) but isn't launched anywhere yet
-  (no systemd unit, no waybar exec, no process running, `/tmp/waybar-cache/mpris-*`
-  empty). Unblock by either (a) finishing the mpris-waybar rewrite + adding a
-  systemd unit, or (b) wiring the existing `mpris-publisher` into a user unit.
-  Then re-do Wave 3 Task 6 (delete `widgets/scripts/canvas-media.sh`, swap the
-  `media-*` defpolls in `widgets/eww/eww.yuck` to read whatever the publisher
-  settles on).
+- **Media player module (MPRIS) — bar pill** — permanent when a player exists,
+  lives in USER zone (bound to focused work). `XF86AudioPlay/Pause/Next/Prev`
+  reflects on the existing pill. Source state: mpris-publisher (now running
+  via systemd as of 2026-06-21; see DONE entry for the canvas half). The 7
+  existing pill caches (`mpris-playpause`, `mpris-volume`, `mpris-selector`,
+  `mpris-prev`, `mpris-next`, `mpris-output`, `mpris-info`) already populate;
+  what's missing is the waybar custom-module wiring + `opt-pill` class
+  composition + XF86 reflection on the bar pill.
+- **Git-init the mpris-waybar repo** — `/home/max/mpris-waybar/` is currently
+  not a git repo; publisher edits (composite JSON wiring, position ticker,
+  `json_str`/`derive_*` lib helpers, `test_mpris_publisher_composite.sh`)
+  live on disk only. Initialize the repo, commit the current state, and add
+  it as a flake input or pin its path in `modules/mpris-publisher.nix` so the
+  script becomes reproducible. Pure cleanup — no behavior change.
 - **Airplane / radios module** — `XF86RFKill` flips `opt-pushed` on the WiFi/BT
   cluster. Pairs naturally with network + bluetooth daemons.
 - **Network daemon** (RTMIN+13) — WiFi state, scan, connect, saved profiles.
@@ -78,6 +80,42 @@ for the maintenance contract.
 ---
 
 ## DONE
+
+- **2026-06-21** — **canvas media-MEGA reads mpris-publisher composite truth
+  (Wave 3 Task 6 closes).** Publisher now ships as a systemd user unit
+  (`modules/mpris-publisher.nix`). New composite channel
+  `/tmp/waybar-cache/mpris-snapshot.json` exposes title/artist/album/status/
+  pos/len/pct/source_label/art_path; canvas dashboard subscribes via
+  `widgets/scripts/canvas-mpris-listen` (inotifywait on parent dir, filtered
+  by basename — composite-module pattern). Eight playerctl-shelling defpolls
+  in `widgets/eww/eww.yuck` collapsed to one deflisten; cover art renders
+  via the publisher's stable `/tmp/mpris/current` symlink through an
+  `(image :class "mm-art")` widget; `mm-bar-fill` width wired via `:style
+  min-width: ${pct}%` (Wave 2 follow-up folded in). Scaffold
+  `widgets/scripts/canvas-media.sh` deleted. `modules/widgets-canvas.nix`
+  gained `${pkgs.inotify-tools}/bin` in the canvas service PATH so the
+  listener can find `inotifywait` when eww spawns it. Media-MEGA collapses
+  to `.empty` (with `font-size: 0` per hazard) when no player is active.
+  **Hint:** Publisher script lives out-of-Nix-store at
+  `/home/max/mpris-waybar/scripts/mpris-publisher` — that repo is not git-
+  tracked, so the new pure helpers (`json_str`, `derive_pos_text`,
+  `derive_pct`, `derive_composite_json`) in `lib/mpris.sh` and
+  `tests/test_mpris_publisher_composite.sh` exist only on disk. The
+  follow-up to git-init mpris-waybar is in NEXT.
+  **Hint:** spec at
+  `docs/superpowers/specs/2026-06-21-canvas-media-mpris-truth-design.md`;
+  plan at `docs/superpowers/plans/2026-06-21-canvas-media-mpris-truth.md`.
+  **Hint:** Position ticker runs at 1 Hz only while ACTIVE is Playing —
+  zero CPU when paused or no player. `write_snapshot_composite` dedup'd
+  via in-memory `_LAST_COMPOSITE` byte-compare.
+  **Hint:** Module style diverged from the spec to match project
+  convention — `default.target` / `Restart=always` / explicit `PATH=`
+  Environment list (brightness-daemon pattern), not
+  `graphical-session.target` / `Restart=on-failure` / `home.packages` as
+  the spec originally proposed.
+  **Hint:** RTMIN+12 row in `waybar/ARCHITECTURE.md` is now shared by
+  notif-daemon + notif-history-channel + mpris-publisher (pill caches
+  only; composite is canvas-only via inotify).
 
 - **2026-06-20** — **brightness-daemon (RTMIN+21) — canvas DISPLAY slider
   + XF86 keys read/write through cache truth.** Wave-3-pattern daemon
