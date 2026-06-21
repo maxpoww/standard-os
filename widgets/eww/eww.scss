@@ -238,11 +238,13 @@ window.dashboard {
   min-height: 140px;
 }
 
-.mm-cover {
-  min-width: 88px;
-  min-height: 88px;
+/* Cover art — image widget reads /tmp/mpris/current (publisher's stable
+ * symlink to the active player's art file). When art_path is empty the
+ * image renders nothing and this placeholder gradient shows through. */
+.mm-art {
+  min-width: 92px;
+  min-height: 92px;
   border-radius: 14px;
-  /* Gradient placeholder until Wave 3's mpris-truth wires real cover. */
   background-image: linear-gradient(135deg,
     rgba(217, 179, 255, 0.50) 0%,
     rgba(110, 150, 255, 0.50) 50%,
@@ -293,7 +295,21 @@ window.dashboard {
   min-height: 3px;
   background-color: @opt-text-on-dark;
   border-radius: 2px;
-  /* Width gets wired via inline style in a future iteration; for now full-track. */
+  /* Width: inline :style "min-width: ${pct}%;" interpolated from mpris-snapshot.pct. */
+}
+
+/* Empty collapse — media-MEGA disappears when no player is active.
+ * font-size: 0 is mandatory (StandardOS hazard): label glyphs reserve
+ * natural width without it, leaving a phantom strip on the canvas. */
+.media-mega.empty {
+  padding: 0; margin: 0;
+  min-height: 0;
+  opacity: 0;
+  font-size: 0;
+}
+.media-mega.empty .mm-art {
+  min-width: 0; min-height: 0;
+  background-image: none;
 }
 
 /* Transport row. */

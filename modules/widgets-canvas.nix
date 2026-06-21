@@ -81,7 +81,9 @@ in
       Install.WantedBy = [ "graphical-session.target" ];
       Service = {
         Environment = [
-          "PATH=${cfg.ewwPackage}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin"
+          # inotify-tools: required by deflisten scripts that subscribe to
+          # /tmp/waybar-cache/* atomic rewrites (composite-module pattern).
+          "PATH=${cfg.ewwPackage}/bin:${pkgs.inotify-tools}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:/run/current-system/sw/bin"
         ];
         Type = "simple";
         # --no-daemonize keeps eww in the foreground so systemd tracks

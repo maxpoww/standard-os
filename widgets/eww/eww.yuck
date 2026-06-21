@@ -61,15 +61,16 @@
   `jq -r '.fetched // 0' /tmp/waybar-cache/weather.json 2>/dev/null || echo 0`)
 (defpoll now-epoch :interval "60s" :initial "0" `date +%s`)
 
-;; Media — playerctl best-effort.
-(defpoll media-source :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh source`)
-(defpoll media-title  :interval "2s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh title`)
-(defpoll media-artist :interval "2s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh artist`)
-(defpoll media-album  :interval "5s" :initial "—" `/etc/nixos/home/widgets/scripts/canvas-media.sh album`)
-(defpoll media-status :interval "1s" :initial "⏵" `/etc/nixos/home/widgets/scripts/canvas-media.sh status`)
-(defpoll media-pos    :interval "1s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh pos`)
-(defpoll media-len    :interval "5s" :initial "—:—" `/etc/nixos/home/widgets/scripts/canvas-media.sh len`)
-(defpoll media-pct    :interval "1s" :initial "0"   `/etc/nixos/home/widgets/scripts/canvas-media.sh pct`)
+;; mpris-snapshot: composite JSON owned by mpris-publisher (systemd user
+;; unit). One inotify subscription replaces the previous 8 playerctl-shelling
+;; defpolls (source/title/artist/album/status/pos/len/pct). The listener
+;; watches /tmp/waybar-cache/ parent dir and filters by basename — per-file
+;; inotify watches die after the publisher's tmp+mv (composite-module pattern,
+;; waybar/ARCHITECTURE.md). Spec:
+;; docs/superpowers/specs/2026-06-21-canvas-media-mpris-truth-design.md
+(deflisten mpris-snapshot
+  :initial `{"active":false,"player":"","source_label":"","title":"","artist":"","album":"","status":"","status_glyph":"⏵","pos_sec":0,"len_sec":0,"pct":0,"pos_text":"—:—","len_text":"—:—","art_path":"","updated":0}`
+  `/etc/nixos/home/widgets/scripts/canvas-mpris-listen`)
 
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
@@ -227,30 +228,34 @@
         (label :text "19 JUN · WK 25" :halign "start" :class "cw-date-line-sub")))))
 
 (defwidget media-mega-frame []
-  (box :class "media-mega" :orientation "vertical" :space-evenly false :spacing 7
+  (box :class {mpris-snapshot.active == "true" ? "media-mega" : "media-mega empty"}
+       :orientation "vertical" :space-evenly false :spacing 7
     ;; top: cover + meta
     (box :class "mm-top" :orientation "horizontal" :space-evenly false :spacing 14
-      (box :class "mm-cover")
+      (image :class "mm-art"
+             :path {mpris-snapshot.art_path ?: ""}
+             :image-width 92 :image-height 92)
       (box :class "mm-meta" :orientation "vertical" :space-evenly false :spacing 2 :hexpand true
-        (label :class "mm-src"   :text media-source :halign "start")
-        (label :class "mm-title" :text media-title  :halign "start")
-        (label :class "mm-artist" :text media-artist :halign "start")
-        (label :class "mm-album" :text media-album  :halign "start")
+        (label :class "mm-src"   :text {mpris-snapshot.source_label} :halign "start")
+        (label :class "mm-title" :text {mpris-snapshot.title}        :halign "start")
+        (label :class "mm-artist" :text {mpris-snapshot.artist}      :halign "start")
+        (label :class "mm-album" :text {mpris-snapshot.album}        :halign "start")
         (box :class "mm-extras" :orientation "horizontal" :space-evenly false :spacing 6
           (button :class "opt-pill mm-extra"           :onclick "playerctl shuffle Toggle" "󰓦 Shuffle")
           (button :class "opt-pill state-blue mm-extra" :onclick "playerctl loop Toggle"    "󰑖 Repeat")
           (button :class "opt-pill mm-extra"           :onclick "true"                     "󰋗 Lyrics"))))
     ;; progress row
     (box :class "mm-progress" :orientation "horizontal" :space-evenly false :spacing 6 :valign "center"
-      (label :class "mm-time" :text media-pos)
+      (label :class "mm-time" :text {mpris-snapshot.pos_text})
       (box :class "mm-bar" :hexpand true
-        (box :class "mm-bar-fill" :hexpand false))
-      (label :class "mm-time" :text media-len))
+        (box :class "mm-bar-fill" :hexpand false
+             :style "min-width: ${mpris-snapshot.pct}%;"))
+      (label :class "mm-time" :text {mpris-snapshot.len_text}))
     ;; transport row
     (box :class "mm-transport-row" :orientation "horizontal" :space-evenly false
       (box :class "mm-transport" :orientation "horizontal" :space-evenly false :spacing 12 :hexpand true :halign "start"
         (button :class "mm-tx-btn" :onclick "playerctl previous" "⏮")
-        (button :class "mm-tx-btn mm-tx-play" :onclick "playerctl play-pause" media-status)
+        (button :class "mm-tx-btn mm-tx-play" :onclick "playerctl play-pause" {mpris-snapshot.status_glyph})
         (button :class "mm-tx-btn" :onclick "playerctl next" "⏭"))
       (box :class "mm-controls-r" :orientation "horizontal" :space-evenly false :spacing 6 :halign "end"
         (button :class "opt-mini" :onclick "true" "󰋗")
