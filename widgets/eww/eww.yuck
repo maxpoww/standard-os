@@ -116,6 +116,13 @@
 ;; Today's focal date number (e.g. "19") for the calendar card.
 (defpoll today-day :interval "60s" :initial "—" `date +'%-d'`)
 
+;; Notif-history — derived from notif-os-daemon's JSONL journal by
+;; notif-history-channel. Wave 3 Task 4.
+(defpoll notif-count :interval "5s" :initial "0"
+  `jq -r '.count // 0' /tmp/waybar-cache/notif-history.json 2>/dev/null || echo 0`)
+(defpoll notif-entries :interval "5s" :initial "[]"
+  `jq -c '.entries // []' /tmp/waybar-cache/notif-history.json 2>/dev/null || echo "[]"`)
+
 ;; Network sys-pills (FIELD row 2 NETWORK card).
 (defpoll sp-down  :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh down`)
 (defpoll sp-up    :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh up`)
@@ -337,13 +344,24 @@
       (label :class "field-notes-ts" :text "EDITED" :halign "end"))
     (label :class "field-notes-body" :text notes-preview :wrap true :limit-width 32 :halign "start")))
 
+(defwidget field-notif-row [app title body]
+  (box :class "field-notif-row" :orientation "vertical" :space-evenly false :spacing 0
+    (box :orientation "horizontal" :space-evenly false :spacing 6
+      (label :class "field-notif-app"   :text app   :halign "start")
+      (label :class "field-notif-title" :text title :halign "start" :hexpand true))
+    (label :class "field-notif-body"    :text body  :halign "start" :wrap true :limit-width 32)))
+
 (defwidget field-notif-card []
   (box :class "field-card field-notif" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
     (box :class "field-notif-top" :orientation "horizontal" :space-evenly false
-      (label :class "field-lk" :text "NOTIFICATIONS · 0" :halign "start" :hexpand true)
-      (label :class "field-notif-clear" :text "CLEAR" :halign "end"))
-    (label :class "field-empty" :text "No notifications.\nHistory ships with the notif-daemon channel (Wave 3)."
-           :wrap true :limit-width 32 :halign "start")))
+      (label :class "field-lk" :text {"NOTIFICATIONS · " + notif-count} :halign "start" :hexpand true)
+      (button :class "field-notif-clear" :onclick "echo '' > ~/.local/share/standard-os/notif-history.jsonl" "CLEAR"))
+    (box :class "field-notif-list" :orientation "vertical" :space-evenly false :spacing 4
+      (for entry in {notif-entries}
+        ;; Real journal uses "summary" for the notification title.
+        (field-notif-row :app   {entry.app}
+                         :title {entry.summary}
+                         :body  {entry.body})))))
 
 (defwidget field-row-1 []
   (box :class "field-row-1" :orientation "horizontal" :space-evenly true :spacing 10

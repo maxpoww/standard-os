@@ -69,6 +69,7 @@ Every piece of system state that more than one module might want lives behind a 
 | **notif-daemon** | `notif-daemon.service` (via `home/modules/notif-center.nix`) | `home/scripts/notif-daemon` | `/tmp/waybar-cache/{notif-bell, notif-profile, notif-action-{1,2,3}}` | RTMIN+12 |
 | **weather-daemon** | `weather-daemon.service` (via `home/modules/weather-daemon.nix`) | `home/scripts/weather-daemon.sh` | `/tmp/waybar-cache/weather.json` | — (canvas re-reads on 60 s defpoll; weather doesn't need signal push) |
 | **system-daemon** | `system-daemon.service` (via `home/modules/system-daemon.nix`) | `home/scripts/system-daemon.sh` | `/tmp/waybar-cache/sys-{cpu, gpu, mem, battery, temp, disk-root, disk-home}` | RTMIN+18 (dedup at writer; 2 s poll loop reading `/proc`, `/sys/class/hwmon`, `/sys/class/power_supply/BAT*`, `nvidia-smi`) |
+| **notif-history-channel** | `notif-history-channel.service` (via `home/modules/notif-history-channel.nix`) | `home/scripts/notif-history-channel.sh` | `/tmp/waybar-cache/notif-history.json` (shape: `{count, entries[10], updated}`) | RTMIN+12 (shared with notif-daemon — connectivity-style shared-signal pattern; one signal refreshes all notif consumers) |
 
 notif-daemon also maintains the persistent journal at
 `~/.local/share/standard-os/notif-history.jsonl` (ring-bounded, configurable
@@ -97,7 +98,7 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 |---|---|---|
 | RTMIN+10 | hypr-context-daemon | Window/workspace state changes (unified — succeeds workspace-daemon 2026-06-13) |
 | RTMIN+11 | dictation | Recording / transcribing indicator |
-| RTMIN+12 | notif-daemon (live) | OPTIONS notification center spine — mako bridge |
+| RTMIN+12 | notif-daemon (live) + notif-history-channel (live, Wave 3 Task 4) | OPTIONS notification center spine — mako bridge + canvas history card. Shared: one signal refreshes all notif consumers (connectivity-style pattern). |
 | RTMIN+13 | network-daemon + bluetooth-daemon (planned) | Connectivity |
 | RTMIN+14 | audio-daemon (planned) | Sink/volume/streams |
 | RTMIN+15 | clipboard-daemon (planned) | Selection/clipboard |
@@ -265,6 +266,7 @@ This is the single most-violated invariant. Audit it on every commit that adds a
 - ~ Tooltip coverage — every existing pill needs a one-line on/off + text decision (see CLAUDE.md tooltip-coverage table)
 - ~ Dimmed class rename to `opt-dimmed` — now safe (workspace-daemon migration landed via hypr-context unification 2026-06-13); class is still `.inactive` pending the rename pass
 - ✓ system-daemon (RTMIN+18) — shipped Wave 3 Task 3; writes sys-{cpu,gpu,mem,battery,temp,disk-root,disk-home}; replaces canvas-{cpu,gpu,mem,disk}.sh scaffolds
+- ✓ notif-history-channel (RTMIN+12, shared) — shipped Wave 3 Task 4; derives canvas-shaped JSON from notif-os-daemon's JSONL journal; canvas notifications card reads real entries
 - ✗ network-daemon, bluetooth-daemon, audio-daemon, clipboard-daemon — planned daemons not yet implemented
 - ✗ context-daemon (hardware-button reflection, RTMIN+17) — designed; not yet implemented
 - ✓ Composite-module pattern with inotify on `/tmp/waybar-cache/` — `hypr-bg-daemon` is the reference impl (`inotifywait -m -q --format '%w%f' -e close_write,moved_to`, filtered by basename to `hypr-context.json` and the waypaper config)

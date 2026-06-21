@@ -491,14 +491,25 @@ window.dashboard {
   font-family: "MesloLGS NF", monospace;
 }
 
-/* Notifications scaffold. */
+/* Notifications — Wave 3 Task 4. */
 .field-notif-top { margin-bottom: 4px; }
 .field-notif-clear {
-  font-size: 7pt;
-  color: @opt-text-on-dark;
-  opacity: 0.30;
-  letter-spacing: 1px;
+  background-color: transparent;
+  color: rgba(255,255,255,0.55);
+  font-size: 8pt;
+  padding: 2px 8px;
+  border-radius: 8px;
 }
+.field-notif-clear:hover { background-color: rgba(255,255,255,0.10); color: rgba(255,255,255,0.95); }
+.field-notif-list { padding-top: 2px; }
+.field-notif-row {
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+.field-notif-row:hover { background-color: rgba(255,255,255,0.04); }
+.field-notif-app    { color: rgba(255,255,255,0.55); font-size: 8pt; }
+.field-notif-title  { color: rgba(255,255,255,0.90); font-size: 10pt; font-weight: 500; }
+.field-notif-body   { color: rgba(255,255,255,0.65); font-size: 9pt; }
 
 /* FIELD row 2 — three cards. */
 .field-row-2 { padding: 4px 0; }
