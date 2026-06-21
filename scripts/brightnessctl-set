@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# brightnessctl-set — single writer for brightness changes.
+#
+# Called by:
+#   - Hyprland XF86MonBrightness{Up,Down} (see hypr/modules/Binds.conf)
+#   - Canvas DISPLAY slider's :onchange (see widgets/eww/eww.yuck)
+#
+# Replaces ~/.config/hypr/scripts/brightness.sh (deleted in the same
+# commit as this script lands). All logic preserved verbatim including
+# the night-dim shader teardown that tears down the dim slot once
+# brightness climbs above the 2% floor.
+set -euo pipefail
+
+DEVICE="intel_backlight"
+MIN=2
+MAX=100
+STEP=5
+NIGHT_DIM_STATE="/tmp/night-dim-level"
+
+usage() {
+    cat <<EOF >&2
+usage: brightnessctl-set {up|down|set N}
+  up        : current + ${STEP}%, clamp at ${MAX}%
+  down      : current - ${STEP}%, clamp at ${MIN}%
+  set N     : set to N% directly (${MIN}..${MAX})
+EOF
+    exit 2
+}
+
+cur_max=$(brightnessctl -d "$DEVICE" max)
+cur_raw=$(brightnessctl -d "$DEVICE" get)
+current=$(( cur_raw * 100 / cur_max ))
+
+case "${1:-}" in
+    up)
+        target=$(( current + STEP ))
+        (( target > MAX )) && target=$MAX
+        ;;
+    down)
+        target=$(( current - STEP ))
+        (( target < MIN )) && target=$MIN
+        ;;
+    set)
+        [[ "${2:-}" =~ ^[0-9]+$ ]] || usage
+        target="$2"
+        (( target < MIN )) && target=$MIN
+        (( target > MAX )) && target=$MAX
+        ;;
+    *) usage ;;
+esac
+
+brightnessctl -d "$DEVICE" set "${target}%" -q
+
+# Night-dim teardown: once brightness climbs off the 2% floor, clear the
+# dim shader slot. Route through shader-stack so we only clear the dim
+# slot — any active texture shader (paper/newspaper) is preserved.
+# Writing decoration:screen_shader directly was the source of the
+# paper-vs-dim stomping bug (see notes in old brightness.sh).
+if (( target > 2 )); then
+    level=$(cat "$NIGHT_DIM_STATE" 2>/dev/null || echo 0)
+    if (( level > 0 )); then
+        /home/max/.config/waybar/scripts/shader-stack.sh clear dim >/dev/null 2>&1 || true
+        printf '0' > "$NIGHT_DIM_STATE"
+        pkill -RTMIN+10 waybar 2>/dev/null || true
+    fi
+fi
+
+# Nudge the brightness-daemon so the cache catches up sub-second instead
+# of waiting up to a full poll interval.
+pkill -USR1 -f '/scripts/brightness-daemon\.sh' 2>/dev/null || true
