@@ -65,9 +65,9 @@ window.dashboard {
 .opt-pill {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  padding: 4px 11px;
+  padding: 5px 13px;
   color: rgba(255, 255, 255, 1.0);
-  font-size: 9pt;
+  font-size: 10pt;
 }
 .opt-pill.state-blue { background-color: rgba(110, 150, 255, 0.85); }
 .opt-pill-glyph { font-size: 10pt; }
@@ -77,11 +77,11 @@ window.dashboard {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
   color: rgba(255, 255, 255, 1.0);
-  font-size: 9pt;
+  font-size: 10pt;
 }
-.opt-swap-lhs { padding: 4px 8px 4px 11px; }
+.opt-swap-lhs { padding: 5px 9px 5px 13px; }
 .opt-swap-rhs {
-  padding: 4px 11px 4px 8px;
+  padding: 5px 13px 5px 9px;
   background-color: rgba(170, 170, 170, 0.55);
   color: rgba(255, 255, 255, 1.0);
   border-radius: 0 30px 30px 0;
@@ -118,7 +118,7 @@ window.dashboard {
 }
 .cw-clock     { padding-top: 6px; }
 
-.weather-illust { min-width: 58px; min-height: 58px; }
+.weather-illust { min-width: 78px; min-height: 78px; }
 .weather-illust-clear { animation: sun-pulse 4.5s ease-in-out infinite; }
 @keyframes sun-pulse {
   0%   { opacity: 0.85; }
@@ -376,7 +376,12 @@ window.dashboard {
 .field-agenda-when    { color: rgba(255, 255, 255, 0.40); font-size: 8pt; letter-spacing: 1px; }
 .field-agenda-summary { color: rgba(255, 255, 255, 1.0); font-size: 10pt; }
 
-.agenda-dot { min-width: 6px; min-height: 6px; border-radius: 50%; margin-top: 7px; }
+.agenda-dot {
+  min-width: 12px; min-height: 12px;
+  border-radius: 50%;
+  margin-top: 7px;
+  padding: 0;
+}
 .agenda-dot-blue   { background-color: rgba(110, 150, 255, 0.95); }
 .agenda-dot-green  { background-color: rgba(179, 255, 179, 0.85); }
 .agenda-dot-orange { background-color: rgba(255, 191, 179, 0.85); }
@@ -390,7 +395,12 @@ window.dashboard {
 .field-agenda-imminent { animation: agenda-glow 2.6s ease-in-out infinite; }
 
 /* Notif dots */
-.notif-dot { min-width: 6px; min-height: 6px; border-radius: 50%; margin-top: 7px; }
+.notif-dot {
+  min-width: 12px; min-height: 12px;
+  border-radius: 50%;
+  margin-top: 7px;
+  padding: 0;
+}
 .notif-dot-violet { background-color: rgba(217, 179, 255, 0.95); }
 .notif-dot-blue   { background-color: rgba(110, 150, 255, 0.95); }
 .notif-dot-orange { background-color: rgba(255, 191, 179, 0.95); }
@@ -427,10 +437,11 @@ window.dashboard {
 .field-focus-ctrls { padding-top: 4px; }
 
 .pom-dot {
-  min-width: 7px;
-  min-height: 7px;
+  min-width: 12px;
+  min-height: 12px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.28);
+  padding: 0;
 }
 .pom-dot-done { background-color: rgba(217, 179, 255, 0.95); }
-.pom-dots { padding-top: 4px; }
+.pom-dots { padding-top: 6px; padding-bottom: 2px; }

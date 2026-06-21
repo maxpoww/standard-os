@@ -223,7 +223,7 @@
                    : cond == "storm" ? "storm"
                    : cond == "clear-night" ? "clear-night"
                    : "clear") + ".svg"}
-           :image-width 58 :image-height 58)))
+           :image-width 78 :image-height 78)))
 
 (defwidget clock-weather-frame []
   (box :class "cw-card" :orientation "vertical" :space-evenly false :spacing 8 :vexpand true
@@ -380,11 +380,13 @@
 
 (defwidget field-agenda-event [summary start-text minutes-until]
   (box :class {minutes-until < 30 ? "field-agenda-row field-agenda-imminent" : "field-agenda-row"}
-       :orientation "horizontal" :space-evenly false :spacing 7 :valign "start"
-    (box :class {minutes-until < 30 ? "agenda-dot agenda-dot-orange"
+       :orientation "horizontal" :space-evenly false :spacing 8 :valign "start"
+    ;; Dot rendered as a label with a space — empty boxes collapse in GTK
+    ;; even with min-width/min-height; a label with content guarantees draw.
+    (label :class {minutes-until < 30 ? "agenda-dot agenda-dot-orange"
                 : minutes-until < 120 ? "agenda-dot agenda-dot-blue"
                 : minutes-until < 480 ? "agenda-dot agenda-dot-green"
-                : "agenda-dot agenda-dot-violet"} :valign "start")
+                : "agenda-dot agenda-dot-violet"} :text " " :valign "start")
     (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
       (label :class "field-agenda-when"    :text start-text :halign "start")
       (label :class "field-agenda-summary" :text summary    :halign "start" :wrap true))))
@@ -406,8 +408,8 @@
     (label :class "field-notes-body" :text notes-preview :wrap true :limit-width 32 :halign "start")))
 
 (defwidget field-notif-row [app title body]
-  (box :class "field-notif-row" :orientation "horizontal" :space-evenly false :spacing 7 :valign "start"
-    (box :class "notif-dot notif-dot-violet" :valign "start")
+  (box :class "field-notif-row" :orientation "horizontal" :space-evenly false :spacing 8 :valign "start"
+    (label :class "notif-dot notif-dot-violet" :text " " :valign "start")
     (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
       (label :class "field-notif-app"   :text app   :halign "start")
       (label :class "field-notif-title" :text title :halign "start" :wrap true :limit-width 36)
@@ -471,8 +473,9 @@
   `jq -r '.blocks_target // 4' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 4`)
 
 (defwidget pom-dot [n]
-  ;; Filled when n ≤ pom-done; ghost otherwise. Up to 8 supported.
-  (box :class {n * 1 <= pom-done * 1 ? "pom-dot pom-dot-done" : "pom-dot"}))
+  ;; Filled when n <= pom-done; ghost otherwise. Up to 8 supported. Label
+  ;; with a space ensures GTK actually allocates the min-width/min-height.
+  (label :class {n * 1 <= pom-done * 1 ? "pom-dot pom-dot-done" : "pom-dot"} :text " "))
 
 (defwidget field-focus-card []
   (box :class {"field-card field-focus field-focus-" + pom-state} :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
