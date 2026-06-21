@@ -466,11 +466,23 @@ independently-shippable waves. Sketch:
 - `quick-toggles` (bar pill caches), `battery-card` (existing battery script),
   `media-player` (depends on mpris-waybar rewrite).
 
-### Wave 3 — Dashboard widgets requiring new daemons
+### Wave 3 — Dashboard widgets requiring new daemons ✓ SHIPPED 2026-06-20 (5/6, mpris deferred)
 
-- `weather` (new daemon), `agenda` (new daemon), `pomodoro` (new daemon),
-  `notifications-list` (notif-daemon extension), `system-stats` (depends on
-  NEXT system daemon).
+- `weather` → weather-daemon (wttr.in cache, no RT signal — canvas 60s defpoll).
+- `agenda` → cal-source-daemon (RTMIN+20, v0 reads local ICS at
+  `~/.config/standardos/calendars/*.ics`; CalDAV/Google direct sync = Wave 4+).
+- `pomodoro` → pomodoro-daemon + pomodoroctl (RTMIN+19, FIFO-driven state
+  machine; canvas FOCUS card has start/skip/stop + breathe motion).
+- `notifications-list` → notif-history-channel (RTMIN+12 shared with
+  notif-daemon; shell channel over notif-os-daemon's existing JSONL journal).
+- `system-stats` → system-daemon (RTMIN+18, `sys-{cpu,gpu,mem,battery,temp,disk-root,disk-home}`).
+- `media-player` truth → **deferred.** The intent is the canvas reads
+  `/tmp/waybar-cache/mpris-*` written by `/home/max/mpris-waybar/`; that
+  rewrite hasn't reached a "publisher running by default" milestone yet.
+  Re-do once it does. See `waybar/TODO.md` NEXT.
+
+See `docs/superpowers/plans/2026-06-20-widgets-canvas-wave-3.md` for the
+implementation plan.
 
 ### Wave 4 — Lock screen
 

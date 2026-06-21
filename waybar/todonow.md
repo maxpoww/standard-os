@@ -59,6 +59,9 @@ system/clipboard daemons, control-panel row, per-window context surfacing).
    - Wave 1 (date · calendar · notes) — DONE 2026-06-19
    - Wave 2 (dense four-band canvas with real data) — DONE 2026-06-20
    - Wave 3 (new daemons: weather-fetch · cal-source · pomodoro-state ·
-     notif-history channel · system-daemon RTMIN+18 · mpris-waybar truth) — TODO
+     notif-history channel · system-daemon RTMIN+18 · mpris-waybar truth) —
+     SHIPPED 2026-06-20 (5/6; mpris-waybar truth blocks on the rewrite at
+     `/home/max/mpris-waybar/` reaching a "publisher running by default"
+     milestone — tracked in `TODO.md` NEXT under "Media player module (MPRIS)")
 
    Spec: `docs/superpowers/specs/2026-06-19-widgets-canvas-design.md`.

@@ -53,6 +53,15 @@ for the maintenance contract.
 - **Media player module (MPRIS)** — permanent when a player exists, lives in
   USER zone (bound to focused work). `XF86AudioPlay/Pause/Next/Prev` reflects
   on the existing pill. Implementation source: `/home/max/mpris-waybar/` rewrite.
+  **Wave 3 Task 6 (canvas-media reads `/tmp/waybar-cache/mpris-*` truth) blocks
+  on this** — the rewrite has reached implementation (`mpris-publisher` exists,
+  writes `mpris-info` composite + glyph caches) but isn't launched anywhere yet
+  (no systemd unit, no waybar exec, no process running, `/tmp/waybar-cache/mpris-*`
+  empty). Unblock by either (a) finishing the mpris-waybar rewrite + adding a
+  systemd unit, or (b) wiring the existing `mpris-publisher` into a user unit.
+  Then re-do Wave 3 Task 6 (delete `widgets/scripts/canvas-media.sh`, swap the
+  `media-*` defpolls in `widgets/eww/eww.yuck` to read whatever the publisher
+  settles on).
 - **Airplane / radios module** — `XF86RFKill` flips `opt-pushed` on the WiFi/BT
   cluster. Pairs naturally with network + bluetooth daemons.
 - **Network daemon** (RTMIN+13) — WiFi state, scan, connect, saved profiles.
@@ -100,6 +109,37 @@ for the maintenance contract.
   field is gone (or never was). To smoke-test the close chain from a
   shell, dispatch `submap canvas-open`, run `canvas-open`, then run
   `canvas-close`; `eww active-windows` going empty is the proof.
+
+- **2026-06-20** — **widgets-canvas Wave 3 shipped: 5 of 6 scaffolds
+  replaced by real daemons; mpris-waybar truth deferred.**
+  weather-daemon (wttr.in cache → HERO weather merge),
+  system-daemon (RTMIN+18, `sys-{cpu,gpu,mem,battery,temp,disk-root,disk-home}`
+  → HERO rings + SYSTEM·TEMPS pills),
+  notif-history-channel (RTMIN+12 shared with notif-daemon; canvas reads
+  notif-os-daemon's JSONL journal → FIELD row 1 notifications card),
+  pomodoro-daemon + pomodoroctl (RTMIN+19, FIFO-driven state machine →
+  FIELD row 2 FOCUS card with start/skip/stop + breathe motion),
+  cal-source-daemon (RTMIN+20, `~/.config/standardos/calendars/*.ics` →
+  `agenda.json` → FIELD row 1 agenda card). All 5 share
+  `scripts/lib/canvas-cache.sh` for atomic write + dedup-signal.
+  Commits `1b9f538..6ba1dae`.
+  **Deferred:** Task 6 (canvas-media reads `/tmp/waybar-cache/mpris-*`
+  truth) — mpris-waybar's rewrite in `/home/max/mpris-waybar/` hasn't
+  reached a "publisher running by default" milestone; `mpris-publisher`
+  exists and writes `/tmp/waybar-cache/mpris-info` but nothing launches
+  it (no systemd unit, no waybar exec, no process running, the cache
+  files are empty). Unblock + re-do Task 6 once the rewrite ships its
+  user unit. Tracked in this file's NEXT under "Media player module
+  (MPRIS)".
+  **Hint:** RTMIN+19 (pomodoro) and +20 (cal-source) newly claimed from
+  the FREE pool. Signal table in `waybar/ARCHITECTURE.md` is now
+  authoritative through +20; +21..+30 still free.
+  **Hint:** cal-source-daemon v0 reads local ICS only; CalDAV / Google
+  Calendar direct sync is explicit Wave 4+ follow-up. Users on those
+  services run a separate sync tool (e.g., vdirsyncer, gcalcli) that
+  drops .ics into `~/.config/standardos/calendars/`.
+  **Hint:** plan at
+  `docs/superpowers/plans/2026-06-20-widgets-canvas-wave-3.md`.
 
 - **2026-06-20** — **widgets-canvas Wave 2 shipped: dense four-band canvas
   with real data.** CROWN pill row (9 toggles + workspaces strip), HERO
