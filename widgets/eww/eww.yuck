@@ -355,7 +355,7 @@
   (box :class "field-card field-notif" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
     (box :class "field-notif-top" :orientation "horizontal" :space-evenly false
       (label :class "field-lk" :text {"NOTIFICATIONS · " + notif-count} :halign "start" :hexpand true)
-      (button :class "field-notif-clear" :onclick "echo '' > ~/.local/share/standard-os/notif-history.jsonl" "CLEAR"))
+      (button :class "field-notif-clear" :onclick ": > ~/.local/share/standard-os/notif-history.jsonl" "CLEAR"))
     (box :class "field-notif-list" :orientation "vertical" :space-evenly false :spacing 4
       (for entry in {notif-entries}
         ;; Real journal uses "summary" for the notification title.
