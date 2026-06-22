@@ -107,6 +107,14 @@
 (defpoll chart-tick :interval "30s" :initial "0"
   `/etc/nixos/home/widgets/scripts/canvas-chart.sh tick`)
 
+;; User preferences -- backed by ~/.config/standardos/preferences.json
+;; via widgets/scripts/pref.sh. The defpoll re-reads after a click
+;; cycles the value so the row's displayed value updates within 2s.
+(defpoll pref-time-format :interval "2s" :initial "24h"
+  `/etc/nixos/home/widgets/scripts/pref.sh get time_format 24h`)
+(defpoll pref-notifications :interval "2s" :initial "Allowed"
+  `/etc/nixos/home/widgets/scripts/pref.sh get notifications Allowed`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -657,10 +665,10 @@
                 :on-click "notify-send 'StandardOS' 'Change password (coming soon)'")
       (pref-row :label "Language"        :value "English"
                 :on-click "notify-send 'StandardOS' 'Choose language (coming soon)'")
-      (pref-row :label "Time format"     :value "24h"
-                :on-click "notify-send 'StandardOS' 'Toggle time format (coming soon)'")
-      (pref-row :label "Notifications"   :value "Allowed"
-                :on-click "notify-send 'StandardOS' 'Notification settings (coming soon)'")
+      (pref-row :label "Time format"     :value pref-time-format
+                :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle time_format 24h 12h")
+      (pref-row :label "Notifications"   :value pref-notifications
+                :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle notifications Allowed DND Critical")
       (pref-row :label "Pomodoro target" :value pom-target
                 :on-click "notify-send 'StandardOS' 'Set pomodoro target (coming soon)'"))))
 
