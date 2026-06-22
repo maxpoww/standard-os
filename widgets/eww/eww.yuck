@@ -132,6 +132,16 @@
 (defpoll pref-display-sleep  :interval "2s" :initial "5 min"
   `/etc/nixos/home/widgets/scripts/pref.sh get display_sleep "5 min"`)
 
+;; Network preferences -- cyclable; same caveat (no system plumbing yet).
+(defpoll pref-wifi        :interval "2s" :initial "On"
+  `/etc/nixos/home/widgets/scripts/pref.sh get wifi On`)
+(defpoll pref-firewall    :interval "2s" :initial "On"
+  `/etc/nixos/home/widgets/scripts/pref.sh get firewall On`)
+(defpoll pref-mac-random  :interval "2s" :initial "Off"
+  `/etc/nixos/home/widgets/scripts/pref.sh get mac_random Off`)
+(defpoll pref-dns-tls     :interval "2s" :initial "Off"
+  `/etc/nixos/home/widgets/scripts/pref.sh get dns_tls Off`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -822,6 +832,32 @@
         (pref-row :label "Display sleep" :value pref-display-sleep
                   :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle display_sleep '1 min' '5 min' '15 min' '30 min' 'Never'")))))
 
+;; Section: Network. Wi-Fi + throughput KPIs, download-trend chart,
+;; cyclable network preferences. Reuses analytics-tile, chart-card,
+;; pref-row, preferences-card.
+(defwidget section-network []
+  (box :class "section section-network" :orientation "vertical" :space-evenly false :spacing 14
+       :halign "fill" :valign "fill" :hexpand true :vexpand true
+    (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+      (analytics-tile :label "SSID" :value sp-ssid :sub "current")
+      (analytics-tile :label "IP"   :value sp-ip   :sub sp-dns)
+      (analytics-tile :label "DOWN" :value sp-down :sub "throughput")
+      (analytics-tile :label "UP"   :value sp-up   :sub "throughput"))
+    (chart-card :title "DOWNLOAD TREND" :metric "net-down-trend")
+    (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
+      (label :class "field-lk" :text "NETWORK PREFERENCES" :halign "start")
+      (box :orientation "vertical" :space-evenly false :spacing 1
+        (pref-row :label "Wi-Fi"        :value pref-wifi
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle wifi On Off")
+        (pref-row :label "VPN"          :value sp-vpn
+                  :on-click "notify-send 'StandardOS' 'VPN management (coming soon)'")
+        (pref-row :label "Firewall"     :value pref-firewall
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle firewall On Off")
+        (pref-row :label "MAC random"   :value pref-mac-random
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle mac_random Off Per-network Always")
+        (pref-row :label "DNS over TLS" :value pref-dns-tls
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle dns_tls Off On Auto")))))
+
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
   (box :class "section section-placeholder" :orientation "vertical" :space-evenly false :spacing 6
@@ -858,7 +894,7 @@
         (box :visible {current-section == "apps"}          :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Apps"))
         (box :visible {current-section == "privacy"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Privacy"))
         (box :visible {current-section == "storage"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Storage"))
-        (box :visible {current-section == "network"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Network"))
+        (box :visible {current-section == "network"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-network))
         (box :visible {current-section == "bluetooth"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Bluetooth"))
         (box :visible {current-section == "sharing"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sharing"))
         (box :visible {current-section == "power"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-power))

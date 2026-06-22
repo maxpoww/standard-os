@@ -76,9 +76,34 @@ EOF
     mv -f "$tmp" "$OUT/$metric.$tick.svg"
 }
 
+render_trend_from_buffer() {
+    # Reads the last 14 readings of a canvas-sparkline.sh ring buffer and
+    # renders them as a wide bar chart via render_bar_chart. Used for
+    # battery / net-down / net-up trends.
+    local source=$1 tick=$2 color=$3 metric=$4
+    local buf="/tmp/canvas-spark-data/$source.dat"
+    [[ -r $buf ]] || return
+    local -a vals
+    mapfile -t vals <"$buf"
+    local n=${#vals[@]}
+    ((n == 0)) && return
+    local start=$((n > 14 ? n - 14 : 0))
+    local -a args=() i offset label
+    for ((i = start; i < n; i++)); do
+        offset=$(((n - 1) - i))
+        if ((offset == 0)); then
+            label="now"
+        else
+            label="-${offset}"
+        fi
+        args+=("$label:${vals[i]}")
+    done
+    render_bar_chart "$metric" "$tick" "$color" "${args[@]}"
+}
+
 write_placeholder() {
     local metric
-    for metric in notifs-7d pomodoros-7d battery-trend; do
+    for metric in notifs-7d pomodoros-7d battery-trend net-down-trend net-up-trend; do
         local f="$OUT/$metric.0.svg"
         [[ -f $f ]] && continue
         cat >"$f" <<EOF
@@ -131,24 +156,11 @@ tick)
     render_bar_chart pomodoros-7d "$TICK" "rgba(217,179,255,0.85)" "${args[@]}"
 
     # BATTERY TREND -- reuse the sparkline buffer (last 14 readings).
-    if [[ -r /tmp/canvas-spark-data/battery.dat ]]; then
-        mapfile -t bat_vals </tmp/canvas-spark-data/battery.dat
-        bn=${#bat_vals[@]}
-        if ((bn > 0)); then
-            bstart=$((bn > 14 ? bn - 14 : 0))
-            bat_args=()
-            for ((i = bstart; i < bn; i++)); do
-                offset=$(((bn - 1) - i))
-                if ((offset == 0)); then
-                    blabel="now"
-                else
-                    blabel="-${offset}"
-                fi
-                bat_args+=("$blabel:${bat_vals[i]}")
-            done
-            render_bar_chart battery-trend "$TICK" "rgba(179,255,179,0.85)" "${bat_args[@]}"
-        fi
-    fi
+    render_trend_from_buffer battery "$TICK" "rgba(179,255,179,0.85)" battery-trend
+
+    # NET DOWN/UP TREND -- same pattern, KB/s deltas from spark buffer.
+    render_trend_from_buffer net-down "$TICK" "rgba(110,150,255,0.85)" net-down-trend
+    render_trend_from_buffer net-up   "$TICK" "rgba(217,179,255,0.85)" net-up-trend
 
     find "$OUT" -maxdepth 1 -name '*.svg' -mmin +5 -delete 2>/dev/null || true
     echo "$TICK"
