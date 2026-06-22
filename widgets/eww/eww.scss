@@ -530,6 +530,52 @@ window.dashboard {
   min-height: 78px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
+
+/* Ring-tile variant -- ring on the left, label/sub on the right. */
+.ring-tile { padding: 8px 12px; }
+.ring-tile-img { min-width: 46px; min-height: 46px; }
+.ring-tile-pct {
+  font-size: 8pt;
+  color: rgba(255, 255, 255, 1.0);
+  font-weight: 500;
+}
+.ring-tile .atile-label { font-size: 7pt; }
+.ring-tile .atile-sub {
+  font-size: 11pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 0;
+  padding-top: 1px;
+}
+
+/* Sparkline-tile -- label + value stacked above a small line chart. */
+.sparkline-tile {
+  padding: 8px 0 0 0;
+  min-height: 86px;
+}
+.sparkline-tile .atile-label { padding: 0 12px; }
+.spark-sub {
+  font-size: 7pt;
+  color: rgba(255, 255, 255, 0.30);
+  letter-spacing: 1px;
+  padding: 0 12px;
+}
+.spark-value {
+  font-size: 13pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 1.0);
+  padding: 2px 12px 0 12px;
+  letter-spacing: -0.5px;
+}
+.spark-img {
+  min-height: 28px;
+}
+
+/* User-section content row -- bigger cards (calendar / agenda / notifs)
+   that fill the bottom of the section so it doesn't stack to the top half. */
+.user-content-row .field-card {
+  min-height: 0;
+}
 .atile-label {
   font-size: 7pt;
   letter-spacing: 1.5px;

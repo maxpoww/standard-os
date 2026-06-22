@@ -79,6 +79,13 @@
 (defpoll ring-tick :interval "5s" :initial "0"
   `/etc/nixos/home/widgets/scripts/canvas-rings-gen.sh`)
 
+;; Sparkline SVG regenerator — same tick mechanism. canvas-sparkline.sh
+;; collects readings into ring buffers + renders one SVG per metric
+;; (cpu / mem / battery / net-down / net-up). All five SVGs share the
+;; printed tick so the interpolated image path always resolves.
+(defpoll spark-tick :interval "5s" :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-sparkline.sh tick`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -595,6 +602,36 @@
     (label :class "atile-value" :text value :halign "start" :valign "center" :vexpand true)
     (label :class "atile-sub"   :text sub   :halign "start")))
 
+;; ring-tile — analytics tile with a ring on the left and the metric's
+;; label / value-as-sub on the right. The ring SVG comes from the
+;; existing canvas-rings-gen.sh family (battery/mem/disk-root/disk-home
+;; /wifi/gpu); ring-tick forces a re-render every 5s. % overlays on
+;; the ring, label + sub stack to the right.
+(defwidget ring-tile [label ring-name pct sub]
+  (box :class "analytics-tile ring-tile" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
+    (overlay
+      (image :class "ring-tile-img"
+             :path {"/tmp/canvas-rings/" + ring-name + "." + ring-tick + ".svg"}
+             :image-width 46 :image-height 46)
+      (label :class "ring-tile-pct" :text {pct + "%"}))
+    (box :class "ring-tile-meta" :orientation "vertical" :space-evenly false :spacing 1
+         :valign "center" :halign "start" :hexpand true
+      (label :class "atile-label" :text label :halign "start")
+      (label :class "atile-sub"   :text sub   :halign "start"))))
+
+;; sparkline-tile — analytics tile with a label + value + sparkline.
+;; The SVG sits along the bottom edge as a tiny time-series chart.
+;; metric arg names the file in /tmp/canvas-sparks/.
+(defwidget sparkline-tile [label value sub metric]
+  (box :class "analytics-tile sparkline-tile" :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
+    (box :orientation "horizontal" :space-evenly false :hexpand true
+      (label :class "atile-label" :text label :halign "start" :hexpand true)
+      (label :class "spark-sub"   :text sub   :halign "end"))
+    (label :class "atile-value spark-value" :text value :halign "start")
+    (image :class "spark-img" :halign "fill" :valign "end"
+           :path {"/tmp/canvas-sparks/" + metric + "." + spark-tick + ".svg"}
+           :image-width 280 :image-height 28)))
+
 ;; Empty field-card with a section label — for User-section sub-cards
 ;; that don't have their data wired yet (session-time / todo / activity).
 (defwidget field-placeholder-card [name]
@@ -602,15 +639,20 @@
     (label :class "field-lk" :text name :halign "start")
     (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
 
-;; Section: User. USER-MEGA banner across the top, then a dense 5x3
-;; grid of analytics tiles below. Three logical row-groups:
+;; Section: User. USER-MEGA banner across the top; 4-row analytics
+;; grid below; a wider content row at the bottom (calendar / agenda /
+;; notif history) to fill vertical space.
 ;;   row 1: usage time      -- SESSION  UPTIME  EVENTS  NOTIFS   POMS
 ;;   row 2: system health   -- BATTERY  MEMORY  CPU     DISK /   DISK ~
 ;;   row 3: activity        -- WS       WINDOWS ACTIVE  NET DN   NET UP
+;;   row 4: history charts  -- CPU spk  MEM spk BAT spk NET DN s NET UP s
+;;   row 5: content widgets -- calendar . agenda . notifications
 (defwidget section-user []
-  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 12 :vexpand true
+  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 12
+       :halign "fill" :valign "fill" :hexpand true :vexpand true
     (user-mega-frame)
-    (box :class "analytics-grid" :orientation "vertical" :space-evenly false :spacing 8 :vexpand true
+    (box :class "analytics-grid" :orientation "vertical" :space-evenly false :spacing 8
+         :halign "fill" :hexpand true :vexpand false
       (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
         (analytics-tile :label "SESSION"   :value usage-session                          :sub "since login")
         (analytics-tile :label "UPTIME"    :value usage-uptime                           :sub "since boot")
@@ -618,17 +660,28 @@
         (analytics-tile :label "NOTIFS"    :value notif-count                            :sub "history")
         (analytics-tile :label "POMS"      :value {pom-done + "/" + pom-target}          :sub "today"))
       (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (analytics-tile :label "BATTERY"   :value {ring-battery + "%"}                   :sub "")
-        (analytics-tile :label "MEMORY"    :value {ring-mem + "%"}                       :sub ring-mem-used)
-        (analytics-tile :label "CPU"       :value {sp-cpu + "%"}                         :sub {sp-cpu-temp + " C"})
-        (analytics-tile :label "DISK /"    :value {ring-disk-root + "%"}                 :sub "root")
-        (analytics-tile :label "DISK ~"    :value {ring-disk-home + "%"}                 :sub "home"))
+        (ring-tile      :label "BATTERY" :ring-name "battery"   :pct ring-battery   :sub "remaining")
+        (ring-tile      :label "MEMORY"  :ring-name "mem"       :pct ring-mem       :sub ring-mem-used)
+        (analytics-tile :label "CPU"     :value {sp-cpu + "%"}  :sub {sp-cpu-temp + " C"})
+        (ring-tile      :label "DISK /"  :ring-name "disk-root" :pct ring-disk-root :sub "root")
+        (ring-tile      :label "DISK ~"  :ring-name "disk-home" :pct ring-disk-home :sub "home"))
       (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
         (analytics-tile :label "WORKSPACE" :value ws-current                             :sub {usage-ws-count + " total"})
         (analytics-tile :label "WINDOWS"   :value usage-win-count                        :sub "open")
         (analytics-tile :label "ACTIVE"    :value usage-active-app                       :sub "focused")
         (analytics-tile :label "NET DOWN"  :value sp-down                                :sub "")
-        (analytics-tile :label "NET UP"    :value sp-up                                  :sub "")))))
+        (analytics-tile :label "NET UP"    :value sp-up                                  :sub ""))
+      (box :class "analytics-row sparkline-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+        (sparkline-tile :label "CPU TREND"      :value {sp-cpu + "%"}        :sub "5 min" :metric "cpu")
+        (sparkline-tile :label "MEMORY TREND"   :value {ring-mem + "%"}      :sub "5 min" :metric "mem")
+        (sparkline-tile :label "BATTERY TREND"  :value {ring-battery + "%"}  :sub "5 min" :metric "battery")
+        (sparkline-tile :label "DOWN TREND"     :value sp-down               :sub "5 min" :metric "net-down")
+        (sparkline-tile :label "UP TREND"       :value sp-up                 :sub "5 min" :metric "net-up")))
+    (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
+         :hexpand true :vexpand true
+      (field-cal-card)
+      (field-agenda-card)
+      (field-notif-card))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
@@ -653,24 +706,25 @@
          :space-evenly false
          :spacing 12
       (section-nav)
-      (box :class "section-body" :orientation "vertical" :space-evenly false :vexpand true
-        (box :visible {current-section == "user"}          :vexpand true (section-user))
-        (box :visible {current-section == "accounts"}      :vexpand true (section-placeholder :name "Accounts"))
-        (box :visible {current-section == "appearance"}    :vexpand true (section-placeholder :name "Appearance"))
-        (box :visible {current-section == "accessibility"} :vexpand true (section-placeholder :name "Accessibility"))
-        (box :visible {current-section == "hardware"}      :vexpand true (section-placeholder :name "Hardware"))
-        (box :visible {current-section == "displays"}      :vexpand true (section-placeholder :name "Displays"))
-        (box :visible {current-section == "sound"}         :vexpand true (section-placeholder :name "Sound"))
-        (box :visible {current-section == "notifs"}        :vexpand true (section-placeholder :name "Notifications"))
-        (box :visible {current-section == "apps"}          :vexpand true (section-placeholder :name "Apps"))
-        (box :visible {current-section == "privacy"}       :vexpand true (section-placeholder :name "Privacy"))
-        (box :visible {current-section == "storage"}       :vexpand true (section-placeholder :name "Storage"))
-        (box :visible {current-section == "network"}       :vexpand true (section-placeholder :name "Network"))
-        (box :visible {current-section == "bluetooth"}     :vexpand true (section-placeholder :name "Bluetooth"))
-        (box :visible {current-section == "sharing"}       :vexpand true (section-placeholder :name "Sharing"))
-        (box :visible {current-section == "power"}         :vexpand true (section-placeholder :name "Power"))
-        (box :visible {current-section == "time-lang"}     :vexpand true (section-placeholder :name "Time & Language"))
-        (box :visible {current-section == "system"}        :vexpand true (section-placeholder :name "System"))))
+      (box :class "section-body" :orientation "vertical" :space-evenly false
+           :hexpand true :vexpand true :halign "fill" :valign "fill"
+        (box :visible {current-section == "user"}          :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-user))
+        (box :visible {current-section == "accounts"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Accounts"))
+        (box :visible {current-section == "appearance"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Appearance"))
+        (box :visible {current-section == "accessibility"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Accessibility"))
+        (box :visible {current-section == "hardware"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Hardware"))
+        (box :visible {current-section == "displays"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Displays"))
+        (box :visible {current-section == "sound"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sound"))
+        (box :visible {current-section == "notifs"}        :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Notifications"))
+        (box :visible {current-section == "apps"}          :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Apps"))
+        (box :visible {current-section == "privacy"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Privacy"))
+        (box :visible {current-section == "storage"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Storage"))
+        (box :visible {current-section == "network"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Network"))
+        (box :visible {current-section == "bluetooth"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Bluetooth"))
+        (box :visible {current-section == "sharing"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sharing"))
+        (box :visible {current-section == "power"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Power"))
+        (box :visible {current-section == "time-lang"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Time & Language"))
+        (box :visible {current-section == "system"}        :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "System"))))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"
