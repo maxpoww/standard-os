@@ -153,6 +153,24 @@
 (defpoll sp-dns   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh dns`)
 (defpoll sp-vpn   :interval "10s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-net.sh vpn`)
 
+;; User identity. Avatar falls back to _blank.svg when
+;; ~/.config/standardos/avatar.png is missing — the overlay fallback
+;; (gradient + person glyph) shows through in that case. Drop a square
+;; PNG at ~/.config/standardos/avatar.png to populate.
+(defpoll user-name :interval "1h" :initial "user"
+  `whoami`)
+(defpoll user-fullname :interval "1h" :initial ""
+  `getent passwd "$(whoami)" 2>/dev/null | cut -d: -f5 | cut -d, -f1 | head -1`)
+(defpoll user-hostname :interval "1h" :initial "stdos"
+  `hostname`)
+(defpoll user-avatar-path :interval "30s" :initial "/etc/nixos/home/widgets/svg/_blank.svg"
+  `if [ -r "$HOME/.config/standardos/avatar.png" ]; then echo "$HOME/.config/standardos/avatar.png"; else echo /etc/nixos/home/widgets/svg/_blank.svg; fi`)
+
+;; Active section — drives the canvas section-router. Click any
+;; section-pill in section-nav to switch. Default "user" so the canvas
+;; lands on the personal-dashboard page.
+(defvar current-section "user")
+
 ;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
 (defpoll sp-cpu      :interval "2s"  :initial "—"
   `jq -r '.pct // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
@@ -502,6 +520,88 @@
     (field-sys-card)
     (field-focus-card)))
 
+;; ── Section router ──
+;;
+;; The canvas is a section-router: a top pill-strip (section-nav) names
+;; every section in the Settings IA; clicking a pill writes
+;; current-section. The section-body conditionally renders the active
+;; section's content. Today only `user` is built — the other 16 sections
+;; show a placeholder pending their build pass.
+
+(defwidget section-pill [id label]
+  (eventbox :onclick "eww update current-section=${id}"
+    (box :class {current-section == id ? "opt-pill section-pill section-pill-active" : "opt-pill section-pill"}
+         :orientation "horizontal" :space-evenly false
+      (label :class "section-pill-label" :text label))))
+
+(defwidget section-nav []
+  (box :class "section-nav" :orientation "horizontal" :space-evenly false :spacing 4 :halign "center"
+    (section-pill :id "user"          :label "User")
+    (section-pill :id "accounts"      :label "Accounts")
+    (section-pill :id "appearance"    :label "Appearance")
+    (section-pill :id "accessibility" :label "Accessibility")
+    (section-pill :id "hardware"      :label "Hardware")
+    (section-pill :id "displays"      :label "Displays")
+    (section-pill :id "sound"         :label "Sound")
+    (section-pill :id "notifs"        :label "Notifs")
+    (section-pill :id "apps"          :label "Apps")
+    (section-pill :id "privacy"       :label "Privacy")
+    (section-pill :id "storage"       :label "Storage")
+    (section-pill :id "network"       :label "Network")
+    (section-pill :id "bluetooth"     :label "BT")
+    (section-pill :id "sharing"       :label "Sharing")
+    (section-pill :id "power"         :label "Power")
+    (section-pill :id "time-lang"     :label "Time")
+    (section-pill :id "system"        :label "System")))
+
+;; USER-MEGA — visual analogue of media-MEGA, sized to dominate the
+;; center cell of the User-section 3×3 grid. Avatar with gradient
+;; fallback (same overlay pattern media-MEGA uses for art).
+(defwidget user-mega-frame []
+  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
+       :halign "fill" :valign "center"
+    (overlay
+      (box :class "um-avatar-fallback" :halign "center" :valign "center"
+        (label :class "um-avatar-glyph" :text "󰀄"))
+      (image :class "um-avatar"
+             :path user-avatar-path
+             :image-width 128 :image-height 128))
+    (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
+    (label :class "um-handle" :text {"@" + user-name + " · " + user-hostname}          :halign "center")))
+
+;; Empty field-card with a section label — for User-section sub-cards
+;; that don't have their data wired yet (session-time / todo / activity).
+(defwidget field-placeholder-card [name]
+  (box :class "field-card field-placeholder" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (label :class "field-lk" :text name :halign "start")
+    (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
+
+;; Section: User. 3×3 grid with USER-MEGA in the center cell.
+;;   row 1: calendar · agenda · notes
+;;   row 2: notifs   · USER-MEGA · pomodoro
+;;   row 3: session  · todo  · activity   (placeholders for now)
+(defwidget section-user []
+  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 10 :vexpand true
+    (box :class "user-row" :orientation "horizontal" :space-evenly true :spacing 10 :hexpand true
+      (field-cal-card)
+      (field-agenda-card)
+      (field-notes-card))
+    (box :class "user-row user-row-mid" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true :vexpand true
+      (box :class "user-side"   :hexpand true (field-notif-card))
+      (box :class "user-center" :hexpand true (user-mega-frame))
+      (box :class "user-side"   :hexpand true (field-focus-card)))
+    (box :class "user-row" :orientation "horizontal" :space-evenly true :spacing 10 :hexpand true
+      (field-placeholder-card :name "SESSION")
+      (field-placeholder-card :name "TODO")
+      (field-placeholder-card :name "ACTIVITY"))))
+
+;; Generic placeholder for sections we haven't built yet.
+(defwidget section-placeholder [name]
+  (box :class "section section-placeholder" :orientation "vertical" :space-evenly false :spacing 6
+       :halign "center" :valign "center" :vexpand true
+    (label :class "section-placeholder-label" :text name)
+    (label :class "section-placeholder-sub"   :text "Coming soon")))
+
 ;; ── Canvas root ──
 ;;
 ;; Wrapped in an overlay so a small × close button can float in the
@@ -516,14 +616,26 @@
     (box :class "canvas-root"
          :orientation "vertical"
          :space-evenly false
-         :spacing 8
-      (crown-container)
-      ;; HERO + bars are nested together so the bars hug HERO bottom edge.
-      (box :class "hero-bars-block" :orientation "vertical" :space-evenly false :spacing 4 :vexpand true
-        (hero-trio)
-        (bars-row))
-      (field-row-1)
-      (field-row-2))
+         :spacing 12
+      (section-nav)
+      (box :class "section-body" :orientation "vertical" :space-evenly false :vexpand true
+        (box :visible {current-section == "user"}          :vexpand true (section-user))
+        (box :visible {current-section == "accounts"}      :vexpand true (section-placeholder :name "Accounts"))
+        (box :visible {current-section == "appearance"}    :vexpand true (section-placeholder :name "Appearance"))
+        (box :visible {current-section == "accessibility"} :vexpand true (section-placeholder :name "Accessibility"))
+        (box :visible {current-section == "hardware"}      :vexpand true (section-placeholder :name "Hardware"))
+        (box :visible {current-section == "displays"}      :vexpand true (section-placeholder :name "Displays"))
+        (box :visible {current-section == "sound"}         :vexpand true (section-placeholder :name "Sound"))
+        (box :visible {current-section == "notifs"}        :vexpand true (section-placeholder :name "Notifications"))
+        (box :visible {current-section == "apps"}          :vexpand true (section-placeholder :name "Apps"))
+        (box :visible {current-section == "privacy"}       :vexpand true (section-placeholder :name "Privacy"))
+        (box :visible {current-section == "storage"}       :vexpand true (section-placeholder :name "Storage"))
+        (box :visible {current-section == "network"}       :vexpand true (section-placeholder :name "Network"))
+        (box :visible {current-section == "bluetooth"}     :vexpand true (section-placeholder :name "Bluetooth"))
+        (box :visible {current-section == "sharing"}       :vexpand true (section-placeholder :name "Sharing"))
+        (box :visible {current-section == "power"}         :vexpand true (section-placeholder :name "Power"))
+        (box :visible {current-section == "time-lang"}     :vexpand true (section-placeholder :name "Time & Language"))
+        (box :visible {current-section == "system"}        :vexpand true (section-placeholder :name "System"))))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"
