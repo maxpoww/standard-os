@@ -92,6 +92,15 @@
 (defpoll pie-tick :interval "5s" :initial "0"
   `/etc/nixos/home/widgets/scripts/canvas-pie.sh tick`)
 
+;; Top-N data sources for bar-fill list cards. Each emits
+;; {"items":[{name,value}...], "max":N} so bar widths scale to max.
+(defpoll top-apps :interval "5s" :initial '{"items":[],"max":1}'
+  `/etc/nixos/home/widgets/scripts/canvas-tops.sh apps`)
+(defpoll top-ws :interval "5s" :initial '{"items":[],"max":1}'
+  `/etc/nixos/home/widgets/scripts/canvas-tops.sh ws`)
+(defpoll top-notifs :interval "10s" :initial '{"items":[],"max":1}'
+  `/etc/nixos/home/widgets/scripts/canvas-tops.sh notifs`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -654,6 +663,29 @@
       (label :class "atile-value pie-value" :text value :halign "start")
       (label :class "atile-sub" :text sub :halign "start"))))
 
+;; bar-row — one row in a bar-fill list. Faint bar background sized
+;; proportionally to value/max via inline min-width%, name on the
+;; left, count on the right.
+(defwidget bar-row [name value max]
+  (box :class "bar-row" :orientation "horizontal" :space-evenly false :hexpand true
+    (overlay
+      (box :class "bar-row-bg" :orientation "horizontal" :space-evenly false :hexpand true
+        (box :class "bar-row-fill" :hexpand false
+             :style "min-width: ${value * 100 / (max == 0 ? 1 : max)}%;")
+        (box :hexpand true))
+      (box :class "bar-row-text" :orientation "horizontal" :space-evenly false :hexpand true
+        (label :class "bar-row-name"  :text name  :halign "start" :hexpand true)
+        (label :class "bar-row-value" :text value :halign "end")))))
+
+;; bar-fill-list-card — vertical list of bar-rows for top-N readings.
+;; `data` is the {items, max} JSON from canvas-tops.sh.
+(defwidget bar-fill-list-card [title data]
+  (box :class "field-card bar-fill-card" :orientation "vertical" :space-evenly false :hexpand true :spacing 4
+    (label :class "field-lk" :text title :halign "start")
+    (box :class "bar-fill-list" :orientation "vertical" :space-evenly false :spacing 3 :hexpand true
+      (for item in {data.items}
+        (bar-row :name {item.name} :value {item.value} :max {data.max})))))
+
 ;; Empty field-card with a section label — for User-section sub-cards
 ;; that don't have their data wired yet (session-time / todo / activity).
 (defwidget field-placeholder-card [name]
@@ -707,9 +739,9 @@
         (pie-tile :label "NOTIFS"      :metric "notif-dist" :value notif-count                   :sub "by sender")))
     (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
          :hexpand true :vexpand true
-      (field-cal-card)
-      (field-agenda-card)
-      (field-notif-card))))
+      (bar-fill-list-card :title "TOP APPS"   :data top-apps)
+      (bar-fill-list-card :title "TOP WS"     :data top-ws)
+      (bar-fill-list-card :title "TOP NOTIFS" :data top-notifs))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
