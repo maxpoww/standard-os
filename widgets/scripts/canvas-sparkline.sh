@@ -16,8 +16,8 @@ OUT=/tmp/canvas-sparks
 mkdir -p "$DATA" "$OUT"
 
 BUF=60
-W=280
-H=32
+W=400
+H=36
 PAD=2
 
 collect() {
@@ -122,12 +122,14 @@ write_placeholder() {
     # SVGs at the initial defpoll tick (0) so eww doesn't error on the
     # first render before the first real tick fires.
     local metric color
-    for metric in cpu mem battery net-down net-up; do
+    for metric in cpu mem battery net-down net-up \
+        user-notifs-today user-poms-today user-events-today user-session-min; do
         case "$metric" in
         cpu) color="rgba(255,191,179,0.95)" ;;
-        mem) color="rgba(217,179,255,0.95)" ;;
-        battery) color="rgba(179,255,179,0.95)" ;;
-        net-down | net-up) color="rgba(110,150,255,0.95)" ;;
+        mem | user-poms-today) color="rgba(217,179,255,0.95)" ;;
+        battery | user-events-today) color="rgba(179,255,179,0.95)" ;;
+        net-down | net-up | user-notifs-today) color="rgba(110,150,255,0.95)" ;;
+        user-session-min) color="rgba(255,191,179,0.95)" ;;
         esac
         local f="$OUT/$metric.0.svg"
         [[ -f $f ]] && continue
@@ -153,8 +155,47 @@ tick)
     collect battery "$bat"
     collect_net_rates
 
-    # Single tick for all five SVGs so the path eww interpolates
-    # (cpu.$tick.svg, mem.$tick.svg, ...) actually exists.
+    # USER metrics -- collect current values into ring buffers; the
+    # sparkline becomes a slowly-rising/flat trend for now until we
+    # add per-day persistence elsewhere.
+    poms=$(jq -r '.blocks_completed_today // 0' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 0)
+    events=$(jq -r '.today_count // 0' /tmp/waybar-cache/agenda.json 2>/dev/null || echo 0)
+    collect user-poms-today "$poms"
+    collect user-events-today "$events"
+
+    session_sec=0
+    sid="${XDG_SESSION_ID:-}"
+    if [[ -z $sid ]]; then
+        sid=$(loginctl --no-legend 2>/dev/null | awk -v u="$USER" '$3 == u {print $1; exit}')
+    fi
+    if [[ -n $sid ]]; then
+        start=$(loginctl show-session "$sid" -p Timestamp --value 2>/dev/null)
+        if [[ -n $start ]]; then
+            start_epoch=$(date -d "$start" +%s 2>/dev/null || echo 0)
+            ((start_epoch > 0)) && session_sec=$(($(date +%s) - start_epoch))
+        fi
+    fi
+    collect user-session-min "$((session_sec / 60))"
+
+    # NOTIFS HOURLY (today) -- 24 buckets from notif-history.json
+    # written to a fake buffer file each tick (24 values per cycle).
+    if [[ -r /tmp/waybar-cache/notif-history.json ]]; then
+        today=$(date +%Y-%m-%d)
+        jq -r --arg t "$today" '
+            (.entries // [])
+            | map(select(.ts | startswith($t)) | .ts[11:13] | tonumber)
+            | . as $hrs
+            | [range(0;24) | . as $h | ($hrs | map(select(. == $h)) | length)]
+            | .[]
+        ' /tmp/waybar-cache/notif-history.json >"$DATA/user-notifs-today.dat.tmp" 2>/dev/null
+        if [[ -s "$DATA/user-notifs-today.dat.tmp" ]]; then
+            mv -f "$DATA/user-notifs-today.dat.tmp" "$DATA/user-notifs-today.dat"
+        else
+            rm -f "$DATA/user-notifs-today.dat.tmp"
+        fi
+    fi
+
+    # Single tick for all SVGs so the path eww interpolates resolves.
     TICK=$(date +%s)
 
     render cpu      "rgba(255,191,179,0.95)" 100 "$TICK"
@@ -163,11 +204,14 @@ tick)
     render net-down "rgba(110,150,255,0.95)" ""  "$TICK"
     render net-up   "rgba(110,150,255,0.95)" ""  "$TICK"
 
+    render user-notifs-today "rgba(110,150,255,0.95)" "" "$TICK"
+    render user-poms-today   "rgba(217,179,255,0.95)" "" "$TICK"
+    render user-events-today "rgba(179,255,179,0.95)" "" "$TICK"
+    render user-session-min  "rgba(255,191,179,0.95)" "" "$TICK"
+
     # GC old SVGs (keep last 5 min worth).
     find "$OUT" -maxdepth 1 -name '*.svg' -mmin +5 -delete 2>/dev/null || true
 
-    # Print tick so eww image-path interpolation changes each cycle
-    # (GTK Image won't reload identical paths).
     echo "$TICK"
     ;;
 *)

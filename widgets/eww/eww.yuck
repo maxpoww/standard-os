@@ -725,18 +725,20 @@
       (label :class "atile-label" :text label :halign "start")
       (label :class "atile-sub"   :text sub   :halign "start"))))
 
-;; sparkline-tile — analytics tile with a label + value + sparkline.
-;; The SVG sits along the bottom edge as a tiny time-series chart.
+;; sparkline-tile — page-speed-style KPI card. Top row has the label
+;; and a small sub-text stacked at the left, with the big value
+;; right-aligned. A wide area-fill sparkline runs along the bottom.
 ;; metric arg names the file in /tmp/canvas-sparks/.
 (defwidget sparkline-tile [label value sub metric]
-  (box :class "analytics-tile sparkline-tile" :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
-    (box :orientation "horizontal" :space-evenly false :hexpand true
-      (label :class "atile-label" :text label :halign "start" :hexpand true)
-      (label :class "spark-sub"   :text sub   :halign "end"))
-    (label :class "atile-value spark-value" :text value :halign "start")
+  (box :class "analytics-tile sparkline-tile" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
+    (box :class "spark-header" :orientation "horizontal" :space-evenly false :hexpand true
+      (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true :halign "start" :valign "center"
+        (label :class "atile-label" :text label :halign "start")
+        (label :class "spark-sub"   :text sub   :halign "start"))
+      (label :class "atile-value spark-value" :text value :halign "end" :valign "center"))
     (image :class "spark-img" :halign "fill" :valign "end"
            :path {"/tmp/canvas-sparks/" + metric + "." + spark-tick + ".svg"}
-           :image-width 280 :image-height 28)))
+           :image-width 400 :image-height 36)))
 
 ;; pie-tile — analytics tile with a donut chart on the left and the
 ;; metric label / current-value / sub-text on the right. Mirrors
@@ -803,11 +805,21 @@
   (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 14
        :halign "fill" :valign "fill" :hexpand true :vexpand true
     (user-mega-frame)
-    (chart-card :title "NOTIFICATIONS . PAST 7 DAYS" :metric "notifs-7d")
-    (box :class "user-analytics-row" :orientation "horizontal" :space-evenly false :spacing 10
-         :hexpand true :vexpand false
+    ;; 4 page-speed-style KPI cards: big number on the right of the
+    ;; title, area sparkline below.
+    (box :class "user-kpi-row" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
+      (sparkline-tile :label "NOTIFICATIONS" :value notif-count
+                      :sub "today" :metric "user-notifs-today")
+      (sparkline-tile :label "POMODOROS"     :value {pom-done + "/" + pom-target}
+                      :sub "today" :metric "user-poms-today")
+      (sparkline-tile :label "EVENTS"        :value agenda-today-count
+                      :sub "today" :metric "user-events-today")
+      (sparkline-tile :label "SESSION"       :value usage-session
+                      :sub "active" :metric "user-session-min"))
+    ;; Two bar-fill lists side by side.
+    (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
+         :hexpand true :vexpand true
       (bar-fill-list-card :title "MOST USED APPS"    :data top-apps)
-      (your-day-card)
       (bar-fill-list-card :title "TOP NOTIFICATIONS" :data top-notifs))
     (preferences-card)))
 

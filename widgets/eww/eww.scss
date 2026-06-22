@@ -618,27 +618,31 @@ window.dashboard {
   letter-spacing: 0.5px;
 }
 
-/* Sparkline-tile -- label + value stacked above a small line chart. */
+/* Sparkline-tile -- page-speed-style KPI card.
+   label/sub stacked at top-left, big value top-right, sparkline bottom. */
 .sparkline-tile {
-  padding: 8px 0 0 0;
-  min-height: 86px;
+  padding: 12px 14px 0 14px;
+  min-height: 96px;
 }
-.sparkline-tile .atile-label { padding: 0 12px; }
+.spark-header { padding-bottom: 4px; }
+.sparkline-tile .atile-label {
+  font-size: 8pt;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.50);
+}
 .spark-sub {
   font-size: 7pt;
   color: rgba(255, 255, 255, 0.30);
   letter-spacing: 1px;
-  padding: 0 12px;
 }
 .spark-value {
-  font-size: 13pt;
+  font-size: 20pt;
   font-weight: 300;
   color: rgba(255, 255, 255, 1.0);
-  padding: 2px 12px 0 12px;
   letter-spacing: -0.5px;
 }
 .spark-img {
-  min-height: 28px;
+  min-height: 36px;
 }
 
 /* User-section content row -- bigger cards (calendar / agenda / notifs)
