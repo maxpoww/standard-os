@@ -481,48 +481,74 @@ window.dashboard {
 .section-user .user-row     { min-height: 0; }
 .section-user .user-row-mid { min-height: 220px; }
 
-/* -- USER-MEGA (mirrors media-MEGA centerpiece) --------------------- */
-.user-mega {
+/* -- USER-MEGA banner (top of User section, horizontal identity) --- */
+.user-mega-banner {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  padding: 22px 24px;
-  min-height: 200px;
+  padding: 14px 24px;
+  min-height: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
-
-.um-avatar-fallback {
-  min-width: 128px;
-  min-height: 128px;
-  border-radius: 64px;
+.user-mega-banner .um-avatar-fallback {
+  min-width: 80px;
+  min-height: 80px;
+  border-radius: 40px;
   background-image: linear-gradient(135deg,
     rgba(110, 150, 255, 0.55) 0%,
     rgba(217, 179, 255, 0.55) 50%,
     rgba(179, 255, 179, 0.45) 100%);
 }
-.um-avatar-glyph {
-  font-size: 56pt;
+.user-mega-banner .um-avatar-glyph {
+  font-size: 36pt;
   color: rgba(255, 255, 255, 0.85);
 }
-.um-avatar {
-  min-width: 128px;
-  min-height: 128px;
-  border-radius: 64px;
+.user-mega-banner .um-avatar {
+  min-width: 80px;
+  min-height: 80px;
+  border-radius: 40px;
 }
-
-.um-name {
+.user-mega-banner .um-name {
   font-size: 18pt;
   font-weight: 300;
   color: rgba(255, 255, 255, 1.0);
   letter-spacing: -0.5px;
-  padding-top: 6px;
 }
-.um-handle {
+.user-mega-banner .um-handle {
   font-size: 9pt;
   color: rgba(255, 255, 255, 0.55);
   letter-spacing: 1px;
 }
 
-/* Placeholder cards in the User-section bottom row. */
+/* -- Analytics tile grid (User section main body) ------------------ */
+.analytics-grid { padding: 0; }
+.analytics-row  { min-height: 0; }
+
+.analytics-tile {
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 14px;
+  padding: 10px 14px;
+  min-height: 78px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.atile-label {
+  font-size: 7pt;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.40);
+}
+.atile-value {
+  font-size: 18pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 1.0);
+  letter-spacing: -0.5px;
+  padding: 2px 0 0 0;
+}
+.atile-sub {
+  font-size: 7pt;
+  color: rgba(255, 255, 255, 0.40);
+  letter-spacing: 1px;
+}
+
+/* Placeholder cards in the User-section bottom row (unused but kept). */
 .field-placeholder .field-empty {
   font-size: 8pt;
   color: rgba(255, 255, 255, 0.30);

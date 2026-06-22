@@ -171,6 +171,21 @@
 ;; lands on the personal-dashboard page.
 (defvar current-section "user")
 
+;; Usage analytics — drive the User-section analytics tiles. All five
+;; metrics come from one dispatcher script that returns a short
+;; tile-ready string. Polling intervals match how fast each value
+;; meaningfully changes.
+(defpoll usage-session     :interval "30s" :initial "--"
+  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh session`)
+(defpoll usage-uptime      :interval "30s" :initial "--"
+  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh uptime`)
+(defpoll usage-active-app  :interval "2s"  :initial "--"
+  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh active-app`)
+(defpoll usage-win-count   :interval "3s"  :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh win-count`)
+(defpoll usage-ws-count    :interval "5s"  :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh ws-count`)
+
 ;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
 (defpoll sp-cpu      :interval "2s"  :initial "—"
   `jq -r '.pct // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
@@ -554,20 +569,31 @@
     (section-pill :id "time-lang"     :label "Time")
     (section-pill :id "system"        :label "System")))
 
-;; USER-MEGA — visual analogue of media-MEGA, sized to dominate the
-;; center cell of the User-section 3×3 grid. Avatar with gradient
-;; fallback (same overlay pattern media-MEGA uses for art).
+;; USER-MEGA banner — horizontal identity strip across the top of the
+;; User section. Avatar (80px) on the left, name + handle stacked
+;; beside it. Compact so the analytics grid below gets the height.
 (defwidget user-mega-frame []
-  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
+  (box :class "user-mega user-mega-banner" :orientation "horizontal" :space-evenly false :spacing 18
        :halign "fill" :valign "center"
     (overlay
       (box :class "um-avatar-fallback" :halign "center" :valign "center"
         (label :class "um-avatar-glyph" :text "󰀄"))
       (image :class "um-avatar"
              :path user-avatar-path
-             :image-width 128 :image-height 128))
-    (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
-    (label :class "um-handle" :text {"@" + user-name + " · " + user-hostname}          :halign "center")))
+             :image-width 80 :image-height 80))
+    (box :class "um-identity" :orientation "vertical" :space-evenly false :spacing 2
+         :halign "start" :valign "center" :hexpand true
+      (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "start")
+      (label :class "um-handle" :text {"@" + user-name + "  ::  " + user-hostname}      :halign "start"))))
+
+;; analytics-tile — small card with a tiny label, a big-number value,
+;; and an optional sub-text. The building block for the User-section
+;; usage grid. Pass "" for sub when not needed.
+(defwidget analytics-tile [label value sub]
+  (box :class "analytics-tile" :orientation "vertical" :space-evenly false :spacing 1 :hexpand true
+    (label :class "atile-label" :text label :halign "start")
+    (label :class "atile-value" :text value :halign "start" :valign "center" :vexpand true)
+    (label :class "atile-sub"   :text sub   :halign "start")))
 
 ;; Empty field-card with a section label — for User-section sub-cards
 ;; that don't have their data wired yet (session-time / todo / activity).
@@ -576,24 +602,33 @@
     (label :class "field-lk" :text name :halign "start")
     (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
 
-;; Section: User. 3×3 grid with USER-MEGA in the center cell.
-;;   row 1: calendar · agenda · notes
-;;   row 2: notifs   · USER-MEGA · pomodoro
-;;   row 3: session  · todo  · activity   (placeholders for now)
+;; Section: User. USER-MEGA banner across the top, then a dense 5x3
+;; grid of analytics tiles below. Three logical row-groups:
+;;   row 1: usage time      -- SESSION  UPTIME  EVENTS  NOTIFS   POMS
+;;   row 2: system health   -- BATTERY  MEMORY  CPU     DISK /   DISK ~
+;;   row 3: activity        -- WS       WINDOWS ACTIVE  NET DN   NET UP
 (defwidget section-user []
-  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 10 :vexpand true
-    (box :class "user-row" :orientation "horizontal" :space-evenly true :spacing 10 :hexpand true
-      (field-cal-card)
-      (field-agenda-card)
-      (field-notes-card))
-    (box :class "user-row user-row-mid" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true :vexpand true
-      (box :class "user-side"   :hexpand true (field-notif-card))
-      (box :class "user-center" :hexpand true (user-mega-frame))
-      (box :class "user-side"   :hexpand true (field-focus-card)))
-    (box :class "user-row" :orientation "horizontal" :space-evenly true :spacing 10 :hexpand true
-      (field-placeholder-card :name "SESSION")
-      (field-placeholder-card :name "TODO")
-      (field-placeholder-card :name "ACTIVITY"))))
+  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 12 :vexpand true
+    (user-mega-frame)
+    (box :class "analytics-grid" :orientation "vertical" :space-evenly false :spacing 8 :vexpand true
+      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+        (analytics-tile :label "SESSION"   :value usage-session                          :sub "since login")
+        (analytics-tile :label "UPTIME"    :value usage-uptime                           :sub "since boot")
+        (analytics-tile :label "EVENTS"    :value agenda-today-count                     :sub "today")
+        (analytics-tile :label "NOTIFS"    :value notif-count                            :sub "history")
+        (analytics-tile :label "POMS"      :value {pom-done + "/" + pom-target}          :sub "today"))
+      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+        (analytics-tile :label "BATTERY"   :value {ring-battery + "%"}                   :sub "")
+        (analytics-tile :label "MEMORY"    :value {ring-mem + "%"}                       :sub ring-mem-used)
+        (analytics-tile :label "CPU"       :value {sp-cpu + "%"}                         :sub {sp-cpu-temp + " C"})
+        (analytics-tile :label "DISK /"    :value {ring-disk-root + "%"}                 :sub "root")
+        (analytics-tile :label "DISK ~"    :value {ring-disk-home + "%"}                 :sub "home"))
+      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+        (analytics-tile :label "WORKSPACE" :value ws-current                             :sub {usage-ws-count + " total"})
+        (analytics-tile :label "WINDOWS"   :value usage-win-count                        :sub "open")
+        (analytics-tile :label "ACTIVE"    :value usage-active-app                       :sub "focused")
+        (analytics-tile :label "NET DOWN"  :value sp-down                                :sub "")
+        (analytics-tile :label "NET UP"    :value sp-up                                  :sub "")))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
