@@ -86,6 +86,12 @@
 (defpoll spark-tick :interval "5s" :initial "0"
   `/etc/nixos/home/widgets/scripts/canvas-sparkline.sh tick`)
 
+;; Pie SVG regenerator — same tick mechanism. canvas-pie.sh writes
+;; one donut per metric (memory / ws-dist / app-dist / pomodoro /
+;; notif-dist) to /tmp/canvas-pies/<metric>.<tick>.svg.
+(defpoll pie-tick :interval "5s" :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-pie.sh tick`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -632,6 +638,22 @@
            :path {"/tmp/canvas-sparks/" + metric + "." + spark-tick + ".svg"}
            :image-width 280 :image-height 28)))
 
+;; pie-tile — analytics tile with a donut chart on the left and the
+;; metric label / current-value / sub-text on the right. Mirrors
+;; ring-tile's shape; the SVG slices visualize composition (e.g.
+;; memory used vs cached vs free, window count per workspace, etc).
+(defwidget pie-tile [label metric value sub]
+  (box :class "analytics-tile pie-tile" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
+    (image :class "pie-img"
+           :path {"/tmp/canvas-pies/" + metric + "." + pie-tick + ".svg"}
+           :image-width 46 :image-height 46
+           :valign "center")
+    (box :class "pie-tile-meta" :orientation "vertical" :space-evenly false :spacing 1
+         :valign "center" :halign "start" :hexpand true
+      (label :class "atile-label" :text label :halign "start")
+      (label :class "atile-value pie-value" :text value :halign "start")
+      (label :class "atile-sub" :text sub :halign "start"))))
+
 ;; Empty field-card with a section label — for User-section sub-cards
 ;; that don't have their data wired yet (session-time / todo / activity).
 (defwidget field-placeholder-card [name]
@@ -676,7 +698,13 @@
         (sparkline-tile :label "MEMORY TREND"   :value {ring-mem + "%"}      :sub "5 min" :metric "mem")
         (sparkline-tile :label "BATTERY TREND"  :value {ring-battery + "%"}  :sub "5 min" :metric "battery")
         (sparkline-tile :label "DOWN TREND"     :value sp-down               :sub "5 min" :metric "net-down")
-        (sparkline-tile :label "UP TREND"       :value sp-up                 :sub "5 min" :metric "net-up")))
+        (sparkline-tile :label "UP TREND"       :value sp-up                 :sub "5 min" :metric "net-up"))
+      (box :class "analytics-row pie-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+        (pie-tile :label "MEMORY MIX"  :metric "memory"     :value {ring-mem + "%"}              :sub "used + cache")
+        (pie-tile :label "WS DIST"     :metric "ws-dist"    :value usage-win-count               :sub {usage-ws-count + " workspaces"})
+        (pie-tile :label "APPS"        :metric "app-dist"   :value usage-active-app              :sub "by class")
+        (pie-tile :label "POMODORO"    :metric "pomodoro"   :value {pom-done + "/" + pom-target} :sub "today")
+        (pie-tile :label "NOTIFS"      :metric "notif-dist" :value notif-count                   :sub "by sender")))
     (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
          :hexpand true :vexpand true
       (field-cal-card)

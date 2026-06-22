@@ -548,6 +548,23 @@ window.dashboard {
   padding-top: 1px;
 }
 
+/* Pie-tile -- donut on the left, label/value/sub stack on the right. */
+.pie-tile { padding: 8px 12px; }
+.pie-img  { min-width: 46px; min-height: 46px; }
+.pie-tile .atile-label { font-size: 7pt; }
+.pie-tile .pie-value {
+  font-size: 11pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 1.0);
+  letter-spacing: 0;
+  padding: 1px 0;
+}
+.pie-tile .atile-sub {
+  font-size: 7pt;
+  color: rgba(255, 255, 255, 0.40);
+  letter-spacing: 0.5px;
+}
+
 /* Sparkline-tile -- label + value stacked above a small line chart. */
 .sparkline-tile {
   padding: 8px 0 0 0;
