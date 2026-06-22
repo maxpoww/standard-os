@@ -481,42 +481,95 @@ window.dashboard {
 .section-user .user-row     { min-height: 0; }
 .section-user .user-row-mid { min-height: 220px; }
 
-/* -- USER-MEGA banner (top of User section, horizontal identity) --- */
-.user-mega-banner {
+/* -- USER-MEGA (centered identity card at top of User section) ----- */
+.user-mega {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  padding: 14px 24px;
+  padding: 20px 36px;
   min-height: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
-.user-mega-banner .um-avatar-fallback {
-  min-width: 80px;
-  min-height: 80px;
-  border-radius: 40px;
+.user-mega .um-avatar-fallback {
+  min-width: 100px;
+  min-height: 100px;
+  border-radius: 50px;
   background-image: linear-gradient(135deg,
     rgba(110, 150, 255, 0.55) 0%,
     rgba(217, 179, 255, 0.55) 50%,
     rgba(179, 255, 179, 0.45) 100%);
 }
-.user-mega-banner .um-avatar-glyph {
-  font-size: 36pt;
+.user-mega .um-avatar-glyph {
+  font-size: 44pt;
   color: rgba(255, 255, 255, 0.85);
 }
-.user-mega-banner .um-avatar {
-  min-width: 80px;
-  min-height: 80px;
-  border-radius: 40px;
+.user-mega .um-avatar {
+  min-width: 100px;
+  min-height: 100px;
+  border-radius: 50px;
 }
-.user-mega-banner .um-name {
-  font-size: 18pt;
+.user-mega .um-name {
+  font-size: 16pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 1.0);
+  letter-spacing: -0.5px;
+  padding-top: 6px;
+}
+.user-mega .um-handle {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 1px;
+}
+.user-mega-click:hover .user-mega {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+/* -- your-day-card (center column, KPIs for today) ---------------- */
+.your-day-card {
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.yd-kpi { padding-top: 6px; }
+.yd-label {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.5px;
+}
+.yd-value {
+  font-size: 15pt;
   font-weight: 300;
   color: rgba(255, 255, 255, 1.0);
   letter-spacing: -0.5px;
 }
-.user-mega-banner .um-handle {
-  font-size: 9pt;
+
+/* -- Preferences card + clickable pref-rows ----------------------- */
+.preferences-card {
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 14px;
+  padding: 14px 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.pref-row {
+  padding: 8px 8px;
+  border-radius: 8px;
+  min-height: 28px;
+}
+.pref-row-click:hover .pref-row {
+  background-color: rgba(255, 255, 255, 0.10);
+}
+.pref-label {
+  font-size: 10pt;
+  color: rgba(255, 255, 255, 0.95);
+}
+.pref-value {
+  font-size: 10pt;
   color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 1px;
+  padding-right: 8px;
+}
+.pref-chev {
+  font-size: 11pt;
+  color: rgba(255, 255, 255, 0.40);
 }
 
 /* -- Analytics tile grid (User section main body) ------------------ */

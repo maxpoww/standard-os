@@ -591,22 +591,72 @@
     (section-pill :id "time-lang"     :label "Time")
     (section-pill :id "system"        :label "System")))
 
-;; USER-MEGA banner — horizontal identity strip across the top of the
-;; User section. Avatar (80px) on the left, name + handle stacked
-;; beside it. Compact so the analytics grid below gets the height.
+;; USER-MEGA — centered vertical identity card at the top of the User
+;; section. Avatar (100px) + name + handle, stacked. Sized to content,
+;; centered horizontally. Wrapped in eventbox so the whole card is one
+;; click target -> opens the profile editor (placeholder).
 (defwidget user-mega-frame []
-  (box :class "user-mega user-mega-banner" :orientation "horizontal" :space-evenly false :spacing 18
-       :halign "fill" :valign "center"
-    (overlay
-      (box :class "um-avatar-fallback" :halign "center" :valign "center"
-        (label :class "um-avatar-glyph" :text "󰀄"))
-      (image :class "um-avatar"
-             :path user-avatar-path
-             :image-width 80 :image-height 80))
-    (box :class "um-identity" :orientation "vertical" :space-evenly false :spacing 2
-         :halign "start" :valign "center" :hexpand true
-      (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "start")
-      (label :class "um-handle" :text {"@" + user-name + "  ::  " + user-hostname}      :halign "start"))))
+  (eventbox :class "user-mega-click" :halign "center"
+            :onclick "notify-send 'StandardOS' 'Edit profile (coming soon)'"
+    (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
+         :halign "center" :valign "center"
+      (overlay
+        (box :class "um-avatar-fallback" :halign "center" :valign "center"
+          (label :class "um-avatar-glyph" :text "󰀄"))
+        (image :class "um-avatar"
+               :path user-avatar-path
+               :image-width 100 :image-height 100))
+      (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
+      (label :class "um-handle" :text {"@" + user-name + "  ::  " + user-hostname}      :halign "center"))))
+
+;; your-day-card — vertical stack of personal KPIs for today. Centerpiece
+;; of the 3-column analytics row (left: TOP APPS, center: this, right:
+;; TOP NOTIFS). Single card, label/value pairs.
+(defwidget your-day-card []
+  (box :class "field-card your-day-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
+    (label :class "field-lk" :text "TODAY" :halign "start")
+    (box :class "yd-kpi" :orientation "vertical" :space-evenly true :spacing 4 :vexpand true
+      (box :orientation "horizontal" :space-evenly false
+        (label :class "yd-label" :text "Session"       :halign "start" :hexpand true)
+        (label :class "yd-value" :text usage-session   :halign "end"))
+      (box :orientation "horizontal" :space-evenly false
+        (label :class "yd-label" :text "Events"        :halign "start" :hexpand true)
+        (label :class "yd-value" :text agenda-today-count :halign "end"))
+      (box :orientation "horizontal" :space-evenly false
+        (label :class "yd-label" :text "Pomodoros"     :halign "start" :hexpand true)
+        (label :class "yd-value" :text {pom-done + "/" + pom-target} :halign "end"))
+      (box :orientation "horizontal" :space-evenly false
+        (label :class "yd-label" :text "Notifications" :halign "start" :hexpand true)
+        (label :class "yd-value" :text notif-count     :halign "end")))))
+
+;; pref-row — one clickable row in a preferences card. Label (left),
+;; current value (right), chevron (far right). Whole row is hot-zone.
+(defwidget pref-row [label value on-click]
+  (eventbox :class "pref-row-click" :onclick on-click
+    (box :class "pref-row" :orientation "horizontal" :space-evenly false :hexpand true :spacing 8
+      (label :class "pref-label" :text label :halign "start" :hexpand true)
+      (label :class "pref-value" :text value :halign "end")
+      (label :class "pref-chev"  :text ">"   :halign "end"))))
+
+;; preferences-card — full-width card of clickable pref-rows.
+(defwidget preferences-card []
+  (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
+    (label :class "field-lk" :text "PREFERENCES" :halign "start")
+    (box :orientation "vertical" :space-evenly false :spacing 1
+      (pref-row :label "Avatar"          :value "Default"
+                :on-click "notify-send 'StandardOS' 'Set avatar (coming soon)'")
+      (pref-row :label "Name"            :value {user-fullname == "" ? user-name : user-fullname}
+                :on-click "notify-send 'StandardOS' 'Edit name (coming soon)'")
+      (pref-row :label "Password"        :value "Set"
+                :on-click "notify-send 'StandardOS' 'Change password (coming soon)'")
+      (pref-row :label "Language"        :value "English"
+                :on-click "notify-send 'StandardOS' 'Choose language (coming soon)'")
+      (pref-row :label "Time format"     :value "24h"
+                :on-click "notify-send 'StandardOS' 'Toggle time format (coming soon)'")
+      (pref-row :label "Notifications"   :value "Allowed"
+                :on-click "notify-send 'StandardOS' 'Notification settings (coming soon)'")
+      (pref-row :label "Pomodoro target" :value pom-target
+                :on-click "notify-send 'StandardOS' 'Set pomodoro target (coming soon)'"))))
 
 ;; analytics-tile — small card with a tiny label, a big-number value,
 ;; and an optional sub-text. The building block for the User-section
@@ -693,55 +743,22 @@
     (label :class "field-lk" :text name :halign "start")
     (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
 
-;; Section: User. USER-MEGA banner across the top; 4-row analytics
-;; grid below; a wider content row at the bottom (calendar / agenda /
-;; notif history) to fill vertical space.
-;;   row 1: usage time      -- SESSION  UPTIME  EVENTS  NOTIFS   POMS
-;;   row 2: system health   -- BATTERY  MEMORY  CPU     DISK /   DISK ~
-;;   row 3: activity        -- WS       WINDOWS ACTIVE  NET DN   NET UP
-;;   row 4: history charts  -- CPU spk  MEM spk BAT spk NET DN s NET UP s
-;;   row 5: content widgets -- calendar . agenda . notifications
+;; Section: User. User-focused only -- identity, behavior, preferences.
+;; System metrics (CPU/RAM/DISK/BATT/NET) live in a future Resources
+;; section, not here.
+;;   row 1: USER-MEGA (centered top)
+;;   row 2: 3 cards -- TOP APPS . TODAY KPIs . NOTIFICATIONS (by sender)
+;;   row 3: PREFERENCES (full-width clickable settings list)
 (defwidget section-user []
-  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 12
+  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 14
        :halign "fill" :valign "fill" :hexpand true :vexpand true
     (user-mega-frame)
-    (box :class "analytics-grid" :orientation "vertical" :space-evenly false :spacing 8
-         :halign "fill" :hexpand true :vexpand false
-      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (analytics-tile :label "SESSION"   :value usage-session                          :sub "since login")
-        (analytics-tile :label "UPTIME"    :value usage-uptime                           :sub "since boot")
-        (analytics-tile :label "EVENTS"    :value agenda-today-count                     :sub "today")
-        (analytics-tile :label "NOTIFS"    :value notif-count                            :sub "history")
-        (analytics-tile :label "POMS"      :value {pom-done + "/" + pom-target}          :sub "today"))
-      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (ring-tile      :label "BATTERY" :ring-name "battery"   :pct ring-battery   :sub "remaining")
-        (ring-tile      :label "MEMORY"  :ring-name "mem"       :pct ring-mem       :sub ring-mem-used)
-        (analytics-tile :label "CPU"     :value {sp-cpu + "%"}  :sub {sp-cpu-temp + " C"})
-        (ring-tile      :label "DISK /"  :ring-name "disk-root" :pct ring-disk-root :sub "root")
-        (ring-tile      :label "DISK ~"  :ring-name "disk-home" :pct ring-disk-home :sub "home"))
-      (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (analytics-tile :label "WORKSPACE" :value ws-current                             :sub {usage-ws-count + " total"})
-        (analytics-tile :label "WINDOWS"   :value usage-win-count                        :sub "open")
-        (analytics-tile :label "ACTIVE"    :value usage-active-app                       :sub "focused")
-        (analytics-tile :label "NET DOWN"  :value sp-down                                :sub "")
-        (analytics-tile :label "NET UP"    :value sp-up                                  :sub ""))
-      (box :class "analytics-row sparkline-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (sparkline-tile :label "CPU TREND"      :value {sp-cpu + "%"}        :sub "5 min" :metric "cpu")
-        (sparkline-tile :label "MEMORY TREND"   :value {ring-mem + "%"}      :sub "5 min" :metric "mem")
-        (sparkline-tile :label "BATTERY TREND"  :value {ring-battery + "%"}  :sub "5 min" :metric "battery")
-        (sparkline-tile :label "DOWN TREND"     :value sp-down               :sub "5 min" :metric "net-down")
-        (sparkline-tile :label "UP TREND"       :value sp-up                 :sub "5 min" :metric "net-up"))
-      (box :class "analytics-row pie-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-        (pie-tile :label "MEMORY MIX"  :metric "memory"     :value {ring-mem + "%"}              :sub "used + cache")
-        (pie-tile :label "WS DIST"     :metric "ws-dist"    :value usage-win-count               :sub {usage-ws-count + " workspaces"})
-        (pie-tile :label "APPS"        :metric "app-dist"   :value usage-active-app              :sub "by class")
-        (pie-tile :label "POMODORO"    :metric "pomodoro"   :value {pom-done + "/" + pom-target} :sub "today")
-        (pie-tile :label "NOTIFS"      :metric "notif-dist" :value notif-count                   :sub "by sender")))
-    (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
-         :hexpand true :vexpand true
-      (bar-fill-list-card :title "TOP APPS"   :data top-apps)
-      (bar-fill-list-card :title "TOP WS"     :data top-ws)
-      (bar-fill-list-card :title "TOP NOTIFS" :data top-notifs))))
+    (box :class "user-analytics-row" :orientation "horizontal" :space-evenly false :spacing 10
+         :hexpand true :vexpand false
+      (bar-fill-list-card :title "MOST USED APPS"   :data top-apps)
+      (your-day-card)
+      (bar-fill-list-card :title "TOP NOTIFICATIONS" :data top-notifs))
+    (preferences-card)))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
