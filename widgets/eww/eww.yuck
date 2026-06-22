@@ -115,6 +115,23 @@
 (defpoll pref-notifications :interval "2s" :initial "Allowed"
   `/etc/nixos/home/widgets/scripts/pref.sh get notifications Allowed`)
 
+;; Power-section data -- power source + battery state from
+;; /sys/class/power_supply/.
+(defpoll power-state     :interval "5s" :initial "Unknown"
+  `/etc/nixos/home/widgets/scripts/canvas-power.sh state`)
+(defpoll power-bat-state :interval "5s" :initial "Unknown"
+  `/etc/nixos/home/widgets/scripts/canvas-power.sh bat-state`)
+
+;; Power preferences (cyclable; don't yet drive system behaviour --
+;; the click->cycle->display loop is wired, plumbing into TLP /
+;; powerprofilesctl / logind etc. lands per-pref later).
+(defpoll pref-power-profile  :interval "2s" :initial "Balanced"
+  `/etc/nixos/home/widgets/scripts/pref.sh get power_profile Balanced`)
+(defpoll pref-lid-behavior   :interval "2s" :initial "Suspend"
+  `/etc/nixos/home/widgets/scripts/pref.sh get lid_behavior Suspend`)
+(defpoll pref-display-sleep  :interval "2s" :initial "5 min"
+  `/etc/nixos/home/widgets/scripts/pref.sh get display_sleep "5 min"`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -784,6 +801,27 @@
       (bar-fill-list-card :title "TOP NOTIFICATIONS" :data top-notifs))
     (preferences-card)))
 
+;; Section: Power. Battery + power source KPIs, battery-trend chart,
+;; cyclable preferences. Reuses analytics-tile, chart-card, pref-row,
+;; preferences-card so the vocabulary travels from the User section.
+(defwidget section-power []
+  (box :class "section section-power" :orientation "vertical" :space-evenly false :spacing 14
+       :halign "fill" :valign "fill" :hexpand true :vexpand true
+    (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
+      (analytics-tile :label "BATTERY" :value {ring-battery + "%"}  :sub power-bat-state)
+      (analytics-tile :label "STATE"   :value power-state           :sub "power source")
+      (analytics-tile :label "PROFILE" :value pref-power-profile    :sub "current"))
+    (chart-card :title "BATTERY TREND" :metric "battery-trend")
+    (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
+      (label :class "field-lk" :text "POWER PREFERENCES" :halign "start")
+      (box :orientation "vertical" :space-evenly false :spacing 1
+        (pref-row :label "Power profile" :value pref-power-profile
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle power_profile Performance Balanced Power-saver")
+        (pref-row :label "Lid behavior"  :value pref-lid-behavior
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle lid_behavior Suspend Hibernate Lock Nothing")
+        (pref-row :label "Display sleep" :value pref-display-sleep
+                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle display_sleep '1 min' '5 min' '15 min' '30 min' 'Never'")))))
+
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
   (box :class "section section-placeholder" :orientation "vertical" :space-evenly false :spacing 6
@@ -823,7 +861,7 @@
         (box :visible {current-section == "network"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Network"))
         (box :visible {current-section == "bluetooth"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Bluetooth"))
         (box :visible {current-section == "sharing"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sharing"))
-        (box :visible {current-section == "power"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Power"))
+        (box :visible {current-section == "power"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-power))
         (box :visible {current-section == "time-lang"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Time & Language"))
         (box :visible {current-section == "system"}        :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "System"))))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false

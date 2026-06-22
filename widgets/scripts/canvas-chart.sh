@@ -78,7 +78,7 @@ EOF
 
 write_placeholder() {
     local metric
-    for metric in notifs-7d pomodoros-7d; do
+    for metric in notifs-7d pomodoros-7d battery-trend; do
         local f="$OUT/$metric.0.svg"
         [[ -f $f ]] && continue
         cat >"$f" <<EOF
@@ -129,6 +129,26 @@ tick)
         fi
     done
     render_bar_chart pomodoros-7d "$TICK" "rgba(217,179,255,0.85)" "${args[@]}"
+
+    # BATTERY TREND -- reuse the sparkline buffer (last 14 readings).
+    if [[ -r /tmp/canvas-spark-data/battery.dat ]]; then
+        mapfile -t bat_vals </tmp/canvas-spark-data/battery.dat
+        bn=${#bat_vals[@]}
+        if ((bn > 0)); then
+            bstart=$((bn > 14 ? bn - 14 : 0))
+            bat_args=()
+            for ((i = bstart; i < bn; i++)); do
+                offset=$(((bn - 1) - i))
+                if ((offset == 0)); then
+                    blabel="now"
+                else
+                    blabel="-${offset}"
+                fi
+                bat_args+=("$blabel:${bat_vals[i]}")
+            done
+            render_bar_chart battery-trend "$TICK" "rgba(179,255,179,0.85)" "${bat_args[@]}"
+        fi
+    fi
 
     find "$OUT" -maxdepth 1 -name '*.svg' -mmin +5 -delete 2>/dev/null || true
     echo "$TICK"
