@@ -101,6 +101,12 @@
 (defpoll top-notifs :interval "10s" :initial '{"items":[],"max":1}'
   `/etc/nixos/home/widgets/scripts/canvas-tops.sh notifs`)
 
+;; Bar-chart SVG regenerator -- wide multi-day bar charts. Same tick
+;; pattern as rings / sparks / pies. 30s interval is fine; the
+;; underlying data (notif-history.json daily counts) changes slowly.
+(defpoll chart-tick :interval "30s" :initial "0"
+  `/etc/nixos/home/widgets/scripts/canvas-chart.sh tick`)
+
 ;; Ring stats — read from system-daemon's sys-* caches.
 ;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
 ;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
@@ -727,6 +733,15 @@
         (label :class "bar-row-name"  :text name  :halign "start" :hexpand true)
         (label :class "bar-row-value" :text value :halign "end")))))
 
+;; chart-card -- wide title-over-image card for SVG bar charts from
+;; canvas-chart.sh. metric arg names the file in /tmp/canvas-charts/.
+(defwidget chart-card [title metric]
+  (box :class "field-card chart-card" :orientation "vertical" :space-evenly false :hexpand true :spacing 4
+    (label :class "field-lk" :text title :halign "start")
+    (image :class "chart-img" :hexpand true :halign "fill" :valign "center"
+           :path {"/tmp/canvas-charts/" + metric + "." + chart-tick + ".svg"}
+           :image-width 1500 :image-height 120)))
+
 ;; bar-fill-list-card — vertical list of bar-rows for top-N readings.
 ;; `data` is the {items, max} JSON from canvas-tops.sh.
 (defwidget bar-fill-list-card [title data]
@@ -753,9 +768,10 @@
   (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 14
        :halign "fill" :valign "fill" :hexpand true :vexpand true
     (user-mega-frame)
+    (chart-card :title "NOTIFICATIONS . PAST 7 DAYS" :metric "notifs-7d")
     (box :class "user-analytics-row" :orientation "horizontal" :space-evenly false :spacing 10
          :hexpand true :vexpand false
-      (bar-fill-list-card :title "MOST USED APPS"   :data top-apps)
+      (bar-fill-list-card :title "MOST USED APPS"    :data top-apps)
       (your-day-card)
       (bar-fill-list-card :title "TOP NOTIFICATIONS" :data top-notifs))
     (preferences-card)))

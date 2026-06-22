@@ -647,6 +647,15 @@ window.dashboard {
   min-height: 0;
 }
 
+/* -- chart-card (wide title + SVG bar chart) --------------------- */
+.chart-card {
+  padding: 12px 16px;
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.chart-img { min-height: 120px; }
+
 /* -- bar-fill list card + bar-row -------------------------------- */
 .bar-fill-card {
   padding: 10px 14px;
