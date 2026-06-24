@@ -675,7 +675,7 @@
       (label :class "section-pill-label" :text label))))
 
 (defwidget section-nav []
-  (box :class "section-nav" :orientation "horizontal" :space-evenly false :spacing 4 :halign "center"
+  (box :class "section-nav" :orientation "horizontal" :space-evenly false :spacing 2 :halign "center"
     (section-pill :id "max"      :label "Max")
     (section-pill :id "network"  :label "Network and Internet")
     (section-pill :id "devices"  :label "Connected devices")
@@ -734,11 +734,15 @@
 
 ;; pref-row — one clickable row in a preferences card. Label (left),
 ;; current value (right), chevron (far right). Whole row is hot-zone.
+;; The value label is truncated so long strings (Groups, Home directory,
+;; Last login) cannot stretch the parent card past its min-width — which
+;; would otherwise inflate the row width and push the whole eww layer
+;; wider than the monitor, the root cause of the 2026-06-24 displacement.
 (defwidget pref-row [label value on-click]
   (eventbox :class "pref-row-click" :onclick on-click
     (box :class "pref-row" :orientation "horizontal" :space-evenly false :hexpand true :spacing 8
-      (label :class "pref-label" :text label :halign "start" :hexpand true)
-      (label :class "pref-value" :text value :halign "end")
+      (label :class "pref-label" :text label :halign "start" :hexpand false)
+      (label :class "pref-value" :text value :halign "end" :hexpand true :limit-width 32 :truncate true)
       (label :class "pref-chev"  :text ">"   :halign "end"))))
 
 ;; preferences-card — full-width card of clickable pref-rows.

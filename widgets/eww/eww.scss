@@ -27,7 +27,7 @@ window.dashboard {
 }
 
 .canvas-root {
-  padding: 24px 28px;
+  padding: 8px 12px;
 }
 
 /* Canvas close affordance -- top-right x button. */
@@ -452,13 +452,13 @@ window.dashboard {
 .section-pill {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  padding: 3px 9px;
+  padding: 2px 6px;
   color: rgba(255, 255, 255, 1.0);
   transition: background-color 140ms ease;
 }
 .section-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
 .section-pill-active { background-color: rgba(110, 150, 255, 0.85); }
-.section-pill-label  { font-size: 7.5pt; letter-spacing: 0.3px; }
+.section-pill-label  { font-size: 7pt; letter-spacing: 0.2px; }
 
 /* -- Section body (router viewport) -------------------------------- */
 .section-body { padding-top: 2px; }
