@@ -230,9 +230,10 @@
   `if [ -r "$HOME/.config/standardos/avatar.png" ]; then echo "$HOME/.config/standardos/avatar.png"; else echo /etc/nixos/home/widgets/svg/_blank.svg; fi`)
 
 ;; Active section — drives the canvas section-router. Click any
-;; section-pill in section-nav to switch. Default "user" so the canvas
-;; lands on the personal-dashboard page.
-(defvar current-section "user")
+;; section-pill in section-nav to switch. Default "max" so the canvas
+;; lands on the personal-dashboard page. Section ids follow the v31
+;; mockup vocabulary; see waybar/docs/mockups/README.md.
+(defvar current-section "max")
 
 ;; Usage analytics — drive the User-section analytics tiles. All five
 ;; metrics come from one dispatcher script that returns a short
@@ -248,6 +249,67 @@
   `/etc/nixos/home/widgets/scripts/canvas-analytics.sh win-count`)
 (defpoll usage-ws-count    :interval "5s"  :initial "0"
   `/etc/nixos/home/widgets/scripts/canvas-analytics.sh ws-count`)
+
+;; ── v31 Max section data sources ──
+;;
+;; Calendar grid: {"rows":[[...7 cells...] × 6]}, Monday-first. Each cell
+;; is {d, k} where k is "today" / "muted" / "" / (future) "has" when the
+;; day carries an agenda event. canvas-cal.sh recomputes once per minute
+;; — only the today marker moves at midnight, every other cell is static
+;; for the month.
+(defpoll cal-grid :interval "60s" :initial '{"rows":[]}'
+  `/etc/nixos/home/widgets/scripts/canvas-cal.sh 2>/dev/null || echo '{"rows":[]}'`)
+
+;; Calendar header — month + year line above the grid.
+(defpoll cal-header :interval "60s" :initial "—"
+  `date +'%b %Y' | tr '[:upper:]' '[:lower:]'`)
+
+;; User-shell + groups — pulled from getent so they reflect actual
+;; account state. Refresh hourly; these never change in a session.
+(defpoll user-shell :interval "1h" :initial "bash"
+  `getent passwd "$(whoami)" 2>/dev/null | cut -d: -f7 | xargs -r basename || echo bash`)
+(defpoll user-groups :interval "1h" :initial "—"
+  `id -nG "$(whoami)" 2>/dev/null | tr ' ' '\n' | paste -sd' · ' - || echo —`)
+(defpoll user-home :interval "1h" :initial "/"
+  `getent passwd "$(whoami)" 2>/dev/null | cut -d: -f6 || echo /`)
+(defpoll user-last-login :interval "5m" :initial "—"
+  `last -n 1 "$(whoami)" 2>/dev/null | head -1 | awk '{print $4, $5, $6, $7}' | sed 's/^ *//' || echo —`)
+(defpoll user-uptime-short :interval "30s" :initial "—"
+  `awk '{ s=$1; h=int(s/3600); m=int((s%3600)/60); printf "%dh %dm\n", h, m }' /proc/uptime`)
+
+;; v31 charts mock data — these slots stay populated until usage-tracker.sh
+;; ships in a later wave. {items:[{name,marker,hrs,pct}], total} shape is
+;; what the charts-card widgets render.
+(defvar most-used-apps-mock '{"items":[
+  {"name":"kitty","marker":"󰄛","hrs":"2h 22m","pct":"41%","width":100,"standout":true},
+  {"name":"firefox","marker":"󰈹","hrs":"1h 32m","pct":"27%","width":65,"standout":false},
+  {"name":"code","marker":"󰨞","hrs":"1h 00m","pct":"17%","width":42,"standout":false},
+  {"name":"chromium","marker":"󰊯","hrs":"28m","pct":"8%","width":20,"standout":false},
+  {"name":"nautilus","marker":"","hrs":"18m","pct":"5%","width":13,"standout":false}
+],"total":"5h 47m"}')
+
+(defvar weekly-usage-mock '{"items":[
+  {"name":"Today","marker":"◆","hrs":"8h 12m","pct":"15%","width":80,"standout":true},
+  {"name":"Mon","marker":"·","hrs":"7h 50m","pct":"14%","width":76,"standout":false},
+  {"name":"Wed","marker":"·","hrs":"9h 00m","pct":"16%","width":88,"standout":false},
+  {"name":"Thu","marker":"·","hrs":"10h 12m","pct":"18%","width":100,"standout":false},
+  {"name":"Fri","marker":"·","hrs":"7h 12m","pct":"13%","width":71,"standout":false},
+  {"name":"Sat","marker":"·","hrs":"4h 50m","pct":"9%","width":47,"standout":false},
+  {"name":"Sun","marker":"·","hrs":"8h 48m","pct":"15%","width":86,"standout":false}
+],"total":"56h 04m"}')
+
+(defvar lifetime-usage-mock '{"total":"1,420h","sub":"Since 2024-08-12 · avg 64h / month"}')
+
+;; v31 TODO mock data — wired to a real list once a todo-daemon exists.
+(defvar todo-mock '{"items":[
+  {"text":"Wire pref clicks","done":false},
+  {"text":"Build Resources section","done":false},
+  {"text":"Build usage-tracker.sh","done":false},
+  {"text":"Per-app notif config UI","done":false},
+  {"text":"Light-mode SCSS pass","done":false},
+  {"text":"Ship User charts v12","done":true},
+  {"text":"Charts in canvas mock","done":true}
+]}')
 
 ;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
 (defpoll sp-cpu      :interval "2s"  :initial "—"
@@ -614,41 +676,41 @@
 
 (defwidget section-nav []
   (box :class "section-nav" :orientation "horizontal" :space-evenly false :spacing 4 :halign "center"
-    (section-pill :id "user"          :label "User")
-    (section-pill :id "accounts"      :label "Accounts")
-    (section-pill :id "appearance"    :label "Appearance")
-    (section-pill :id "accessibility" :label "Accessibility")
-    (section-pill :id "hardware"      :label "Hardware")
-    (section-pill :id "displays"      :label "Displays")
-    (section-pill :id "sound"         :label "Sound")
-    (section-pill :id "notifs"        :label "Notifs")
-    (section-pill :id "apps"          :label "Apps")
-    (section-pill :id "privacy"       :label "Privacy")
-    (section-pill :id "storage"       :label "Storage")
-    (section-pill :id "network"       :label "Network")
-    (section-pill :id "bluetooth"     :label "BT")
-    (section-pill :id "sharing"       :label "Sharing")
-    (section-pill :id "power"         :label "Power")
-    (section-pill :id "time-lang"     :label "Time")
-    (section-pill :id "system"        :label "System")))
+    (section-pill :id "max"      :label "Max")
+    (section-pill :id "network"  :label "Network and Internet")
+    (section-pill :id "devices"  :label "Connected devices")
+    (section-pill :id "programs" :label "Programs")
+    (section-pill :id "notifs"   :label "Notifications")
+    (section-pill :id "sound"    :label "Sound")
+    (section-pill :id "modes"    :label "Modes")
+    (section-pill :id "display"  :label "Display")
+    (section-pill :id "style"    :label "Style and wallpaper")
+    (section-pill :id "storage"  :label "Storage")
+    (section-pill :id "battery"  :label "Battery")
+    (section-pill :id "system"   :label "System")
+    (section-pill :id "about"    :label "About this computer")
+    (section-pill :id "security" :label "Security and privacy")
+    (section-pill :id "location" :label "Location")))
 
-;; USER-MEGA — centered vertical identity card at the top of the User
-;; section. Avatar (100px) + name + handle, stacked. Sized to content,
-;; centered horizontally. Wrapped in eventbox so the whole card is one
-;; click target -> opens the profile editor (placeholder).
+;; USER-MEGA — v31 centered identity card. Avatar + display name +
+;; `@user · STDOS` handle + blue Sign out link. No click-to-edit on the
+;; card itself, no Lock / Switch-user buttons — those are workflow
+;; concerns that don't belong on the user-config surface (v31 freeze
+;; 2026-06-24).
 (defwidget user-mega-frame []
-  (eventbox :class "user-mega-click" :halign "center"
-            :onclick "notify-send 'StandardOS' 'Edit profile (coming soon)'"
-    (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
-         :halign "center" :valign "center"
-      (overlay
-        (box :class "um-avatar-fallback" :halign "center" :valign "center"
-          (label :class "um-avatar-glyph" :text "󰀄"))
-        (image :class "um-avatar"
-               :path user-avatar-path
-               :image-width 100 :image-height 100))
-      (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
-      (label :class "um-handle" :text {"@" + user-name + "  ::  " + user-hostname}      :halign "center"))))
+  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
+       :halign "center" :valign "center"
+    (overlay
+      (box :class "um-avatar-fallback" :halign "center" :valign "center"
+        (label :class "um-avatar-glyph" :text "󰀄"))
+      (image :class "um-avatar"
+             :path user-avatar-path
+             :image-width 100 :image-height 100))
+    (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
+    (label :class "um-handle" :text {"@" + user-name + " · STDOS"}                    :halign "center")
+    (eventbox :class "um-signout-click" :halign "center"
+              :onclick "notify-send 'StandardOS' 'Sign out (coming soon)'"
+      (label :class "um-signout" :text "Sign out"))))
 
 ;; your-day-card — vertical stack of personal KPIs for today. Centerpiece
 ;; of the 3-column analytics row (left: TOP APPS, center: this, right:
@@ -795,80 +857,240 @@
     (label :class "field-lk" :text name :halign "start")
     (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
 
-;; Section: User. User-focused only -- identity, behavior, preferences.
-;; System metrics (CPU/RAM/DISK/BATT/NET) live in a future Resources
-;; section, not here.
-;;   row 1: USER-MEGA (centered top)
-;;   row 2: 3 cards -- TOP APPS . TODAY KPIs . NOTIFICATIONS (by sender)
-;;   row 3: PREFERENCES (full-width clickable settings list)
-(defwidget section-user []
-  (box :class "section section-user" :orientation "vertical" :space-evenly false :spacing 14
-       :halign "fill" :valign "fill" :hexpand true :vexpand true
-    (user-mega-frame)
-    ;; 4 page-speed-style KPI cards: big number on the right of the
-    ;; title, area sparkline below.
-    (box :class "user-kpi-row" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
-      (sparkline-tile :label "NOTIFICATIONS" :value notif-count
-                      :sub "today" :metric "user-notifs-today")
-      (sparkline-tile :label "POMODOROS"     :value {pom-done + "/" + pom-target}
-                      :sub "today" :metric "user-poms-today")
-      (sparkline-tile :label "EVENTS"        :value agenda-today-count
-                      :sub "today" :metric "user-events-today")
-      (sparkline-tile :label "SESSION"       :value usage-session
-                      :sub "active" :metric "user-session-min"))
-    ;; Two bar-fill lists side by side.
-    (box :class "user-content-row" :orientation "horizontal" :space-evenly false :spacing 10
-         :hexpand true :vexpand true
-      (bar-fill-list-card :title "MOST USED APPS"    :data top-apps)
-      (bar-fill-list-card :title "TOP NOTIFICATIONS" :data top-notifs))
-    (preferences-card)))
+;; section-max, section-network, section-power: see the v31 port. The
+;; previous functional implementations of section-network and section-power
+;; were deleted on 2026-06-24 in favour of starting clean from the v31
+;; mockup. They reappear as full sections in later port waves; until then
+;; they show the generic placeholder. section-max (defined below) is the
+;; v31 rebuild of what was previously called section-user.
 
-;; Section: Power. Battery + power source KPIs, battery-trend chart,
-;; cyclable preferences. Reuses analytics-tile, chart-card, pref-row,
-;; preferences-card so the vocabulary travels from the User section.
-(defwidget section-power []
-  (box :class "section section-power" :orientation "vertical" :space-evenly false :spacing 14
-       :halign "fill" :valign "fill" :hexpand true :vexpand true
-    (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-      (analytics-tile :label "BATTERY" :value {ring-battery + "%"}  :sub power-bat-state)
-      (analytics-tile :label "STATE"   :value power-state           :sub "power source")
-      (analytics-tile :label "PROFILE" :value pref-power-profile    :sub "current"))
-    (chart-card :title "BATTERY TREND" :metric "battery-trend")
-    (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
-      (label :class "field-lk" :text "POWER PREFERENCES" :halign "start")
-      (box :orientation "vertical" :space-evenly false :spacing 1
-        (pref-row :label "Power profile" :value pref-power-profile
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle power_profile Performance Balanced Power-saver")
-        (pref-row :label "Lid behavior"  :value pref-lid-behavior
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle lid_behavior Suspend Hibernate Lock Nothing")
-        (pref-row :label "Display sleep" :value pref-display-sleep
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle display_sleep '1 min' '5 min' '15 min' '30 min' 'Never'")))))
+;; ── v31 Max section widgets ──
+;;
+;; Layout (mirrors waybar/docs/mockups/2026-06-24-user-section-v31.html):
+;;   USER LINE  : CONFIG | USER-MEGA | CALENDAR | EVENTS  (ratios 1.7 / 0.9 / 1.0 / 0.7)
+;;   CHARTS row : MOST USED APPS | LIFETIME USAGE | WEEKLY USAGE
+;;   BOTTOM row : POMODORO | TODO | NOTES | NOTIFICATION HISTORY
+;;
+;; GTK does not have CSS Grid; column ratios are approximated via min-width
+;; values on the .max-col-* classes (see eww.scss). Within a row, every
+;; child sets :hexpand true and GTK distributes leftover space.
 
-;; Section: Network. Wi-Fi + throughput KPIs, download-trend chart,
-;; cyclable network preferences. Reuses analytics-tile, chart-card,
-;; pref-row, preferences-card.
-(defwidget section-network []
-  (box :class "section section-network" :orientation "vertical" :space-evenly false :spacing 14
+;; CONFIG: PROFILE (4 rows) + ACCOUNT (6 rows) consolidated card.
+(defwidget max-config-card []
+  (box :class "max-card max-config" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand false
+    (label :class "max-sec-label" :text "PROFILE" :halign "start")
+    (pref-row :label "Display name" :value {user-fullname == "" ? user-name : user-fullname}
+              :on-click "notify-send 'StandardOS' 'Edit display name (coming soon)'")
+    (pref-row :label "Password"     :value "set"
+              :on-click "notify-send 'StandardOS' 'Change password (coming soon)'")
+    (pref-row :label "Fingerprint"  :value "not enrolled"
+              :on-click "notify-send 'StandardOS' 'Enroll fingerprint (coming soon)'")
+    (pref-row :label "Two-factor"   :value "off"
+              :on-click "notify-send 'StandardOS' 'Two-factor auth (coming soon)'")
+    (label :class "max-sec-label" :text "ACCOUNT" :halign "start")
+    (pref-row :label "Username"       :value user-name
+              :on-click "notify-send 'StandardOS' 'Username is set at install time'")
+    (pref-row :label "Default shell"  :value user-shell
+              :on-click "notify-send 'StandardOS' 'Change shell (coming soon)'")
+    (pref-row :label "Groups"         :value user-groups
+              :on-click "notify-send 'StandardOS' 'Edit groups (coming soon)'")
+    (pref-row :label "Home directory" :value user-home
+              :on-click "notify-send 'StandardOS' 'Home directory'")
+    (pref-row :label "Last login"     :value user-last-login
+              :on-click "notify-send 'StandardOS' 'Login history'")
+    (pref-row :label "Uptime"         :value user-uptime-short
+              :on-click "true")))
+
+;; Calendar day cell — one box in the 7x6 grid. Cell shape from canvas-cal.sh.
+(defwidget max-cal-day [d k]
+  (box :class {"max-cal-day max-cal-day-" + (k == "" ? "norm" : k)}
+       :halign "fill" :valign "fill"
+    (label :text d :halign "center" :valign "center")))
+
+(defwidget max-cal-row [cells]
+  (box :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
+    (for c in {cells}
+      (max-cal-day :d {c.d} :k {c.k}))))
+
+;; CALENDAR: month + year label, weekday header, 6-row grid.
+;; The 6 rows are sliced from cal-grid-cells via array index ranges so each
+;; row gets 7 cells. cal-grid-cells is the flat 42-element JSON array.
+(defwidget max-cal-card []
+  (box :class "max-card max-cal" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand false
+    (label :class "max-sec-label" :text {"CALENDAR · " + cal-header} :halign "start")
+    (box :class "max-cal-head" :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
+      (label :text "M") (label :text "T") (label :text "W") (label :text "T")
+      (label :text "F") (label :text "S") (label :text "S"))
+    (for row in {cal-grid.rows}
+      (max-cal-row :cells {row}))))
+
+;; EVENTS card: Today list + Tomorrow list. Uses real agenda-events poll
+;; when available; today-only filter for first list, tomorrow filter for
+;; the second. For now both lists pull from agenda-events with a TODOMORROW
+;; split via minutes_until > 1440 (24 h).
+(defwidget max-event-row [summary start-text]
+  (box :class "max-event" :orientation "horizontal" :space-evenly false :hexpand true
+    (label :class "max-event-name" :text summary    :halign "start" :hexpand true)
+    (label :class "max-event-when" :text start-text :halign "end")))
+
+(defwidget max-events-card []
+  (box :class "max-card max-events" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand false
+    (label :class "max-sec-label" :text "EVENTS · TODAY" :halign "start")
+    (box :class "max-events-list" :orientation "vertical" :space-evenly false :spacing 2
+      (for e in {agenda-events}
+        (box :visible {e.minutes_until < 1440} :orientation "horizontal" :hexpand true
+          (max-event-row :summary {e.summary} :start-text {e.start_text}))))
+    (label :class "max-sec-label" :text "TOMORROW" :halign "start")
+    (box :class "max-events-list" :orientation "vertical" :space-evenly false :spacing 2
+      (for e in {agenda-events}
+        (box :visible {e.minutes_until >= 1440 && e.minutes_until < 2880}
+             :orientation "horizontal" :hexpand true
+          (max-event-row :summary {e.summary} :start-text {e.start_text}))))))
+
+;; CHARTS row: bar-list with standout (violet) on row 1 of each chart.
+;; Mock data lives in most-used-apps-mock + weekly-usage-mock (defvars
+;; above); flip to a real JSON poll once usage-tracker.sh ships.
+(defwidget max-bar-row [marker name hrs pct width standout]
+  (box :class {standout == "true" ? "max-bar standout" : "max-bar"}
+       :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true
+    (label :class "max-bar-marker" :text marker)
+    (label :class "max-bar-name"   :text name   :halign "start")
+    (overlay
+      (box :class "max-bar-track" :hexpand true
+        (box :class "max-bar-fill" :hexpand false
+             :style "min-width: ${width}%;")
+        (box :hexpand true))
+      (box :hexpand true))
+    (label :class "max-bar-hrs"    :text hrs)
+    (label :class "max-bar-pct"    :text pct)))
+
+(defwidget max-chart-most-used []
+  (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (box :orientation "horizontal" :space-evenly false :hexpand true
+      (label :class "max-chart-label" :text "MOST USED APPS" :halign "start" :hexpand true)
+      (label :class "max-chart-value" :text {most-used-apps-mock.total} :halign "end"))
+    (label :class "max-chart-sub"   :text "focus time · top one bolder" :halign "start")
+    (box :class "max-chart-list" :orientation "vertical" :space-evenly false :spacing 2
+      (for it in {most-used-apps-mock.items}
+        (max-bar-row :marker {it.marker} :name {it.name} :hrs {it.hrs}
+                     :pct {it.pct} :width {it.width}
+                     :standout {it.standout ? "true" : "false"})))))
+
+(defwidget max-chart-lifetime []
+  (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (box :orientation "horizontal" :space-evenly false :hexpand true
+      (label :class "max-chart-label" :text "LIFETIME USAGE" :halign "start" :hexpand true)
+      (label :class "max-chart-value" :text {lifetime-usage-mock.total} :halign "end"))
+    (label :class "max-chart-sub" :text {lifetime-usage-mock.sub} :halign "start")
+    ;; GTK gap: the v31 mockup shows an area chart here. Eww/GTK CSS does
+    ;; not paint cubic-bezier line art the same way the browser does; a
+    ;; faithful port would render the curve as an SVG via canvas-chart.sh.
+    ;; Until that ships, show a textual placeholder so the card is not blank.
+    (box :class "max-chart-placeholder" :valign "center" :halign "center" :vexpand true
+      (label :class "max-chart-empty" :text "area chart wires to usage-tracker.sh"))))
+
+(defwidget max-chart-weekly []
+  (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (box :orientation "horizontal" :space-evenly false :hexpand true
+      (label :class "max-chart-label" :text "WEEKLY USAGE" :halign "start" :hexpand true)
+      (label :class "max-chart-value" :text {weekly-usage-mock.total} :halign "end"))
+    (label :class "max-chart-sub"   :text "Mon — Sun · today bolder" :halign "start")
+    (box :class "max-chart-list" :orientation "vertical" :space-evenly false :spacing 2
+      (for it in {weekly-usage-mock.items}
+        (max-bar-row :marker {it.marker} :name {it.name} :hrs {it.hrs}
+                     :pct {it.pct} :width {it.width}
+                     :standout {it.standout ? "true" : "false"})))))
+
+;; POMODORO: focus state badge + transport + dots + settings.
+(defwidget max-pomo-dot [n]
+  (label :class {n * 1 <= pom-done * 1 ? "max-pomo-dot done" : "max-pomo-dot"} :text " "))
+
+(defwidget max-pomodoro-card []
+  (box :class "max-card max-pomo" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (label :class "max-chart-label" :text "POMODORO" :halign "start")
+    (box :class "max-pomo-badge-row" :halign "start" :hexpand true
+      (label :class {"max-pomo-badge max-pomo-badge-" + pom-state}
+             :text {"FOCUS · " + pom-text + " left"}))
+    (box :class "max-pomo-ctrls" :orientation "horizontal" :space-evenly true :halign "fill"
+      (button :class "max-pomo-btn primary" :onclick "/etc/nixos/home/scripts/pomodoroctl start" "PAUSE")
+      (button :class "max-pomo-btn"         :onclick "/etc/nixos/home/scripts/pomodoroctl skip"  "SKIP")
+      (button :class "max-pomo-btn"         :onclick "/etc/nixos/home/scripts/pomodoroctl stop"  "STOP"))
+    (box :class "max-pomo-dots" :orientation "horizontal" :space-evenly false :spacing 4 :halign "start"
+      (label :class "max-pomo-blocks-text" :text {pom-done + " / " + pom-target + " blocks"} :halign "start")
+      (max-pomo-dot :n "1") (max-pomo-dot :n "2") (max-pomo-dot :n "3") (max-pomo-dot :n "4")
+      (max-pomo-dot :n "5") (max-pomo-dot :n "6") (max-pomo-dot :n "7") (max-pomo-dot :n "8"))
+    (pref-row :label "Target"      :value pom-target
+              :on-click "notify-send 'StandardOS' 'Pomodoro target (coming soon)'")
+    (pref-row :label "Work"        :value "25 min"
+              :on-click "notify-send 'StandardOS' 'Pomodoro work length (coming soon)'")
+    (pref-row :label "Short break" :value "5 min"
+              :on-click "notify-send 'StandardOS' 'Pomodoro short break (coming soon)'")
+    (pref-row :label "Long break"  :value "15 min"
+              :on-click "notify-send 'StandardOS' 'Pomodoro long break (coming soon)'")))
+
+;; TODO card: checklist rendered from todo-mock. Done items get the
+;; line-through treatment; checkboxes are pure visual marks (no toggle yet).
+(defwidget max-todo-row [text done]
+  (box :class {done == "true" ? "max-todo-row done" : "max-todo-row"}
+       :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true
+    (label :class {done == "true" ? "max-todo-chk checked" : "max-todo-chk"} :text " ")
+    (label :class "max-todo-text" :text text :halign "start" :hexpand true :wrap true :limit-width 28)))
+
+(defwidget max-todo-card []
+  (box :class "max-card max-todo" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (label :class "max-sec-label" :text "TODO" :halign "start")
+    (box :class "max-todo-list" :orientation "vertical" :space-evenly false :spacing 2
+      (for it in {todo-mock.items}
+        (max-todo-row :text {it.text} :done {it.done ? "true" : "false"})))))
+
+;; NOTES card: existing notes-preview poll, formatted v31-style.
+(defwidget max-notes-card []
+  (box :class "max-card max-notes" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (label :class "max-sec-label" :text "NOTES · RECENT" :halign "start")
+    (label :class "max-notes-body" :text notes-preview :wrap true :limit-width 28
+           :halign "start" :valign "start" :vexpand true)))
+
+;; NOTIF HISTORY card: reuses the existing field-notif-row visual.
+(defwidget max-notif-card []
+  (box :class "max-card max-notif" :orientation "vertical" :space-evenly false :spacing 4
+       :hexpand true :vexpand true
+    (label :class "max-sec-label" :text {"NOTIFICATIONS · " + notif-count} :halign "start")
+    (box :class "max-notif-list" :orientation "vertical" :space-evenly false :spacing 2 :vexpand true
+      (for entry in {notif-entries}
+        (box :class "max-notif-row" :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true
+          (label :class "max-notif-app"   :text {entry.app}     :halign "start")
+          (label :class "max-notif-title" :text {entry.summary} :halign "start" :hexpand true :wrap true :limit-width 24))))))
+
+;; The full Max section composes the three rows.
+(defwidget section-max []
+  (box :class "section section-max" :orientation "vertical" :space-evenly false :spacing 8
        :halign "fill" :valign "fill" :hexpand true :vexpand true
-    (box :class "analytics-row" :orientation "horizontal" :space-evenly false :spacing 8 :hexpand true
-      (analytics-tile :label "SSID" :value sp-ssid :sub "current")
-      (analytics-tile :label "IP"   :value sp-ip   :sub sp-dns)
-      (analytics-tile :label "DOWN" :value sp-down :sub "throughput")
-      (analytics-tile :label "UP"   :value sp-up   :sub "throughput"))
-    (chart-card :title "DOWNLOAD TREND" :metric "net-down-trend")
-    (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
-      (label :class "field-lk" :text "NETWORK PREFERENCES" :halign "start")
-      (box :orientation "vertical" :space-evenly false :spacing 1
-        (pref-row :label "Wi-Fi"        :value pref-wifi
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle wifi On Off")
-        (pref-row :label "VPN"          :value sp-vpn
-                  :on-click "notify-send 'StandardOS' 'VPN management (coming soon)'")
-        (pref-row :label "Firewall"     :value pref-firewall
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle firewall On Off")
-        (pref-row :label "MAC random"   :value pref-mac-random
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle mac_random Off Per-network Always")
-        (pref-row :label "DNS over TLS" :value pref-dns-tls
-                  :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle dns_tls Off On Auto")))))
+    ;; USER LINE
+    (box :class "max-user-row" :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true
+      (box :class "max-col max-col-config" :orientation "vertical" :hexpand true (max-config-card))
+      (box :class "max-col max-col-mega"   :orientation "vertical" :hexpand true (user-mega-frame))
+      (box :class "max-col max-col-cal"    :orientation "vertical" :hexpand true (max-cal-card))
+      (box :class "max-col max-col-events" :orientation "vertical" :hexpand true (max-events-card)))
+    ;; CHARTS row
+    (box :class "max-charts-row" :orientation "horizontal" :space-evenly true :spacing 6 :hexpand true :vexpand true
+      (max-chart-most-used)
+      (max-chart-lifetime)
+      (max-chart-weekly))
+    ;; BOTTOM row
+    (box :class "max-bottom-row" :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true :vexpand true
+      (box :class "max-col max-col-pomo"  :orientation "vertical" :hexpand true (max-pomodoro-card))
+      (box :class "max-col max-col-todo"  :orientation "vertical" :hexpand true (max-todo-card))
+      (box :class "max-col max-col-notes" :orientation "vertical" :hexpand true (max-notes-card))
+      (box :class "max-col max-col-notif" :orientation "vertical" :hexpand true (max-notif-card)))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
@@ -895,23 +1117,21 @@
       (section-nav)
       (box :class "section-body" :orientation "vertical" :space-evenly false
            :hexpand true :vexpand true :halign "fill" :valign "fill"
-        (box :visible {current-section == "user"}          :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-user))
-        (box :visible {current-section == "accounts"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Accounts"))
-        (box :visible {current-section == "appearance"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Appearance"))
-        (box :visible {current-section == "accessibility"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Accessibility"))
-        (box :visible {current-section == "hardware"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Hardware"))
-        (box :visible {current-section == "displays"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Displays"))
-        (box :visible {current-section == "sound"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sound"))
-        (box :visible {current-section == "notifs"}        :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Notifications"))
-        (box :visible {current-section == "apps"}          :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Apps"))
-        (box :visible {current-section == "privacy"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Privacy"))
-        (box :visible {current-section == "storage"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Storage"))
-        (box :visible {current-section == "network"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-network))
-        (box :visible {current-section == "bluetooth"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Bluetooth"))
-        (box :visible {current-section == "sharing"}       :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sharing"))
-        (box :visible {current-section == "power"}         :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-power))
-        (box :visible {current-section == "time-lang"}     :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Time & Language"))
-        (box :visible {current-section == "system"}        :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "System"))))
+        (box :visible {current-section == "max"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-max))
+        (box :visible {current-section == "network"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Network and Internet"))
+        (box :visible {current-section == "devices"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Connected devices"))
+        (box :visible {current-section == "programs"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Programs"))
+        (box :visible {current-section == "notifs"}   :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Notifications"))
+        (box :visible {current-section == "sound"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sound"))
+        (box :visible {current-section == "modes"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Modes"))
+        (box :visible {current-section == "display"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Display"))
+        (box :visible {current-section == "style"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Style and wallpaper"))
+        (box :visible {current-section == "storage"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Storage"))
+        (box :visible {current-section == "battery"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Battery"))
+        (box :visible {current-section == "system"}   :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "System"))
+        (box :visible {current-section == "about"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "About this computer"))
+        (box :visible {current-section == "security"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Security and privacy"))
+        (box :visible {current-section == "location"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Location"))))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"

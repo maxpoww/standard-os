@@ -720,3 +720,187 @@ window.dashboard {
   color: rgba(255, 255, 255, 0.30);
   letter-spacing: 1px;
 }
+
+/* =================================================================== */
+/* v31 MAX SECTION                                                     */
+/* =================================================================== */
+/*
+ * Port of waybar/docs/mockups/2026-06-24-user-section-v31.html.
+ * GTK gaps documented as we go:
+ *   - no backdrop-filter blur (GTK 3 lacks it) -- surfaces use a stronger
+ *     rgba alpha instead and rely on the dashboard veil for separation.
+ *   - no gradient text on KPI values -- flat white at the same weight.
+ *   - no avatar radial glow -- solid gradient circle (already in
+ *     .um-avatar-fallback).
+ *   - no scroll-snap on the calendar -- single current month for now;
+ *     3-month scrollable lands when the cal-source-daemon ships per-day
+ *     event counts.
+ *   - no SVG area curve on LIFETIME chart -- placeholder text until the
+ *     canvas-chart.sh generator is taught to draw the curve.
+ */
+
+/* Column widths approximate the mockup's 1.7 / 0.9 / 1.0 / 0.7 ratios. */
+.max-col-config  { min-width: 380px; }
+.max-col-mega    { min-width: 200px; }
+.max-col-cal     { min-width: 220px; }
+.max-col-events  { min-width: 150px; }
+.max-col-pomo    { min-width: 200px; }
+.max-col-todo,
+.max-col-notes,
+.max-col-notif   { min-width: 240px; }
+
+.max-card {
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.max-user-row,
+.max-charts-row,
+.max-bottom-row { min-height: 0; }
+
+.max-sec-label {
+  font-size: 7pt;
+  letter-spacing: 2px;
+  color: rgba(110, 150, 255, 0.85);
+  padding: 4px 0 2px 0;
+}
+
+/* The USER-MEGA Sign-out link -- blue palette, no underline. */
+.um-signout {
+  font-size: 8pt;
+  letter-spacing: 0.8px;
+  color: rgba(110, 150, 255, 0.85);
+  padding: 6px 4px 0 4px;
+}
+.um-signout-click:hover .um-signout { color: rgba(110, 150, 255, 1.0); }
+.user-mega { min-height: 0; padding: 14px 22px; }
+
+/* Calendar grid -- Mon-Sun header + 6 weeks of 7 day cells. */
+.max-cal-head label {
+  font-size: 7pt;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.30);
+}
+
+.max-cal-day {
+  min-height: 22px;
+  border-radius: 4px;
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 8pt;
+}
+.max-cal-day-norm  { color: rgba(255, 255, 255, 0.55); }
+.max-cal-day-muted { color: rgba(255, 255, 255, 0.18); }
+.max-cal-day-has   { background-color: rgba(110, 150, 255, 0.18); color: rgba(255, 255, 255, 0.95); }
+.max-cal-day-today {
+  background-color: rgba(217, 179, 255, 0.95);
+  color: rgba(255, 255, 255, 1.0);
+  font-weight: 500;
+}
+
+/* Events list. */
+.max-event       { padding: 3px 4px; border-radius: 6px; }
+.max-event-name  { font-size: 9pt; color: rgba(255, 255, 255, 0.95); }
+.max-event-when  { font-size: 8pt; color: rgba(255, 255, 255, 0.50); font-family: "MesloLGS NF", monospace; }
+
+/* Bar charts -- MOST USED APPS + WEEKLY USAGE share .max-bar layout. */
+.max-chart-label { font-size: 8pt; letter-spacing: 2px; color: rgba(255, 255, 255, 0.50); }
+.max-chart-value {
+  font-size: 13pt;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 1.0);
+  letter-spacing: -0.5px;
+}
+.max-chart-sub   { font-size: 7pt; color: rgba(255, 255, 255, 0.30); letter-spacing: 1px; }
+.max-chart-list  { padding-top: 4px; }
+.max-chart-placeholder { padding: 14px; }
+.max-chart-empty { font-size: 8pt; color: rgba(255, 255, 255, 0.30); letter-spacing: 1px; }
+
+.max-bar          { min-height: 18px; padding: 0 2px; }
+.max-bar-marker   { font-size: 9pt; color: rgba(255, 255, 255, 0.55); min-width: 14px; }
+.max-bar-name     { font-size: 9pt; color: rgba(255, 255, 255, 0.95); min-width: 56px; }
+.max-bar-hrs      { font-size: 8pt; color: rgba(255, 255, 255, 0.65); font-family: "MesloLGS NF", monospace; }
+.max-bar-pct      { font-size: 8pt; color: rgba(255, 255, 255, 0.45); min-width: 32px; font-family: "MesloLGS NF", monospace; }
+.max-bar-track    { min-height: 6px; background-color: rgba(255, 255, 255, 0.06); border-radius: 3px; }
+.max-bar-fill     { min-height: 6px; background-color: rgba(110, 150, 255, 0.65); border-radius: 3px; }
+
+/* Standout row -- top app, today's weekday -- gets the violet treatment so
+ * the eye lands on it first. Violet vs default blue mirrors the mockup. */
+.max-bar.standout .max-bar-fill { background-color: rgba(217, 179, 255, 0.85); }
+.max-bar.standout .max-bar-name { color: rgba(255, 255, 255, 1.0); font-weight: 500; }
+
+/* Pomodoro card. */
+.max-pomo-badge-row { padding: 4px 0; }
+.max-pomo-badge {
+  background-color: rgba(217, 179, 255, 0.85);
+  color: rgba(0, 0, 0, 0.85);
+  border-radius: 10px;
+  padding: 3px 10px;
+  font-size: 8pt;
+  letter-spacing: 0.5px;
+}
+.max-pomo-badge-idle { background-color: rgba(128, 128, 128, 0.55); color: rgba(255, 255, 255, 0.85); }
+
+.max-pomo-ctrls   { padding: 6px 0; }
+.max-pomo-btn {
+  background-color: rgba(128, 128, 128, 0.55);
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 8pt;
+  letter-spacing: 1px;
+}
+.max-pomo-btn.primary { background-color: rgba(110, 150, 255, 0.85); }
+.max-pomo-btn:hover   { background-color: rgba(255, 255, 255, 0.16); }
+
+.max-pomo-dots { padding: 4px 0; }
+.max-pomo-blocks-text { font-size: 8pt; color: rgba(255, 255, 255, 0.55); padding-right: 8px; }
+.max-pomo-dot {
+  min-width: 10px;
+  min-height: 10px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.28);
+  padding: 0;
+}
+.max-pomo-dot.done { background-color: rgba(217, 179, 255, 0.95); }
+
+/* TODO card. */
+.max-todo-list   { padding-top: 2px; }
+.max-todo-row    { padding: 2px 0; }
+.max-todo-chk {
+  min-width: 12px;
+  min-height: 12px;
+  background-color: transparent;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.30);
+}
+.max-todo-chk.checked {
+  background-color: rgba(179, 255, 179, 0.65);
+  box-shadow: inset 0 0 0 1px rgba(179, 255, 179, 0.85);
+}
+.max-todo-text {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.95);
+}
+.max-todo-row.done .max-todo-text {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* NOTES card. */
+.max-notes-body {
+  font-size: 9pt;
+  color: rgba(255, 255, 255, 0.65);
+  font-family: "MesloLGS NF", monospace;
+}
+
+/* NOTIF card. */
+.max-notif-list { padding-top: 2px; }
+.max-notif-row {
+  padding: 3px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.max-notif-row:last-child { border-bottom: none; }
+.max-notif-app   { color: rgba(255, 255, 255, 0.45); font-size: 7pt; letter-spacing: 1px; min-width: 60px; }
+.max-notif-title { color: rgba(255, 255, 255, 0.95); font-size: 9pt; }

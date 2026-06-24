@@ -81,6 +81,33 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-24** — **canvas: v31 user-section mockup ported to eww.** The
+  section-router was rebuilt from the 17-section legacy nav to the v31
+  vocabulary (15 sections: Max · Network and Internet · Connected devices ·
+  Programs · Notifications · Sound · Modes · Display · Style and wallpaper ·
+  Storage · Battery · System · About this computer · Security and privacy ·
+  Location); `current-section` default flipped from `user` to `max`. The
+  previous `section-user` (page-speed-style sparkline KPIs) was replaced by
+  the v31 `section-max` widget — a 3-row layout: USER LINE (CONFIG card with
+  PROFILE + ACCOUNT rows | USER-MEGA centered | CALENDAR month grid |
+  EVENTS list) · CHARTS row (MOST USED APPS | LIFETIME USAGE | WEEKLY USAGE,
+  with violet standout on row 1 of each bar list) · BOTTOM row (POMODORO
+  badge + transport + settings | TODO | NOTES | NOTIF HISTORY). Existing
+  `section-network` and `section-power` widgets deleted per the clean-slate
+  decision; they reappear as generic placeholders until rebuilt in v31
+  vocabulary. `user-mega-frame` adapted to v31 (blue Sign out link, no
+  Lock / Switch-user buttons). New `widgets/scripts/canvas-cal.sh` emits the
+  current month as a 6×7 grid of `{d,k}` cells (klass = today / muted / "")
+  on a 60 s refresh. **Hint:** GTK gaps documented inline in eww.scss
+  v31 block — no backdrop-filter blur, no gradient text, no scroll-snap
+  on the calendar, no SVG line chart on LIFETIME (placeholder text until
+  `canvas-chart.sh` learns to draw curves). Mock data lives in three
+  defvars (`most-used-apps-mock`, `weekly-usage-mock`, `todo-mock`); flip
+  to real polls once `usage-tracker.sh` and a todo daemon ship.
+  **Hint:** approved mockup frozen at
+  `waybar/docs/mockups/2026-06-24-user-section-v31.html` (commit ef9ba5c);
+  README updated with the 1.7 / 0.9 / 1.0 / 0.7 column-ratio rationale.
+
 - **2026-06-21** — **canvas media-MEGA reads mpris-publisher composite truth
   (Wave 3 Task 6 closes).** Publisher now ships as a systemd user unit
   (`modules/mpris-publisher.nix`). New composite channel
