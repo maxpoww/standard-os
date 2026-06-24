@@ -1,0 +1,202 @@
+<h2>User section — 3 charts (v12, all same compact height)</h2>
+<p class="subtitle">Weekly and Most Used Apps trimmed to match Lifetime's compact height. Rows tighter, head margin reduced, Most Used Apps shows top 5.</p>
+
+<style>
+  .chart-mock {
+    background-color: rgba(8, 8, 14, 0.96);
+    background-image: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.04), transparent 60%);
+    padding: 18px 22px;
+    border-radius: 12px;
+    color: rgba(255,255,255,0.85);
+    font-family: "MesloLGS NF", monospace, sans-serif;
+    margin-bottom: 16px;
+    /* Pin all chart cards to the same total height. */
+    min-height: 280px;
+    box-sizing: border-box;
+  }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+  .chart-label { font-size: 10px; opacity: 0.55; letter-spacing: 2px; font-weight: 500; }
+  .chart-sub { font-size: 9px; opacity: 0.40; letter-spacing: 1px; margin-bottom: 8px; }
+  .chart-value { font-size: 24px; font-weight: 200; letter-spacing: -1px; }
+  .chart-delta {
+    display: inline-block; font-size: 9px; opacity: 0.7;
+    background: rgba(179,255,179,0.18); color: rgba(179,255,179,0.95);
+    padding: 2px 8px; border-radius: 10px; margin-left: 8px; letter-spacing: 0.5px;
+  }
+  .chart-delta.session { background: rgba(217,179,255,0.18); color: rgba(217,179,255,0.95); }
+
+  .hbar-list .row {
+    display: grid;
+    grid-template-columns: 22px 110px 1fr 80px 50px;
+    gap: 12px; align-items: center;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 11px;
+  }
+  .hbar-list .row .marker { font-size: 14px; text-align: center; opacity: 0.7; }
+  .hbar-list .row .name { opacity: 0.95; }
+  .hbar-list .row .bar {
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .hbar-list .row .bar-fill {
+    height: 100%;
+    background: rgba(110,150,255,0.85);
+    border-radius: 4px;
+  }
+  .hbar-list .row .hrs {
+    font-size: 11px; opacity: 0.85;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .hbar-list .row .pct {
+    font-size: 9px; opacity: 0.50;
+    text-align: right;
+  }
+
+  .hbar-list .row.standout { font-weight: 600; }
+  .hbar-list .row.standout .marker { color: rgba(217,179,255,0.95); opacity: 1; }
+  .hbar-list .row.standout .name { color: rgba(255,255,255,1.0); opacity: 1; }
+  .hbar-list .row.standout .bar-fill { background: rgba(217,179,255,0.95); }
+  .hbar-list .row.standout .hrs { opacity: 1; color: rgba(255,255,255,1.0); }
+  .hbar-list .row.standout .pct { color: rgba(217,179,255,0.85); opacity: 1; }
+
+  .apps-toggle { display: flex; gap: 4px; margin-bottom: 8px; }
+  .apps-toggle .opt {
+    background: rgba(128,128,128,0.55);
+    border-radius: 14px;
+    padding: 3px 10px;
+    font-size: 9px; letter-spacing: 0.5px;
+  }
+  .apps-toggle .opt.active { background: rgba(217,179,255,0.85); }
+  .apps-list .row .bar-fill { background: rgba(217,179,255,0.85); }
+
+  .lifetime-grid { height: 170px; position: relative; }
+  .lifetime-axis-y {
+    position: absolute; left: 0; top: 0; bottom: 22px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-size: 8px; opacity: 0.45; padding-right: 6px;
+  }
+  .lifetime-axis-x {
+    position: absolute; left: 36px; right: 0; bottom: 0;
+    display: flex; justify-content: space-between;
+    font-size: 8px; opacity: 0.45; letter-spacing: 0.5px;
+  }
+  .lifetime-chart-area { padding-left: 36px; padding-bottom: 22px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="cf12-blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(110,150,255,0.55)"/>
+      <stop offset="100%" stop-color="rgba(110,150,255,0.05)"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<!-- WEEKLY -->
+<div class="chart-mock">
+  <div class="chart-head">
+    <div>
+      <div class="chart-label">WEEKLY USAGE · hours of session per day</div>
+      <div class="chart-sub">Mon 17 — Sun 23 · compact rows · Today first</div>
+    </div>
+    <div>
+      <span class="chart-value">56h 04m</span>
+      <span class="chart-delta">+4h vs last week</span>
+      <span class="chart-delta session">8h 12m session</span>
+    </div>
+  </div>
+
+  <div class="hbar-list">
+    <div class="row standout">
+      <span class="marker">◆</span>
+      <span class="name">Today · current session</span>
+      <div class="bar"><div class="bar-fill" style="width: 80%"></div></div>
+      <span class="hrs">8h 12m</span>
+      <span class="pct">15%</span>
+    </div>
+    <div class="row"><span class="marker">·</span><span class="name">Monday</span><div class="bar"><div class="bar-fill" style="width: 76%"></div></div><span class="hrs">7h 50m</span><span class="pct">14%</span></div>
+    <div class="row"><span class="marker">·</span><span class="name">Wednesday</span><div class="bar"><div class="bar-fill" style="width: 88%"></div></div><span class="hrs">9h 00m</span><span class="pct">16%</span></div>
+    <div class="row"><span class="marker">·</span><span class="name">Thursday</span><div class="bar"><div class="bar-fill" style="width: 100%"></div></div><span class="hrs">10h 12m</span><span class="pct">18%</span></div>
+    <div class="row"><span class="marker">·</span><span class="name">Friday</span><div class="bar"><div class="bar-fill" style="width: 71%"></div></div><span class="hrs">7h 12m</span><span class="pct">13%</span></div>
+    <div class="row"><span class="marker">·</span><span class="name">Saturday</span><div class="bar"><div class="bar-fill" style="width: 47%"></div></div><span class="hrs">4h 50m</span><span class="pct">9%</span></div>
+    <div class="row"><span class="marker">·</span><span class="name">Sunday</span><div class="bar"><div class="bar-fill" style="width: 86%"></div></div><span class="hrs">8h 48m</span><span class="pct">15%</span></div>
+  </div>
+</div>
+
+<!-- LIFETIME -->
+<div class="chart-mock">
+  <div class="chart-head">
+    <div>
+      <div class="chart-label">LIFETIME USAGE · cumulative hours since install</div>
+      <div class="chart-sub">Since 2024-08-12 · 22 months · avg 64h / month · current session contributing 8h 12m</div>
+    </div>
+    <div>
+      <span class="chart-value">1,420h</span>
+      <span class="chart-delta">+56h this week</span>
+      <span class="chart-delta session">8h 12m session</span>
+    </div>
+  </div>
+
+  <div class="lifetime-grid">
+    <div class="lifetime-axis-y"><span>1500h</span><span>1000h</span><span>500h</span><span>0</span></div>
+    <div class="lifetime-chart-area">
+      <svg viewBox="0 0 500 150" preserveAspectRatio="none" style="width:100%;height:150px">
+        <g stroke="rgba(255,255,255,0.05)" stroke-width="1">
+          <line x1="0" y1="0"   x2="500" y2="0"/>
+          <line x1="0" y1="50"  x2="500" y2="50"/>
+          <line x1="0" y1="100" x2="500" y2="100"/>
+          <line x1="0" y1="150" x2="500" y2="150"/>
+        </g>
+        <path d="M0,148 C40,140 80,132 120,122 C160,112 200,100 240,88 C280,74 320,60 360,48 C400,34 440,20 480,10 L500,6 L500,150 L0,150 Z" fill="url(#cf12-blue)"/>
+        <path d="M0,148 C40,140 80,132 120,122 C160,112 200,100 240,88 C280,74 320,60 360,48 C400,34 440,20 480,10 L500,6" fill="none" stroke="rgba(110,150,255,0.85)" stroke-width="1.5"/>
+        <g>
+          <line x1="200" y1="10" x2="200" y2="88" stroke="rgba(217,179,255,0.45)" stroke-dasharray="2,3"/>
+          <text x="202" y="20" fill="rgba(217,179,255,0.85)" font-size="9" font-family="MesloLGS NF">500h · 2025-04</text>
+          <line x1="380" y1="10" x2="380" y2="38" stroke="rgba(217,179,255,0.45)" stroke-dasharray="2,3"/>
+          <text x="382" y="20" fill="rgba(217,179,255,0.85)" font-size="9" font-family="MesloLGS NF">1000h · 2025-12</text>
+        </g>
+        <circle cx="500" cy="6" r="3.5" fill="rgba(217,179,255,0.95)"/>
+        <text x="494" y="-2" text-anchor="end" fill="rgba(217,179,255,0.85)" font-size="9" font-family="MesloLGS NF">current session</text>
+      </svg>
+    </div>
+    <div class="lifetime-axis-x"><span>Aug '24</span><span>Dec '24</span><span>Apr '25</span><span>Aug '25</span><span>Dec '25</span><span>Today</span></div>
+  </div>
+</div>
+
+<!-- MOST USED APPS -- trimmed to top 5 to fit -->
+<div class="chart-mock">
+  <div class="chart-head">
+    <div>
+      <div class="chart-label">MOST USED APPS · focus time by app</div>
+      <div class="chart-sub">Top 5 apps · top one outstands · Current Session selected</div>
+    </div>
+    <div>
+      <span class="chart-value">5h 47m</span>
+      <span class="chart-delta session">current session</span>
+    </div>
+  </div>
+
+  <div class="apps-toggle">
+    <span class="opt active">Current Session</span>
+    <span class="opt">Today</span>
+    <span class="opt">7 days</span>
+    <span class="opt">30 days</span>
+    <span class="opt">Lifetime</span>
+  </div>
+
+  <div class="hbar-list apps-list">
+    <div class="row standout"><span class="marker">󰄛</span><span class="name">kitty</span><div class="bar"><div class="bar-fill" style="width: 100%"></div></div><span class="hrs">2h 22m</span><span class="pct">41%</span></div>
+    <div class="row"><span class="marker">󰈹</span><span class="name">firefox</span><div class="bar"><div class="bar-fill" style="width: 65%"></div></div><span class="hrs">1h 32m</span><span class="pct">27%</span></div>
+    <div class="row"><span class="marker">󰨞</span><span class="name">code</span><div class="bar"><div class="bar-fill" style="width: 42%"></div></div><span class="hrs">1h 00m</span><span class="pct">17%</span></div>
+    <div class="row"><span class="marker">󰊯</span><span class="name">chromium</span><div class="bar"><div class="bar-fill" style="width: 20%"></div></div><span class="hrs">28m</span><span class="pct">8%</span></div>
+    <div class="row"><span class="marker"></span><span class="name">nautilus</span><div class="bar"><div class="bar-fill" style="width: 13%"></div></div><span class="hrs">18m</span><span class="pct">5%</span></div>
+  </div>
+</div>
+
+<p style="font-size:13px;opacity:0.7;margin-top:20px">
+  All three cards share min-height 280px. Rows trimmed to 3px vertical padding (was 5px). Most Used Apps trimmed to top 5 (was 6). Lifetime chart area 170px. Card padding 18×22 (was 22×26). Charts now visually compact and matched.
+</p>
