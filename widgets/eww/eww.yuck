@@ -698,14 +698,14 @@
 ;; concerns that don't belong on the user-config surface (v31 freeze
 ;; 2026-06-24).
 (defwidget user-mega-frame []
-  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 8
-       :halign "center" :valign "center"
-    (overlay
+  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 4
+       :halign "fill" :valign "center" :hexpand true
+    (overlay :halign "center"
       (box :class "um-avatar-fallback" :halign "center" :valign "center"
         (label :class "um-avatar-glyph" :text "󰀄"))
       (image :class "um-avatar"
              :path user-avatar-path
-             :image-width 100 :image-height 100))
+             :image-width 64 :image-height 64))
     (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
     (label :class "um-handle" :text {"@" + user-name + " · STDOS"}                    :halign "center")
     (eventbox :class "um-signout-click" :halign "center"

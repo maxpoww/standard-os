@@ -452,13 +452,13 @@ window.dashboard {
 .section-pill {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 30px;
-  padding: 6px 14px;
+  padding: 3px 9px;
   color: rgba(255, 255, 255, 1.0);
   transition: background-color 140ms ease;
 }
 .section-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
 .section-pill-active { background-color: rgba(110, 150, 255, 0.85); }
-.section-pill-label  { font-size: 9pt; letter-spacing: 0.5px; }
+.section-pill-label  { font-size: 7.5pt; letter-spacing: 0.3px; }
 
 /* -- Section body (router viewport) -------------------------------- */
 .section-body { padding-top: 2px; }
@@ -484,43 +484,40 @@ window.dashboard {
 /* -- USER-MEGA (centered identity card at top of User section) ----- */
 .user-mega {
   background-color: rgba(128, 128, 128, 0.55);
-  border-radius: 30px;
-  padding: 20px 36px;
+  border-radius: 12px;
+  padding: 8px 14px;
   min-height: 0;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 .user-mega .um-avatar-fallback {
-  min-width: 100px;
-  min-height: 100px;
-  border-radius: 50px;
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 32px;
   background-image: linear-gradient(135deg,
     rgba(110, 150, 255, 0.55) 0%,
     rgba(217, 179, 255, 0.55) 50%,
     rgba(179, 255, 179, 0.45) 100%);
 }
 .user-mega .um-avatar-glyph {
-  font-size: 44pt;
+  font-size: 28pt;
   color: rgba(255, 255, 255, 0.85);
 }
 .user-mega .um-avatar {
-  min-width: 100px;
-  min-height: 100px;
-  border-radius: 50px;
+  min-width: 64px;
+  min-height: 64px;
+  border-radius: 32px;
 }
 .user-mega .um-name {
-  font-size: 16pt;
+  font-size: 11pt;
   font-weight: 300;
   color: rgba(255, 255, 255, 1.0);
-  letter-spacing: -0.5px;
-  padding-top: 6px;
+  letter-spacing: -0.3px;
+  padding-top: 4px;
 }
 .user-mega .um-handle {
-  font-size: 9pt;
+  font-size: 7.5pt;
   color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 1px;
-}
-.user-mega-click:hover .user-mega {
-  background-color: rgba(255, 255, 255, 0.18);
+  letter-spacing: 0.8px;
 }
 
 /* -- your-day-card (center column, KPIs for today) ---------------- */
@@ -741,33 +738,31 @@ window.dashboard {
 
 /* Column widths approximate the mockup's 1.7 / 0.9 / 1.0 / 0.7 ratios.
  * GTK 3 has no per-child hexpand weight, so min-width carries the ratio
- * AND fills nearly all the available width directly (sum ~ 1520, the
- * working canvas content width at 1600 logical px). Any small slack is
- * distributed equally by hexpand. */
-.max-config  { min-width: 600px; }
-.user-mega   { min-width: 320px; }
-.max-cal     { min-width: 350px; }
-.max-events  { min-width: 250px; }
-.max-pomo    { min-width: 290px; }
-.max-todo    { min-width: 410px; }
-.max-notes   { min-width: 410px; }
-.max-notif   { min-width: 410px; }
+ * AND fills nearly all the available width directly. Total content
+ * width budget ~1440px (1600 logical canvas minus 56 padding, 18 spacing,
+ * and a 60px safety margin so the section-nav also has breathing room). */
+.max-config  { min-width: 560px; }
+.user-mega   { min-width: 280px; }
+.max-cal     { min-width: 320px; }
+.max-events  { min-width: 230px; }
+.max-pomo    { min-width: 250px; }
+.max-todo    { min-width: 380px; }
+.max-notes   { min-width: 380px; }
+.max-notif   { min-width: 380px; }
 
 .max-card {
   background-color: rgba(128, 128, 128, 0.55);
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 6px 10px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
-/* Row roles: USER content-sized, CHARTS fills middle, BOTTOM compact.
- * This mirrors the mockup proportions (USER ~320px, CHARTS flexes,
- * BOTTOM ~160px). The CHARTS min-height pins it tall enough that the
- * 5-7 row bar lists aren't squeezed; BOTTOM has no floor so the row
- * stays as short as its content requires. */
-.max-user-row    { min-height: 0; }
-.max-charts-row  { min-height: 260px; }
-.max-bottom-row  { min-height: 0; }
+/* Row roles: all three are content-sized so nothing inflates past what
+ * its cards actually need. CHARTS used to have a min-height floor; that
+ * made the row visually heavy when the canvas is short. */
+.max-user-row,
+.max-charts-row,
+.max-bottom-row { min-height: 0; }
 
 .max-sec-label {
   font-size: 7pt;
@@ -799,7 +794,7 @@ window.dashboard {
   padding: 6px 4px 0 4px;
 }
 .um-signout-click:hover .um-signout { color: rgba(110, 150, 255, 1.0); }
-.user-mega { min-height: 0; padding: 14px 22px; }
+/* (.user-mega base + min-width handled by the rules above) */
 
 /* Calendar grid -- Mon-Sun header + 6 weeks of 7 day cells. */
 .max-cal-head label {
