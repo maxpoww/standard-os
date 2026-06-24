@@ -1070,27 +1070,36 @@
           (label :class "max-notif-app"   :text {entry.app}     :halign "start")
           (label :class "max-notif-title" :text {entry.summary} :halign "start" :hexpand true :wrap true :limit-width 24))))))
 
-;; The full Max section composes the three rows.
+;; The full Max section composes the three rows. Row roles:
+;;   USER LINE  — content-driven (no :vexpand), holds at ~CONFIG-card height.
+;;   CHARTS row — :vexpand true, claims the remaining vertical middle space.
+;;   BOTTOM row — content-driven (no :vexpand), capped at .max-bottom-row min/max in SCSS.
+;; Without these roles the BOTTOM row over-claims space (its cards have few
+;; rows so they end up with a tall empty bottom strip), and USER ends up
+;; visually heavier than the mockup intends.
 (defwidget section-max []
   (box :class "section section-max" :orientation "vertical" :space-evenly false :spacing 8
        :halign "fill" :valign "fill" :hexpand true :vexpand true
-    ;; USER LINE
-    (box :class "max-user-row" :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true
-      (box :class "max-col max-col-config" :orientation "vertical" :hexpand true (max-config-card))
-      (box :class "max-col max-col-mega"   :orientation "vertical" :hexpand true (user-mega-frame))
-      (box :class "max-col max-col-cal"    :orientation "vertical" :hexpand true (max-cal-card))
-      (box :class "max-col max-col-events" :orientation "vertical" :hexpand true (max-events-card)))
-    ;; CHARTS row
-    (box :class "max-charts-row" :orientation "horizontal" :space-evenly true :spacing 6 :hexpand true :vexpand true
+    ;; USER LINE — wrapper-free, each card sets its own :hexpand.
+    (box :class "max-user-row" :orientation "horizontal" :space-evenly false :spacing 6
+         :halign "fill" :hexpand true :vexpand false
+      (max-config-card)
+      (user-mega-frame)
+      (max-cal-card)
+      (max-events-card))
+    ;; CHARTS row — fills middle, equal weights.
+    (box :class "max-charts-row" :orientation "horizontal" :space-evenly false :spacing 6
+         :halign "fill" :hexpand true :vexpand true
       (max-chart-most-used)
       (max-chart-lifetime)
       (max-chart-weekly))
-    ;; BOTTOM row
-    (box :class "max-bottom-row" :orientation "horizontal" :space-evenly false :spacing 6 :hexpand true :vexpand true
-      (box :class "max-col max-col-pomo"  :orientation "vertical" :hexpand true (max-pomodoro-card))
-      (box :class "max-col max-col-todo"  :orientation "vertical" :hexpand true (max-todo-card))
-      (box :class "max-col max-col-notes" :orientation "vertical" :hexpand true (max-notes-card))
-      (box :class "max-col max-col-notif" :orientation "vertical" :hexpand true (max-notif-card)))))
+    ;; BOTTOM row — natural height, weighted via SCSS min-widths.
+    (box :class "max-bottom-row" :orientation "horizontal" :space-evenly false :spacing 6
+         :halign "fill" :hexpand true :vexpand false
+      (max-pomodoro-card)
+      (max-todo-card)
+      (max-notes-card)
+      (max-notif-card))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]

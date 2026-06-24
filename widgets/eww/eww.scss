@@ -739,15 +739,19 @@ window.dashboard {
  *     canvas-chart.sh generator is taught to draw the curve.
  */
 
-/* Column widths approximate the mockup's 1.7 / 0.9 / 1.0 / 0.7 ratios. */
-.max-col-config  { min-width: 380px; }
-.max-col-mega    { min-width: 200px; }
-.max-col-cal     { min-width: 220px; }
-.max-col-events  { min-width: 150px; }
-.max-col-pomo    { min-width: 200px; }
-.max-col-todo,
-.max-col-notes,
-.max-col-notif   { min-width: 240px; }
+/* Column widths approximate the mockup's 1.7 / 0.9 / 1.0 / 0.7 ratios.
+ * GTK 3 has no per-child hexpand weight, so min-width carries the ratio
+ * AND fills nearly all the available width directly (sum ~ 1520, the
+ * working canvas content width at 1600 logical px). Any small slack is
+ * distributed equally by hexpand. */
+.max-config  { min-width: 600px; }
+.user-mega   { min-width: 320px; }
+.max-cal     { min-width: 350px; }
+.max-events  { min-width: 250px; }
+.max-pomo    { min-width: 290px; }
+.max-todo    { min-width: 410px; }
+.max-notes   { min-width: 410px; }
+.max-notif   { min-width: 410px; }
 
 .max-card {
   background-color: rgba(128, 128, 128, 0.55);
@@ -756,9 +760,14 @@ window.dashboard {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
-.max-user-row,
-.max-charts-row,
-.max-bottom-row { min-height: 0; }
+/* Row roles: USER content-sized, CHARTS fills middle, BOTTOM compact.
+ * This mirrors the mockup proportions (USER ~320px, CHARTS flexes,
+ * BOTTOM ~160px). The CHARTS min-height pins it tall enough that the
+ * 5-7 row bar lists aren't squeezed; BOTTOM has no floor so the row
+ * stays as short as its content requires. */
+.max-user-row    { min-height: 0; }
+.max-charts-row  { min-height: 260px; }
+.max-bottom-row  { min-height: 0; }
 
 .max-sec-label {
   font-size: 7pt;
@@ -766,6 +775,21 @@ window.dashboard {
   color: rgba(110, 150, 255, 0.85);
   padding: 4px 0 2px 0;
 }
+
+/* CONFIG card: tighter pref-row geometry so 10 rows + 2 section labels
+ * fit in ~290px without pushing the USER row past the mockup's height. */
+.max-config .pref-row     { min-height: 20px; padding: 2px 6px; }
+.max-config .pref-label   { font-size: 8.5pt; }
+.max-config .pref-value   { font-size: 8.5pt; padding-right: 4px; }
+.max-config .pref-chev    { font-size: 0;     min-width: 0; padding: 0; }
+.max-config { padding: 8px 12px; }
+
+/* POMODORO: same density treatment for the 4 settings rows so the
+ * BOTTOM row stays compact and we don't dominate the row's height. */
+.max-pomo .pref-row     { min-height: 18px; padding: 1px 6px; }
+.max-pomo .pref-label   { font-size: 8pt; }
+.max-pomo .pref-value   { font-size: 8pt; padding-right: 4px; }
+.max-pomo .pref-chev    { font-size: 0; min-width: 0; padding: 0; }
 
 /* The USER-MEGA Sign-out link -- blue palette, no underline. */
 .um-signout {
