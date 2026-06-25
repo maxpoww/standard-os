@@ -612,6 +612,37 @@ window#waybar #custom-notif-widepill.opt-pill ~ * #custom-notif-dnd {
    in notif-click by DND state) so the user always clicks the affordance they
    see. opt-breathe rides DND child whenever DND is on. */
 
+/* ── standardos-pending — canvas Apply flow pill ────────────────────────────
+   Three states from widgets/scripts/standardos-pending.sh: empty / pending /
+   error. Empty collapses to zero presence. Pending uses primary-blue; error
+   uses standout-violet. Both are existing palette tokens (closed color budget
+   — no new colors). Signal RTMIN+23. */
+
+#custom-standardos-pending {
+    padding: 0 10px;
+    border-radius: 30px;
+    margin: 0 4px;
+    transition: background-color 140ms ease, padding 140ms ease;
+}
+
+#custom-standardos-pending.empty {
+    padding: 0;
+    margin: 0;
+    font-size: 0;
+    background-color: transparent;
+}
+
+#custom-standardos-pending.pending {
+    background-color: rgba(110, 150, 255, 0.85);  /* primary-blue */
+    color: rgba(255, 255, 255, 1.0);
+}
+
+#custom-standardos-pending.error {
+    background-color: rgba(217, 179, 255, 0.95);  /* standout-violet */
+    color: rgba(255, 255, 255, 1.0);
+}
+
+
 /* ── Tooltip popup — match the pill aesthetic ────────────────────────────── */
 /* GTK 3 renders tooltips in a popup that floats OUTSIDE window#waybar, so
    the usual `window#waybar .foo` ancestor convention does not apply here.

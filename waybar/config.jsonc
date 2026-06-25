@@ -61,6 +61,7 @@
     "group/notif",
     "group/group-2",
     "group/group-power",
+    "custom/standardos-pending",
     "custom/update-pending",
     "custom/clock",
     "custom/battery",
@@ -521,6 +522,18 @@
   // CLAUDE.md "Known hazards" and the spec's daemon convention.)
   // ── Update-pending pill ──
   // Hidden when steady-state (empty text — waybar collapses the module).
+  // canvas-prefs Apply flow pill — three states (empty/pending/error) emitted
+  // by widgets/scripts/standardos-pending.sh via RTMIN+23. Left-click runs
+  // pref-apply; right-click runs pref-dismiss. Revert is CLI-only for MVP.
+  "custom/standardos-pending": {
+    "exec": "/etc/nixos/home/widgets/scripts/standardos-pending.sh",
+    "return-type": "json",
+    "signal": 23,
+    "format": "{}",
+    "on-click": "/etc/nixos/home/scripts/pref-apply",
+    "on-click-right": "/etc/nixos/home/scripts/pref-dismiss"
+  },
+
   // Lights opt-pin-orange + opt-breathe while the UPDATE pipeline is
   // running, with phase-specific tooltip text. Errors are silent (log only)
   // — the pill never goes red on failure (2026-06-17 user decision: errors
