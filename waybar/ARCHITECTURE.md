@@ -112,8 +112,9 @@ Bluetooth and network share RTMIN+13 because they collectively describe "connect
 | RTMIN+19 | pomodoro-daemon (live, Wave 3 Task 5) | Focus-block state machine — fires when remaining_text changes (~1 Hz during active blocks) |
 | RTMIN+20 | cal-source-daemon (live, Wave 3 Task 7) | Local ICS → agenda — fires on 5-min poll only when agenda content changes |
 | RTMIN+21 | brightness-daemon (live, 2026-06-20) | Display brightness — fires on pct change only (1 s sysfs poll + SIGUSR1 poke from wrapper) |
-| RTMIN+23 | standardos-pending | canvas Apply flow staging/error state |
-| RTMIN+22, RTMIN+24..+30 | **FREE** | future expansion |
+| RTMIN+22 | **FREE** | future expansion |
+| RTMIN+23 | standardos-pending (live, 2026-06-25) | canvas Apply flow staging/error state |
+| RTMIN+24..+30 | **FREE** | future expansion |
 
 When picking a signal: read this table, take the next free one, edit this table in the same commit. The Linux kernel guarantees RTMIN through RTMIN+30 are safe for application use.
 
