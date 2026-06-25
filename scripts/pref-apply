@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# pref-apply — renders staging into the sidecar, runs sudo nixos-rebuild
+# switch, splits on success/failure:
+#   success: clears staging, signals waybar.
+#   failure: writes last-error.json (best-effort parsed reason +
+#            source_prefs), leaves staging intact, signals waybar.
+#
+# Env overrides for tests:
+#   STAGED_PREFS_FILE   override the staging path
+#   SIDECAR_FILE        override the sidecar path (skip sudo write)
+#   REBUILD_CMD         override the rebuild command (mock in tests)
+#   LAST_ERROR_FILE     override the last-error path
+#   PREF_APPLY_SKIP_SIGNAL=1   skip the pkill
+
+set -euo pipefail
+
+source "$(dirname "$0")/lib/sidecar-render.sh"
+
+STAGED="${STAGED_PREFS_FILE:-$HOME/.config/standardos/staged-prefs.json}"
+SIDECAR="${SIDECAR_FILE:-/etc/nixos/standardos-canvas-sidecar.nix}"
+ERR_FILE="${LAST_ERROR_FILE:-$HOME/.config/standardos/last-error.json}"
+REBUILD="${REBUILD_CMD:-sudo -n nixos-rebuild switch}"
+LOG_DIR="$HOME/.local/state/standardos"
+LOG_FILE="$LOG_DIR/last-rebuild.log"
+
+mkdir -p "$LOG_DIR" "$(dirname "$ERR_FILE")"
+
+# Nothing staged → nothing to apply.
+staging="$(cat "$STAGED" 2>/dev/null || echo '{}')"
+[ "$(printf '%s' "$staging" | jq 'length')" -gt 0 ] || { echo "nothing staged"; exit 0; }
+
+# 1. Render the sidecar.
+rendered="$(render_sidecar "$staging")"
+
+# 2. Write the sidecar (user-writable per Task 1's chown).
+printf '%s' "$rendered" > "$SIDECAR"
+
+# 3. Run rebuild, tee to log.
+if eval "$REBUILD" 2>&1 | tee "$LOG_FILE"; then
+    # Success: clear staging and any prior error.
+    rm -f "$STAGED" "$ERR_FILE"
+else
+    # Failure: parse the log tail for the best-effort reason.
+    reason="$(tail -200 "$LOG_FILE" \
+        | grep -oP "error: group '[^']+' does not exist|error: user '[^']+' does not exist|error: .+:\d+:\d+: .+" \
+        | tail -1)"
+    [ -n "$reason" ] || reason="Rebuild failed: $(tail -c 200 "$LOG_FILE" | tr '\n' ' ')"
+
+    source_prefs="$(printf '%s' "$staging" | jq -c '[keys[] | select(endswith("_display") | not)]')"
+    jq -n --arg r "$reason" --argjson p "$source_prefs" \
+        '{reason: $r, source_prefs: $p}' > "$ERR_FILE"
+fi
+
+# 4. Signal waybar.
+if [ -z "${PREF_APPLY_SKIP_SIGNAL:-}" ]; then
+    pkill -RTMIN+23 waybar 2>/dev/null || true
+fi
