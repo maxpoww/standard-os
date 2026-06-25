@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Usage: canvas-jump-ws <N> - jump to workspace N then close the canvas.
+# Invoked from eww eventbox onclick in the Landscape section.
+n=$1
+[[ "$n" =~ ^[1-9]$ ]] || exit 1
+hyprctl dispatch workspace "$n" >/dev/null
+exec /etc/nixos/home/scripts/canvas-close
