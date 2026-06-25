@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# pref-stage <key> <json-value>
+#
+# Merges {key: value} into the canvas staging file, computes a
+# display-friendly join for array values, writes atomically, and
+# signals waybar's standardos-pending module to refresh.
+#
+# Examples:
+#   pref-stage shell '"zsh"'
+#   pref-stage groups '["wheel","networkmanager","audio"]'
+#
+# Env overrides for tests:
+#   STAGED_PREFS_FILE         override the staging path
+#   PREF_STAGE_SKIP_SIGNAL=1  skip the pkill RTMIN+23
+
+set -euo pipefail
+
+[ "$#" -eq 2 ] || { echo "usage: pref-stage <key> <json-value>" >&2; exit 2; }
+key="$1"; value="$2"
+
+target="${STAGED_PREFS_FILE:-$HOME/.config/standardos/staged-prefs.json}"
+mkdir -p "$(dirname "$target")"
+[ -f "$target" ] || echo '{}' > "$target"
+
+tmp="$(mktemp --tmpdir="$(dirname "$target")")"
+
+# 1. Merge {key: value} into the staging object.
+# 2. If value is an array, also write <key>_display = " · " joined.
+jq --arg k "$key" --argjson v "$value" '
+  . as $base
+  | $base + ({($k): $v})
+  | if ($v | type) == "array"
+    then . + ({($k + "_display"): ($v | join(" · "))})
+    else .
+    end
+' "$target" > "$tmp"
+
+mv -f "$tmp" "$target"
+
+if [ -z "${PREF_STAGE_SKIP_SIGNAL:-}" ]; then
+    pkill -RTMIN+23 waybar 2>/dev/null || true
+fi
