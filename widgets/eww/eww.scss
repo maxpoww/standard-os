@@ -169,9 +169,11 @@ window.dashboard {
 /* Canvas Apply flow: a pref whose value differs from the live system
  * (because the user staged an edit) renders its value with reduced
  * alpha. The bar pill (standardos-pending) is the actual call to
- * action; the fade is the in-canvas hint. */
+ * action; the fade is the in-canvas hint. 0.30 is noticeably fainter
+ * than .pref-value's base 0.55 -- pending text reads as "not yet
+ * live" without disappearing. */
 .pref-value-pending {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.30);
 }
 
 /* =================================================================== */
