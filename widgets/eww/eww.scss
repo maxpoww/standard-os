@@ -380,3 +380,28 @@ window.dashboard {
 .max-notif-row:last-child { border-bottom: none; }
 .max-notif-app   { color: rgba(255, 255, 255, 0.45); font-size: 7pt; letter-spacing: 1px; min-width: 60px; }
 .max-notif-title { color: rgba(255, 255, 255, 0.95); font-size: 9pt; }
+
+/* Landscape section -- 3x3 workspace expose grid. ASCII only.
+ * Colors mirror palette.css opt-surface-parent / opt-surface-child /
+ * opt-pushed-shadow tokens. Eww.scss is compiled by grass-rs which
+ * does not understand GTK @palette-tokens, so values are inlined. */
+.ls-grid {
+  padding: 22px;
+}
+.ls-cell {
+  background-color: rgba(128, 128, 128, 0.30);
+  border-radius: 12px;
+  min-width: 240px;
+  min-height: 150px;
+}
+.ls-cell-current {
+  /* opt-pushed visual: soft top-inset shadow on the cell's surface. */
+  box-shadow: inset 0 6px 18px -4px rgba(0, 0, 0, 0.35);
+}
+.ls-shot {
+  border-radius: 12px;
+}
+.ls-empty {
+  background-color: rgba(170, 170, 170, 0.30);
+  border-radius: 12px;
+}

@@ -14,4 +14,9 @@ set -uo pipefail
 source /etc/nixos/home/scripts/lib/canvas-anchor.sh
 read -r _x _y w h < <(canvas_geometry_for_open)
 
+# Wake the landscape snapshot daemon so the current workspace's cell
+# refreshes the moment the canvas appears. Silent no-op if the cache
+# dir does not exist (daemon disabled).
+mkdir -p /tmp/standardos/landscape && touch /tmp/standardos/landscape/open-trigger
+
 exec eww open dashboard --size "${w}x${h}"

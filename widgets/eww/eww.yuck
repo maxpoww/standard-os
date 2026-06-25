@@ -40,6 +40,16 @@
 (defpoll notif-entries :interval "5s" :initial "[]"
   `jq -c '.entries[0:4] // []' /tmp/waybar-cache/notif-history.json 2>/dev/null || echo "[]"`)
 
+;; Landscape section -- current focused workspace id (1..9) and per-cell
+;; cache-buster paths emitted by canvas-landscape-listen. The deflisten
+;; updates ws-paths whenever the snapshot daemon rewrites manifest.json.
+(defpoll focused-ws :interval "1s" :initial "0"
+  `hyprctl activeworkspace -j 2>/dev/null | jq -r '.id // 0'`)
+
+(deflisten ws-paths
+  :initial "{\"ws1\":\"\",\"ws2\":\"\",\"ws3\":\"\",\"ws4\":\"\",\"ws5\":\"\",\"ws6\":\"\",\"ws7\":\"\",\"ws8\":\"\",\"ws9\":\"\"}"
+  `/etc/nixos/home/widgets/scripts/canvas-landscape-listen`)
+
 ;; User identity. Avatar falls back to _blank.svg when
 ;; ~/.config/standardos/avatar.png is missing — the overlay fallback
 ;; (gradient + person glyph) shows through in that case. Drop a square
@@ -157,8 +167,9 @@
     (section-pill :id "battery"  :label "Battery")
     (section-pill :id "system"   :label "System")
     (section-pill :id "about"    :label "About this computer")
-    (section-pill :id "security" :label "Security and privacy")
-    (section-pill :id "location" :label "Location")))
+    (section-pill :id "security"  :label "Security and privacy")
+    (section-pill :id "location"  :label "Location")
+    (section-pill :id "landscape" :label "Landscape")))
 
 ;; USER-MEGA — v31 centered identity card. Avatar + display name +
 ;; `@user · STDOS` handle + blue Sign out link. No click-to-edit on the
@@ -427,6 +438,33 @@
       (max-notes-card)
       (max-notif-card))))
 
+;; ── Landscape section ──
+;;
+;; 3x3 grid of workspace thumbnails (1..9, row-major). Click a cell to
+;; jump to that workspace and close the canvas. The current workspace
+;; gets a soft top-inset shadow (opt-pushed visual language). Cells
+;; with no cached snapshot render as a flat empty surface (.ls-empty
+;; shows through the overlay when the image path is empty).
+(defwidget ls-cell [n]
+  (eventbox :class {focused-ws == n ? "ls-cell ls-cell-current" : "ls-cell"}
+            :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
+    (box :hexpand true :vexpand true
+      (overlay
+        (box :class "ls-empty" :hexpand true :vexpand true)
+        (image :class "ls-shot"
+               :path {jq(ws-paths, ".ws${n}")}
+               :image-width 320 :image-height 200)))))
+
+(defwidget landscape-section []
+  (box :class "ls-grid" :orientation "vertical" :space-evenly true :spacing 14
+       :hexpand true :vexpand true :halign "fill" :valign "fill"
+    (box :orientation "horizontal" :space-evenly true :spacing 14
+      (ls-cell :n "1") (ls-cell :n "2") (ls-cell :n "3"))
+    (box :orientation "horizontal" :space-evenly true :spacing 14
+      (ls-cell :n "4") (ls-cell :n "5") (ls-cell :n "6"))
+    (box :orientation "horizontal" :space-evenly true :spacing 14
+      (ls-cell :n "7") (ls-cell :n "8") (ls-cell :n "9"))))
+
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
   (box :class "section section-placeholder" :orientation "vertical" :space-evenly false :spacing 6
@@ -476,7 +514,10 @@
         (section-slot :id "system"   :name "System")
         (section-slot :id "about"    :name "About this computer")
         (section-slot :id "security" :name "Security and privacy")
-        (section-slot :id "location" :name "Location")))
+        (section-slot :id "location" :name "Location")
+        (box :visible {current-section == "landscape"} :orientation "vertical"
+             :hexpand true :vexpand true :halign "fill" :valign "fill"
+          (landscape-section))))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"
