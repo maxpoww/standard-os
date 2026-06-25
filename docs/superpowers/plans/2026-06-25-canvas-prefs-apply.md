@@ -40,8 +40,10 @@ sudo tee /etc/nixos/standardos-canvas-sidecar.nix > /dev/null <<'EOF'
 # Imported by modules/standardos-canvas-prefs.nix.
 { config, lib, pkgs, ... }: { }
 EOF
-sudo chown root:root /etc/nixos/standardos-canvas-sidecar.nix
+sudo chown max:users /etc/nixos/standardos-canvas-sidecar.nix
 sudo chmod 644 /etc/nixos/standardos-canvas-sidecar.nix
+# User-owned so pref-apply can write it without sudo (nixos evaluates
+# /etc/nixos as root regardless of ownership; 644 reads identically).
 ```
 
 - [ ] **Step 2: Create the NixOS module**
@@ -569,12 +571,8 @@ staging="$(cat "$STAGED" 2>/dev/null || echo '{}')"
 # 1. Render the sidecar.
 rendered="$(render_sidecar "$staging")"
 
-# 2. Write the sidecar. Default target needs sudo; tests override SIDECAR_FILE.
-if [ "$SIDECAR" = "/etc/nixos/standardos-canvas-sidecar.nix" ]; then
-    printf '%s' "$rendered" | sudo -n tee "$SIDECAR" > /dev/null
-else
-    printf '%s' "$rendered" > "$SIDECAR"
-fi
+# 2. Write the sidecar (user-writable per Task 1's chown).
+printf '%s' "$rendered" > "$SIDECAR"
 
 # 3. Run rebuild, tee to log.
 if $REBUILD 2>&1 | tee "$LOG_FILE"; then
