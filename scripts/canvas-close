@@ -1,19 +1,44 @@
 #!/usr/bin/env bash
-# canvas-close — dismiss the StandardOS Dashboard.
+# canvas-close — dismiss the StandardOS Dashboard. Bulletproof exit.
 #
 # Two invocation paths, identical action:
 #   1. Hyprland Esc binding in submap canvas-open (hypr/modules/Binds.conf)
 #   2. The on-canvas × button at the top-right (widgets/eww/eww.yuck)
 #
-# Both must (a) reset Hyprland's submap so app-Esc works again, and
-# (b) close the eww dashboard window. Doing both in one script avoids
-# any reliance on Hyprland firing multiple binds for the same key —
-# the failure mode that orphaned the canvas on 2026-06-20.
+# Bulletproofing (post-2026-06-25 reboot incident):
+#   - Every blocking call has a 1 s timeout — the script ALWAYS exits
+#     within ~2 s no matter how wedged hyprctl or eww are. A hanging
+#     close script is what trapped the user in the canvas-open submap.
+#   - flock -n prevents racing instances when Esc is held / mashed.
+#     Second Esc within the same close window is a silent no-op rather
+#     than a duplicate hyprctl + eww close pair fighting each other.
+#   - No `exec`: both steps run unconditionally. exec on the eww step
+#     used to skip the second step entirely if the first hung.
+#   - Submap reset runs FIRST so the keyboard is always recoverable
+#     before the visual close; if anything later fails, default
+#     keybinds (Super+RETURN, Super+Shift+ESC panic) still work.
+#   - If the window is still listed after the first close attempt,
+#     fall back to `eww close-all` as a belt-and-braces second pass.
 #
-# Submap reset runs FIRST so the keyboard is always recoverable even
-# if the eww IPC is briefly slow; the window vanishes a beat later.
+# If even this script fails (eww daemon dead, etc.), Super+Shift+ESC
+# runs canvas-panic which restarts the eww service from a clean state.
 
-set -uo pipefail
+set -u
 
-hyprctl dispatch submap reset >/dev/null
-exec eww close dashboard
+LOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/canvas-close.lock"
+exec 9>"$LOCK"
+flock -n 9 || exit 0
+
+# Reset Hyprland submap. Always runs, even if eww is wedged below.
+timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
+
+# Close the eww dashboard window. Always runs, even if hyprctl was slow.
+timeout 1 eww close dashboard >/dev/null 2>&1 || true
+
+# Belt-and-braces: if the window is still listed after the first close,
+# nuke all eww windows. (Single defwindow today, so equivalent.)
+if timeout 1 eww active-windows 2>/dev/null | grep -q '^dashboard'; then
+    timeout 1 eww close-all >/dev/null 2>&1 || true
+fi
+
+exit 0

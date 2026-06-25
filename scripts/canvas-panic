@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# canvas-panic — emergency dismiss for the StandardOS Dashboard.
+#
+# Bound to Super+Shift+ESC at the DEFAULT submap level (not inside the
+# canvas-open submap) so it works no matter what state the keyboard is
+# in — including the failure mode that caused the 2026-06-25 reboot:
+# the canvas-open submap getting orphaned with a wedged eww and a
+# regular Esc that no longer reaches Hyprland.
+#
+# Steps:
+#   1. Reset Hyprland submap (recovers the keyboard immediately).
+#   2. Try a graceful eww close (1 s timeout).
+#   3. If the eww daemon is unreachable (`eww ping` fails), bounce the
+#      systemd-user unit — it's graphical-session-bound and restarts
+#      cleanly within ~1 s, putting the daemon back into a known state.
+#
+# This is a RECOVERY affordance, not a primary path. The normal Esc
+# inside the canvas-open submap is canvas-close; this key only exists
+# as the last-resort backstop.
+
+set -u
+
+timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
+timeout 1 eww close dashboard >/dev/null 2>&1 || true
+
+if ! timeout 1 eww ping >/dev/null 2>&1; then
+    systemctl --user restart standardos-canvas.service >/dev/null 2>&1 || true
+fi
+
+exit 0

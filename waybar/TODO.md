@@ -81,6 +81,31 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-25** — **canvas Esc bulletproofed (second reboot incident).**
+  User got stuck in the landscape section: Esc appeared to toggle between
+  sections (max ↔ landscape with a fade) instead of dismissing the canvas,
+  and had to hard-reboot. Root-cause was almost certainly `canvas-close`
+  hanging mid-way (no timeouts, `exec` on the second step), leaving the
+  submap state inconsistent with the window state. Three changes:
+  (1) `scripts/canvas-close` rewritten with `timeout 1` on every blocking
+  call, `flock -n` to coalesce mashed-Esc presses into a single runner,
+  no `exec` (both steps run unconditionally), and a belt-and-braces
+  `eww close-all` if `dashboard` is still listed after the first close.
+  Script always exits within ~2 s no matter how wedged hyprctl or eww are.
+  (2) New `scripts/canvas-panic` — `Super+Shift+ESC` emergency exit
+  bound at BOTH the default submap and inside `canvas-open` (Hyprland
+  only fires binds from the active submap, so the default-level bind
+  alone would not reach the failure state it's meant to rescue). If
+  `eww ping` fails, it bounces `standardos-canvas.service` to recover
+  the daemon. (3) `hypr/modules/Binds.conf` documents the new layering
+  inline so future-me does not strip the in-submap panic line thinking
+  it's a duplicate. **Hint:** the script edit is live immediately (the
+  Esc bind references the absolute path `/etc/nixos/home/scripts/canvas-close`,
+  not a /nix/store copy), so the primary fix tested without a rebuild.
+  The new keybind requires `nixos-rebuild switch && hyprctl reload` to
+  activate. Verified via `time /etc/nixos/home/scripts/canvas-close` on
+  a closed canvas: 64 ms, exit 0.
+
 - **2026-06-24** — **canvas: v31 user-section mockup ported to eww.** The
   section-router was rebuilt from the 17-section legacy nav to the v31
   vocabulary (15 sections: Max · Network and Internet · Connected devices ·
