@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Eww deflisten source for the Landscape section.
+# Emits a JSON map of {wsN: "path?t=mtime" or ""} on every manifest change.
+
+set -u
+
+CACHE=/tmp/standardos/landscape
+mkdir -p "$CACHE"
+
+emit() {
+    local out='{'
+    local first=1 f m n
+    for n in 1 2 3 4 5 6 7 8 9; do
+        f="$CACHE/ws-$n.png"
+        [ $first -eq 0 ] && out+=','
+        if [ -r "$f" ]; then
+            m=$(stat -c %Y "$f")
+            out+="\"ws$n\":\"$f?t=$m\""
+        else
+            out+="\"ws$n\":\"\""
+        fi
+        first=0
+    done
+    echo "${out}}"
+}
+
+# Emit initial state immediately so eww has data on launch.
+emit
+
+# Watch the cache dir; only re-emit when manifest.json changes (the daemon
+# rewrites it atomically after every successful capture).
+inotifywait -m -e close_write,moved_to --format '%f' "$CACHE" 2>/dev/null \
+| while read -r name; do
+    [ "$name" = "manifest.json" ] && emit
+done
