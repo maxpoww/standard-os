@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# pref-choose-groups — rofi -multi-select popup with every group on
+# the system. Picks are joined as a JSON array and staged.
+set -euo pipefail
+
+# All groups on the system, alphabetical, one per line.
+mapfile -t all_groups < <(getent group | cut -d: -f1 | sort -u)
+
+# rofi -multi-select returns the picked entries one per line on stdout.
+# -select-multiple lets the user toggle entries with Shift+Enter; Enter
+# commits the selection. -mesg shows a hint.
+picks="$(printf '%s\n' "${all_groups[@]}" \
+    | rofi -dmenu -multi-select -i -p "groups" \
+           -mesg "Shift+Enter to toggle; Enter to confirm")" || exit 0
+
+[ -n "$picks" ] || exit 0
+
+# Convert the newline-separated picks to a JSON array.
+json="$(printf '%s\n' "$picks" | jq -Rn '[inputs | select(length > 0)]')"
+/etc/nixos/home/scripts/pref-stage groups "$json"
