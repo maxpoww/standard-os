@@ -15,8 +15,7 @@
 /* Color tokens (grass-rs variables). Single source of truth - every
  * non-trivial color in this file should reference one of these. Bump
  * /etc/nixos/home/widgets/palette.css in lockstep when these change. */
-$surface-glass:    rgba(128, 128, 128, 0.55);
-$surface-glass-2:  rgba(170, 170, 170, 0.55);
+$surface-glass:    rgba(56, 58, 55, 0.35);
 $primary-blue:     rgba(110, 150, 255, 0.85);
 $standout-violet:  rgba(217, 179, 255, 0.95);
 $success-green:    rgba(179, 255, 179, 0.65);
@@ -26,9 +25,11 @@ $success-green:    rgba(179, 255, 179, 0.65);
   all: unset;
 }
 
-/* The full-screen dashboard window: dark veil + radial gradient atmosphere. */
+/* The full-screen dashboard window: dark veil thin enough to let the
+ * Hyprland layer-shell blur (layerrule = blur, dashboard) show through.
+ * Without the layerrule the canvas would render on a raw desktop. */
 window.dashboard {
-  background-color: rgba(6, 6, 12, 0.92);
+  background-color: rgba(10, 10, 20, 0.75);
   background-image:
     radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.025), transparent 60%),
     radial-gradient(ellipse at 80% 80%, rgba(255, 255, 255, 0.015), transparent 60%);
