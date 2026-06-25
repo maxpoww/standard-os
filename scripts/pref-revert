@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# pref-revert — drop the error file AND the staging file. A failed
+# rebuild never updated the system, so no actual revert against the
+# running system is needed; we just clear the user-side state so the
+# bar pill returns to empty.
+set -euo pipefail
+
+rm -f "${STAGED_PREFS_FILE:-$HOME/.config/standardos/staged-prefs.json}"
+rm -f "${LAST_ERROR_FILE:-$HOME/.config/standardos/last-error.json}"
+[ -z "${PREF_STAGE_SKIP_SIGNAL:-}" ] && pkill -RTMIN+23 waybar 2>/dev/null || true

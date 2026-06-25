@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# pref-dismiss — drop the staging file unread. The system state is
+# untouched (the sidecar still reflects the last successful Apply).
+set -euo pipefail
+
+rm -f "${STAGED_PREFS_FILE:-$HOME/.config/standardos/staged-prefs.json}"
+[ -z "${PREF_STAGE_SKIP_SIGNAL:-}" ] && pkill -RTMIN+23 waybar 2>/dev/null || true
