@@ -22,6 +22,12 @@
   :initial "—"
   `date +'%A, %B %-d'`)
 
+;; Canvas Apply flow -- staged prefs read from the user-owned JSON file.
+;; Empty object when nothing is staged; { shell, groups, groups_display, ... }
+;; otherwise. See docs/superpowers/specs/2026-06-25-canvas-prefs-apply-design.md.
+(defpoll staged-prefs :interval "1s" :initial "{}"
+  `cat $HOME/.config/standardos/staged-prefs.json 2>/dev/null || echo "{}"`)
+
 (defpoll notes-preview
   :interval "5s"
   :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
@@ -179,11 +185,12 @@
                 :onclick "notify-send 'StandardOS' 'Sign out (coming soon)'"
         (label :class "um-signout" :text "Sign out")))))
 
-(defwidget pref-row [label value on-click]
+(defwidget pref-row [label value on-click ?pending]
   (eventbox :class "pref-row-click" :onclick on-click
     (box :class "pref-row" :orientation "horizontal" :space-evenly false :hexpand true :spacing 8
       (label :class "pref-label" :text label :halign "start" :hexpand false)
-      (label :class "pref-value" :text value :halign "end" :hexpand true :limit-width 32 :truncate true)
+      (label :class {pending == "true" ? "pref-value pref-value-pending" : "pref-value"}
+             :text value :halign "end" :hexpand true :limit-width 32 :truncate true)
       (label :class "pref-chev"  :text ">"   :halign "end"))))
 
 (defwidget max-config-card []
@@ -201,10 +208,14 @@
     (label :class "max-sec-label" :text "ACCOUNT" :halign "start")
     (pref-row :label "Username"       :value user-name
               :on-click "notify-send 'StandardOS' 'Username is set at install time'")
-    (pref-row :label "Default shell"  :value user-shell
-              :on-click "notify-send 'StandardOS' 'Change shell (coming soon)'")
-    (pref-row :label "Groups"         :value user-groups
-              :on-click "notify-send 'StandardOS' 'Edit groups (coming soon)'")
+    (pref-row :label "Default shell"
+              :value   {staged-prefs.shell != "" ? staged-prefs.shell : user-shell}
+              :pending {staged-prefs.shell != "" ? "true" : "false"}
+              :on-click "/etc/nixos/home/scripts/pref-choose-shell")
+    (pref-row :label "Groups"
+              :value   {staged-prefs.groups_display != "" ? staged-prefs.groups_display : user-groups}
+              :pending {staged-prefs.groups_display != "" ? "true" : "false"}
+              :on-click "/etc/nixos/home/scripts/pref-choose-groups")
     (pref-row :label "Home directory" :value user-home
               :on-click "notify-send 'StandardOS' 'Home directory'")
     (pref-row :label "Last login"     :value user-last-login

@@ -166,6 +166,13 @@ window.dashboard {
   font-size: 11pt;
   color: rgba(255, 255, 255, 0.40);
 }
+/* Canvas Apply flow: a pref whose value differs from the live system
+ * (because the user staged an edit) renders its value with reduced
+ * alpha. The bar pill (standardos-pending) is the actual call to
+ * action; the fade is the in-canvas hint. */
+.pref-value-pending {
+  color: rgba(255, 255, 255, 0.55);
+}
 
 /* =================================================================== */
 /* v31 MAX SECTION                                                     */
