@@ -22,14 +22,11 @@
   :initial "—"
   `date +'%A, %B %-d'`)
 
-;; Wave 1 notes preview — kept exactly as Wave 1 implemented it.
 (defpoll notes-preview
   :interval "5s"
   :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
   `tail -n 8 ~/.config/standardos/notes.md 2>/dev/null || echo 'Notes file not yet created.\nWrite to ~/.config/standardos/notes.md'`)
 
-;; Notif-history — derived from notif-os-daemon's JSONL journal by
-;; notif-history-channel. Wave 3 Task 4.
 ;; Card-cap: dashboard shows only the first 4 entries (mockup density);
 ;; full list lives in the rofi browser triggered from the bell pill.
 (defpoll notif-count :interval "5s" :initial "0"
@@ -61,11 +58,11 @@
 ;; day carries an agenda event. canvas-cal.sh recomputes once per minute
 ;; — only the today marker moves at midnight, every other cell is static
 ;; for the month.
-(defpoll cal-grid :interval "60s" :initial '{"rows":[]}'
+(defpoll cal-grid :interval "1h" :initial '{"rows":[]}'
   `/etc/nixos/home/widgets/scripts/canvas-cal.sh 2>/dev/null || echo '{"rows":[]}'`)
 
 ;; Calendar header — month + year line above the grid.
-(defpoll cal-header :interval "60s" :initial "—"
+(defpoll cal-header :interval "1h" :initial "—"
   `date +'%b %Y' | tr '[:upper:]' '[:lower:]'`)
 
 ;; User-shell + groups — pulled from getent so they reflect actual
@@ -239,10 +236,8 @@
     (for row in {cal-grid.rows}
       (max-cal-row :cells {row}))))
 
-;; EVENTS card: Today list + Tomorrow list. Uses real agenda-events poll
-;; when available; today-only filter for first list, tomorrow filter for
-;; the second. For now both lists pull from agenda-events with a TODOMORROW
-;; split via minutes_until > 1440 (24 h).
+;; EVENTS card: Today list (minutes_until < 1440) and Tomorrow list
+;; (1440 <= minutes_until < 2880), both from agenda-events.
 (defwidget max-event-row [summary start-text]
   (box :class "max-event" :orientation "horizontal" :space-evenly false :hexpand true
     (label :class "max-event-name" :text summary    :halign "start" :hexpand true)
@@ -280,44 +275,45 @@
     (label :class "max-bar-hrs"    :text hrs)
     (label :class "max-bar-pct"    :text pct)))
 
+;; Chart card pieces shared by max-chart-most-used / lifetime / weekly.
+(defwidget max-chart-header [title value sub]
+  (box :orientation "vertical" :space-evenly false :spacing 0
+    (box :orientation "horizontal" :space-evenly false :hexpand true
+      (label :class "max-chart-label" :text title :halign "start" :hexpand true)
+      (label :class "max-chart-value" :text value :halign "end"))
+    (label :class "max-chart-sub" :text sub :halign "start")))
+
+(defwidget max-chart-bar-list [items]
+  (box :class "max-chart-list" :orientation "vertical" :space-evenly false :spacing 2
+    (for it in {items}
+      (max-bar-row :marker {it.marker} :name {it.name} :hrs {it.hrs}
+                   :pct {it.pct} :width {it.width}
+                   :standout {it.standout ? "true" : "false"}))))
+
 (defwidget max-chart-most-used []
   (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
        :hexpand true :vexpand true
-    (box :orientation "horizontal" :space-evenly false :hexpand true
-      (label :class "max-chart-label" :text "MOST USED APPS" :halign "start" :hexpand true)
-      (label :class "max-chart-value" :text {most-used-apps-mock.total} :halign "end"))
-    (label :class "max-chart-sub"   :text "focus time · top one bolder" :halign "start")
-    (box :class "max-chart-list" :orientation "vertical" :space-evenly false :spacing 2
-      (for it in {most-used-apps-mock.items}
-        (max-bar-row :marker {it.marker} :name {it.name} :hrs {it.hrs}
-                     :pct {it.pct} :width {it.width}
-                     :standout {it.standout ? "true" : "false"})))))
+    (max-chart-header :title "MOST USED APPS" :value {most-used-apps-mock.total}
+                      :sub "focus time · top one bolder")
+    (max-chart-bar-list :items {most-used-apps-mock.items})))
 
+;; GTK gap: the v31 mockup shows an area chart here. Eww/GTK CSS does
+;; not paint cubic-bezier line art the same way the browser does; until
+;; a curve-rendering script ships, show a textual placeholder.
 (defwidget max-chart-lifetime []
   (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
        :hexpand true :vexpand true
-    (box :orientation "horizontal" :space-evenly false :hexpand true
-      (label :class "max-chart-label" :text "LIFETIME USAGE" :halign "start" :hexpand true)
-      (label :class "max-chart-value" :text {lifetime-usage-mock.total} :halign "end"))
-    (label :class "max-chart-sub" :text {lifetime-usage-mock.sub} :halign "start")
-    ;; GTK gap: the v31 mockup shows an area chart here. Eww/GTK CSS does
-    ;; not paint cubic-bezier line art the same way the browser does; until
-    ;; a curve-rendering script ships, show a textual placeholder.
+    (max-chart-header :title "LIFETIME USAGE" :value {lifetime-usage-mock.total}
+                      :sub {lifetime-usage-mock.sub})
     (box :class "max-chart-placeholder" :valign "center" :halign "center" :vexpand true
       (label :class "max-chart-empty" :text "area chart wires to usage-tracker.sh"))))
 
 (defwidget max-chart-weekly []
   (box :class "max-card max-chart" :orientation "vertical" :space-evenly false :spacing 4
        :hexpand true :vexpand true
-    (box :orientation "horizontal" :space-evenly false :hexpand true
-      (label :class "max-chart-label" :text "WEEKLY USAGE" :halign "start" :hexpand true)
-      (label :class "max-chart-value" :text {weekly-usage-mock.total} :halign "end"))
-    (label :class "max-chart-sub"   :text "Mon — Sun · today bolder" :halign "start")
-    (box :class "max-chart-list" :orientation "vertical" :space-evenly false :spacing 2
-      (for it in {weekly-usage-mock.items}
-        (max-bar-row :marker {it.marker} :name {it.name} :hrs {it.hrs}
-                     :pct {it.pct} :width {it.width}
-                     :standout {it.standout ? "true" : "false"})))))
+    (max-chart-header :title "WEEKLY USAGE" :value {weekly-usage-mock.total}
+                      :sub "Mon - Sun · today bolder")
+    (max-chart-bar-list :items {weekly-usage-mock.items})))
 
 ;; POMODORO: focus state badge + transport + dots + settings.
 (defwidget max-pomo-dot [n]
@@ -427,6 +423,14 @@
     (label :class "section-placeholder-label" :text name)
     (label :class "section-placeholder-sub"   :text "Coming soon")))
 
+;; Section router slot — common wrapper around each not-yet-built
+;; section's placeholder. The "max" section uses an inline (box ...
+;; (section-max)) call instead because it has a real body, not a name.
+(defwidget section-slot [id name]
+  (box :visible {current-section == id} :orientation "vertical"
+       :hexpand true :vexpand true :halign "fill" :valign "fill"
+    (section-placeholder :name name)))
+
 ;; ── Canvas root ──
 ;;
 ;; Wrapped in an overlay so a small × close button can float in the
@@ -445,21 +449,23 @@
       (section-nav)
       (box :class "section-body" :orientation "vertical" :space-evenly false
            :hexpand true :vexpand true :halign "fill" :valign "fill"
-        (box :visible {current-section == "max"}      :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-max))
-        (box :visible {current-section == "network"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Network and Internet"))
-        (box :visible {current-section == "devices"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Connected devices"))
-        (box :visible {current-section == "programs"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Programs"))
-        (box :visible {current-section == "notifs"}   :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Notifications"))
-        (box :visible {current-section == "sound"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Sound"))
-        (box :visible {current-section == "modes"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Modes"))
-        (box :visible {current-section == "display"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Display"))
-        (box :visible {current-section == "style"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Style and wallpaper"))
-        (box :visible {current-section == "storage"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Storage"))
-        (box :visible {current-section == "battery"}  :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Battery"))
-        (box :visible {current-section == "system"}   :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "System"))
-        (box :visible {current-section == "about"}    :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "About this computer"))
-        (box :visible {current-section == "security"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Security and privacy"))
-        (box :visible {current-section == "location"} :orientation "vertical" :hexpand true :vexpand true :halign "fill" :valign "fill" (section-placeholder :name "Location"))))
+        (box :visible {current-section == "max"} :orientation "vertical"
+             :hexpand true :vexpand true :halign "fill" :valign "fill"
+          (section-max))
+        (section-slot :id "network"  :name "Network and Internet")
+        (section-slot :id "devices"  :name "Connected devices")
+        (section-slot :id "programs" :name "Programs")
+        (section-slot :id "notifs"   :name "Notifications")
+        (section-slot :id "sound"    :name "Sound")
+        (section-slot :id "modes"    :name "Modes")
+        (section-slot :id "display"  :name "Display")
+        (section-slot :id "style"    :name "Style and wallpaper")
+        (section-slot :id "storage"  :name "Storage")
+        (section-slot :id "battery"  :name "Battery")
+        (section-slot :id "system"   :name "System")
+        (section-slot :id "about"    :name "About this computer")
+        (section-slot :id "security" :name "Security and privacy")
+        (section-slot :id "location" :name "Location")))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"

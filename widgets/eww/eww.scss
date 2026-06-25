@@ -12,6 +12,15 @@
  * needs more contrast than waybar's narrow strip does.
  */
 
+/* Color tokens (grass-rs variables). Single source of truth - every
+ * non-trivial color in this file should reference one of these. Bump
+ * /etc/nixos/home/widgets/palette.css in lockstep when these change. */
+$surface-glass:    rgba(128, 128, 128, 0.55);
+$surface-glass-2:  rgba(170, 170, 170, 0.55);
+$primary-blue:     rgba(110, 150, 255, 0.85);
+$standout-violet:  rgba(217, 179, 255, 0.95);
+$success-green:    rgba(179, 255, 179, 0.65);
+
 /* Reset GTK defaults so Eww starts from neutral ground. */
 * {
   all: unset;
@@ -55,7 +64,7 @@ window.dashboard {
 
 
 .opt-pill {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: $surface-glass;
   border-radius: 30px;
   padding: 5px 13px;
   color: rgba(255, 255, 255, 1.0);
@@ -67,14 +76,14 @@ window.dashboard {
 .section-nav { padding: 0; }
 
 .section-pill {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: $surface-glass;
   border-radius: 30px;
   padding: 4px 10px;
   color: rgba(255, 255, 255, 1.0);
   transition: background-color 140ms ease;
 }
 .section-pill:hover { background-color: rgba(255, 255, 255, 0.16); }
-.section-pill-active { background-color: rgba(110, 150, 255, 0.85); }
+.section-pill-active { background-color: $primary-blue; }
 .section-pill-label  { font-size: 8.5pt; letter-spacing: 0.2px; }
 
 /* -- Section body (router viewport) -------------------------------- */
@@ -97,7 +106,7 @@ window.dashboard {
 
 /* -- USER-MEGA (centered identity card at top of User section) ----- */
 .user-mega {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: $surface-glass;
   border-radius: 12px;
   padding: 8px 14px;
   margin: 0 7px;
@@ -190,7 +199,7 @@ window.dashboard {
 .max-notif   { min-width: 350px; }
 
 .max-card {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: $surface-glass;
   border-radius: 12px;
   padding: 6px 10px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
@@ -205,30 +214,30 @@ window.dashboard {
 .max-sec-label {
   font-size: 7pt;
   letter-spacing: 2px;
-  color: rgba(110, 150, 255, 0.85);
+  color: $primary-blue;
   padding: 4px 0 2px 0;
 }
 
-/* CONFIG card: tighter pref-row geometry so 10 rows + 2 section labels
- * fit in ~290px without pushing the USER row past the mockup's height. */
+/* CONFIG / POMODORO cards: tighter pref-row geometry so 10 rows + 2
+ * section labels fit without pushing their row past the mockup height.
+ * Chevron hidden in both (font-size: 0 collapses GTK label width). */
+.max-config .pref-chev,
+.max-pomo .pref-chev      { font-size: 0; min-width: 0; padding: 0; }
+
 .max-config .pref-row     { min-height: 14px; padding: 1px 6px; }
 .max-config .pref-label   { font-size: 8.5pt; }
 .max-config .pref-value   { font-size: 8.5pt; padding-right: 4px; }
-.max-config .pref-chev    { font-size: 0;     min-width: 0; padding: 0; }
 .max-config { padding: 4px 12px; }
 
-/* POMODORO: same density treatment for the 4 settings rows so the
- * BOTTOM row stays compact and we don't dominate the row's height. */
-.max-pomo .pref-row     { min-height: 18px; padding: 1px 6px; }
-.max-pomo .pref-label   { font-size: 8pt; }
-.max-pomo .pref-value   { font-size: 8pt; padding-right: 4px; }
-.max-pomo .pref-chev    { font-size: 0; min-width: 0; padding: 0; }
+.max-pomo .pref-row       { min-height: 18px; padding: 1px 6px; }
+.max-pomo .pref-label     { font-size: 8pt; }
+.max-pomo .pref-value     { font-size: 8pt; padding-right: 4px; }
 
 /* The USER-MEGA Sign-out link -- blue palette, no underline. */
 .um-signout {
   font-size: 11pt;
   letter-spacing: 0.8px;
-  color: rgba(110, 150, 255, 0.85);
+  color: $primary-blue;
   padding: 8px 4px 0 4px;
 }
 .um-signout-click:hover .um-signout { color: rgba(110, 150, 255, 1.0); }
@@ -252,7 +261,7 @@ window.dashboard {
 .max-cal-day-muted { color: rgba(255, 255, 255, 0.18); }
 .max-cal-day-has   { background-color: rgba(110, 150, 255, 0.18); color: rgba(255, 255, 255, 0.95); }
 .max-cal-day-today {
-  background-color: rgba(217, 179, 255, 0.95);
+  background-color: $standout-violet;
   color: rgba(255, 255, 255, 1.0);
   font-weight: 500;
 }
@@ -298,18 +307,18 @@ window.dashboard {
   font-size: 8pt;
   letter-spacing: 0.5px;
 }
-.max-pomo-badge-idle { background-color: rgba(128, 128, 128, 0.55); color: rgba(255, 255, 255, 0.85); }
+.max-pomo-badge-idle { background-color: $surface-glass; color: rgba(255, 255, 255, 0.85); }
 
 .max-pomo-ctrls   { padding: 6px 0; }
 .max-pomo-btn {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: $surface-glass;
   border-radius: 8px;
   padding: 4px 10px;
   color: rgba(255, 255, 255, 0.95);
   font-size: 8pt;
   letter-spacing: 1px;
 }
-.max-pomo-btn.primary { background-color: rgba(110, 150, 255, 0.85); }
+.max-pomo-btn.primary { background-color: $primary-blue; }
 .max-pomo-btn:hover   { background-color: rgba(255, 255, 255, 0.16); }
 
 .max-pomo-dots { padding: 4px 0; }
@@ -321,7 +330,7 @@ window.dashboard {
   background-color: rgba(255, 255, 255, 0.28);
   padding: 0;
 }
-.max-pomo-dot.done { background-color: rgba(217, 179, 255, 0.95); }
+.max-pomo-dot.done { background-color: $standout-violet; }
 
 /* TODO card. */
 .max-todo-list   { padding-top: 2px; }
@@ -334,7 +343,7 @@ window.dashboard {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.30);
 }
 .max-todo-chk.checked {
-  background-color: rgba(179, 255, 179, 0.65);
+  background-color: $success-green;
   box-shadow: inset 0 0 0 1px rgba(179, 255, 179, 0.85);
 }
 .max-todo-text {
