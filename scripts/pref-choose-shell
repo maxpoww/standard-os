@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# pref-choose-shell — rofi popup with /etc/shells entries; pipes the
+# pick to pref-stage as a JSON string. Cancel (rofi exit 1) is a no-op.
+set -euo pipefail
+
+# /etc/shells contains commented + blank lines; keep only paths that exist.
+mapfile -t shells < <(grep -v '^\s*#' /etc/shells | awk 'NF && -x $1')
+
+pick="$(printf '%s\n' "${shells[@]}" | rofi -dmenu -p "shell" -i)" || exit 0
+[ -n "$pick" ] || exit 0
+
+# pref-stage expects a JSON value; quote the path as a JSON string.
+/etc/nixos/home/scripts/pref-stage shell "$(jq -Rn --arg s "$pick" '$s')"
