@@ -698,19 +698,24 @@
 ;; concerns that don't belong on the user-config surface (v31 freeze
 ;; 2026-06-24).
 (defwidget user-mega-frame []
-  (box :class "user-mega" :orientation "vertical" :space-evenly false :spacing 4
-       :halign "fill" :valign "center" :hexpand true
-    (overlay :halign "center"
-      (box :class "um-avatar-fallback" :halign "center" :valign "center"
-        (label :class "um-avatar-glyph" :text "󰀄"))
-      (image :class "um-avatar"
-             :path user-avatar-path
-             :image-width 64 :image-height 64))
-    (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
-    (label :class "um-handle" :text {"@" + user-name + " · STDOS"}                    :halign "center")
-    (eventbox :class "um-signout-click" :halign "center"
-              :onclick "notify-send 'StandardOS' 'Sign out (coming soon)'"
-      (label :class "um-signout" :text "Sign out"))))
+  (box :class "user-mega" :orientation "vertical"
+       :halign "center" :valign "center" :hexpand false
+    ;; Inner box holds the four content rows as a group; valign=center +
+    ;; vexpand=false centers that group vertically inside the taller
+    ;; user-mega card (which has min-height = neighbors' height).
+    (box :orientation "vertical" :space-evenly false :spacing 4
+         :valign "center" :vexpand false
+      (overlay :halign "center"
+        (box :class "um-avatar-fallback" :halign "center" :valign "center"
+          (label :class "um-avatar-glyph" :text "󰀄"))
+        (image :class "um-avatar"
+               :path user-avatar-path
+               :image-width 64 :image-height 64))
+      (label :class "um-name"   :text {user-fullname == "" ? user-name : user-fullname} :halign "center")
+      (label :class "um-handle" :text {"@" + user-name + " · STDOS"}                    :halign "center")
+      (eventbox :class "um-signout-click" :halign "center"
+                :onclick "notify-send 'StandardOS' 'Sign out (coming soon)'"
+        (label :class "um-signout" :text "Sign out")))))
 
 ;; your-day-card — vertical stack of personal KPIs for today. Centerpiece
 ;; of the 3-column analytics row (left: TOP APPS, center: this, right:
@@ -1082,24 +1087,31 @@
 ;; rows so they end up with a tall empty bottom strip), and USER ends up
 ;; visually heavier than the mockup intends.
 (defwidget section-max []
-  (box :class "section section-max" :orientation "vertical" :space-evenly false :spacing 8
+  (box :class "section section-max" :orientation "vertical" :space-evenly false :spacing 7
        :halign "fill" :valign "fill" :hexpand true :vexpand true
-    ;; USER LINE — wrapper-free, each card sets its own :hexpand.
-    (box :class "max-user-row" :orientation "horizontal" :space-evenly false :spacing 6
-         :halign "fill" :hexpand true :vexpand false
-      (max-config-card)
+    ;; USER LINE — centerbox layout. USER-MEGA sits at the exact geometric
+    ;; center of the row; max-config fills the left half, max-cal +
+    ;; max-events fill the right half. centerbox guarantees center
+    ;; placement regardless of side-child widths.
+    (centerbox :class "max-user-row" :orientation "horizontal"
+      (box :class "max-user-left" :orientation "horizontal" :spacing 7
+           :hexpand true :halign "fill"
+        (max-config-card))
       (user-mega-frame)
-      (max-cal-card)
-      (max-events-card))
-    ;; CHARTS row — fills middle, equal weights.
-    (box :class "max-charts-row" :orientation "horizontal" :space-evenly false :spacing 6
-         :halign "fill" :hexpand true :vexpand true
+      (box :class "max-user-right" :orientation "horizontal" :spacing 7
+           :hexpand true :halign "fill"
+        (max-cal-card)
+        (max-events-card)))
+    ;; CHARTS row — explicit min-height (roughly half of what vexpand
+    ;; would have claimed); the freed slack flows into bottom-row.
+    (box :class "max-charts-row" :orientation "horizontal" :space-evenly false :spacing 7
+         :halign "fill" :hexpand true :vexpand false
       (max-chart-most-used)
       (max-chart-lifetime)
       (max-chart-weekly))
-    ;; BOTTOM row — natural height, weighted via SCSS min-widths.
-    (box :class "max-bottom-row" :orientation "horizontal" :space-evenly false :spacing 6
-         :halign "fill" :hexpand true :vexpand false
+    ;; BOTTOM row — claims all the vertical slack the charts row gave up.
+    (box :class "max-bottom-row" :orientation "horizontal" :space-evenly false :spacing 7
+         :halign "fill" :hexpand true :vexpand true
       (max-pomodoro-card)
       (max-todo-card)
       (max-notes-card)
@@ -1126,7 +1138,7 @@
     (box :class "canvas-root"
          :orientation "vertical"
          :space-evenly false
-         :spacing 12
+         :spacing 7
       (section-nav)
       (box :class "section-body" :orientation "vertical" :space-evenly false
            :hexpand true :vexpand true :halign "fill" :valign "fill"
@@ -1153,14 +1165,14 @@
 
 ;; ── Window ──
 
-;; Geometry: the canonical opener is /etc/nixos/home/scripts/canvas-open,
-;; which passes monitor-aware --pos / --size / --anchor at runtime so the
-;; surface fills the workarea below the waybar on any hardware. The
-;; values below are the fallback used if someone invokes `eww open
-;; dashboard` directly without the wrapper.
+;; Geometry: anchor "center" leaves no edge anchored, so the layer
+;; surface ignores other layers' exclusive zones (waybar) and gets
+;; the full monitor as its size. width/height "100%" then expand to
+;; the monitor extent. Result: canvas covers everything including
+;; the bar area without touching the waybar.
 (defwindow dashboard
   :monitor 0
-  :geometry (geometry :x "0" :y "0" :width "100%" :height "100%" :anchor "top center")
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :height "100%" :anchor "center")
   :stacking "overlay"
   :exclusive false
   :focusable true

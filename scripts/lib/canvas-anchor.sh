@@ -29,15 +29,32 @@ CANVAS_HYPR_CTX="${CANVAS_HYPR_CTX:-/tmp/waybar-cache/hypr-context.json}"
 # blank — the canvas still opens on first boot before
 # hypr-context-daemon has written its first cache.
 canvas_geometry_for_open() {
-    local ctx x w h
-    [ -r "$CANVAS_HYPR_CTX" ] || { printf '0 0 1920 1055'; return; }
-    ctx=$(cat "$CANVAS_HYPR_CTX" 2>/dev/null) || { printf '0 0 1920 1055'; return; }
-    # Independently extract x / w / h from the bg_window object. Field
-    # order inside the object is not contractually fixed, so each field
-    # gets its own regex anchored to bg_window's opening brace.
-    x=0; w=1920; h=1055
-    if [[ $ctx =~ \"bg_window\"[[:space:]]*:[[:space:]]*\{[^}]*\"x\"[[:space:]]*:[[:space:]]*(-?[0-9]+) ]]; then x="${BASH_REMATCH[1]}"; fi
-    if [[ $ctx =~ \"bg_window\"[[:space:]]*:[[:space:]]*\{[^}]*\"w\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then w="${BASH_REMATCH[1]}"; fi
-    if [[ $ctx =~ \"bg_window\"[[:space:]]*:[[:space:]]*\{[^}]*\"h\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then h="${BASH_REMATCH[1]}"; fi
-    printf '%d 0 %d %d' "$x" "$w" "$h"
+    local ctx focused mon_w mon_h scale bg_h lw lh bar_h
+    [ -r "$CANVAS_HYPR_CTX" ] || { printf '0 0 1600 1025'; return; }
+    ctx=$(cat "$CANVAS_HYPR_CTX" 2>/dev/null) || { printf '0 0 1600 1025'; return; }
+    # Canvas covers the FULL monitor (over the waybar). The defwindow
+    # uses anchor "center" so Hyprland does not apply the bar's
+    # exclusive-zone offset, but anchor-center centers the surface on
+    # the WORKAREA (below the bar), not the monitor. To make a
+    # workarea-centered surface still cover the bar at the top, the
+    # surface must be (monitor_h + bar_h) tall — the extra bar_h ends
+    # up overflowing the monitor bottom (clipped by compositor, fine).
+    focused=""
+    if [[ $ctx =~ \"monitor_focused\":\"([^\"]+)\" ]]; then focused="${BASH_REMATCH[1]}"; fi
+    mon_w=1600; mon_h=1000; scale=1
+    if [ -n "$focused" ]; then
+        local pat="\"name\":\"$focused\"[^}]*\"w\":([0-9]+)[^}]*\"h\":([0-9]+)[^}]*\"scale\":([0-9.]+)"
+        if [[ $ctx =~ $pat ]]; then
+            mon_w="${BASH_REMATCH[1]}"
+            mon_h="${BASH_REMATCH[2]}"
+            scale="${BASH_REMATCH[3]}"
+        fi
+    fi
+    bg_h=975
+    if [[ $ctx =~ \"bg_window\"[[:space:]]*:[[:space:]]*\{[^}]*\"h\"[[:space:]]*:[[:space:]]*([0-9]+) ]]; then bg_h="${BASH_REMATCH[1]}"; fi
+    lw=$(awk "BEGIN { printf \"%d\", $mon_w / $scale }")
+    lh=$(awk "BEGIN { printf \"%d\", $mon_h / $scale }")
+    bar_h=$((lh - bg_h))
+    lh=$((lh + bar_h))
+    printf '0 0 %d %d' "$lw" "$lh"
 }
