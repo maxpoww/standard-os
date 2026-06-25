@@ -1,17 +1,17 @@
 ;; ─────────────────────────────────────────────────────────────────────
 ;;  StandardOS widget canvas — Eww root.
 ;;
-;;  Wave 2: dense layout (waybar serves as the top strip).
-;;    CROWN strip (pill toggles + workspaces)
-;;    HERO trio (clock+weather · media-MEGA · stacked 6-ring frames)
-;;    bars row (5 floating sliders, tight to HERO)
-;;    FIELD row 1 (calendar / agenda / notes / notifications)
-;;    FIELD row 2 (network / system+temps / focus)
+;;  Fullscreen overlay opened via Super+RETURN. Top-level layout:
+;;    section-nav  — 15-pill router strip (only `max` is built today;
+;;                   the rest render section-placeholder "Coming soon").
+;;    section-max  — v31 Max section: user-row (CONFIG | USER-MEGA |
+;;                   CALENDAR | EVENTS) over a charts row over a
+;;                   bottom row (POMODORO | TODO | NOTES | NOTIF).
 ;; ─────────────────────────────────────────────────────────────────────
 
 ;; ── Data sources ──
 
-;; Time + date (existing from Wave 1).
+;; Time + date.
 (defpoll time
   :interval "1s"
   :initial "--:--"
@@ -22,182 +22,11 @@
   :initial "—"
   `date +'%A, %B %-d'`)
 
-;; LOAD avg — feeds the SYSTEM·TEMPS sys-pill cluster.
-(defpoll menubar-sysload
-  :interval "5s"
-  :initial "LOAD — — —"
-  `/etc/nixos/home/widgets/scripts/canvas-sysload.sh`)
-
-;; Toggle states — each polls a small script that reads the bar's cache.
-(defpoll toggle-dnd       :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh dnd`)
-(defpoll toggle-dictate   :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh dictate`)
-(defpoll toggle-night     :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh night`)
-(defpoll toggle-warm      :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh warm`)
-(defpoll toggle-paper     :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh paper`)
-(defpoll toggle-newspaper :interval "3s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh newspaper`)
-(defpoll toggle-wifi      :interval "5s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh wifi`)
-(defpoll toggle-focus     :interval "2s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-toggle-state.sh focus`)
-
-;; Workspaces — Hyprland-aware via the existing workspace daemon's cache.
-(defpoll ws-current :interval "500ms" :initial "1" `cat /tmp/waybar-cache/ws-current 2>/dev/null || echo 1`)
-
-;; Weather — daemon writes /tmp/waybar-cache/weather.json; canvas reads
-;; the parsed fields via jq on a 60 s cadence. Daemon: services.weatherDaemon
-;; (modules/weather-daemon.nix). Wave 3 Task 2.
-;; Staleness detection: if (now - fetched) > 3600 s, fall back to placeholders.
-(defpoll weather-cond :interval "60s" :initial "clear"
-  `jq -r '.cond  // "clear"' /tmp/waybar-cache/weather.json 2>/dev/null || echo clear`)
-(defpoll weather-temp :interval "60s" :initial "—°"
-  `jq -r '.temp  // "—°"' /tmp/waybar-cache/weather.json 2>/dev/null || echo "—°"`)
-(defpoll weather-hi   :interval "60s" :initial "—"
-  `jq -r '.hi    // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
-(defpoll weather-lo   :interval "60s" :initial "—"
-  `jq -r '.lo    // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
-(defpoll weather-hum  :interval "60s" :initial "—%"
-  `jq -r '.hum   // "—%"' /tmp/waybar-cache/weather.json 2>/dev/null || echo "—%"`)
-(defpoll weather-city :interval "300s" :initial "—"
-  `jq -r '.city  // "—"' /tmp/waybar-cache/weather.json 2>/dev/null || echo —`)
-(defpoll weather-fetched :interval "60s" :initial "0"
-  `jq -r '.fetched // 0' /tmp/waybar-cache/weather.json 2>/dev/null || echo 0`)
-(defpoll now-epoch :interval "60s" :initial "0" `date +%s`)
-
-;; mpris-snapshot: composite JSON owned by mpris-publisher (systemd user
-;; unit). One inotify subscription replaces the previous 8 playerctl-shelling
-;; defpolls (source/title/artist/album/status/pos/len/pct). The listener
-;; watches /tmp/waybar-cache/ parent dir and filters by basename — per-file
-;; inotify watches die after the publisher's tmp+mv (composite-module pattern,
-;; waybar/ARCHITECTURE.md). Spec:
-;; docs/superpowers/specs/2026-06-21-canvas-media-mpris-truth-design.md
-(deflisten mpris-snapshot
-  :initial `{"active":false,"player":"","source_label":"","title":"","artist":"","album":"","status":"","status_glyph":"⏵","pos_sec":0,"len_sec":0,"pct":0,"pos_text":"—:—","len_text":"—:—","art_path":"","updated":0}`
-  `/etc/nixos/home/widgets/scripts/canvas-mpris-listen`)
-
-;; Ring SVG regenerator — canvas-rings-gen.sh writes per-ring SVG to
-;; /tmp/canvas-rings/<name>.<tick>.svg, prints the tick. The tick gets
-;; interpolated into ring-cell's (image :path) so the path string differs
-;; each cycle, defeating GTK Image's path-keyed cache.
-(defpoll ring-tick :interval "5s" :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-rings-gen.sh`)
-
-;; Sparkline SVG regenerator — same tick mechanism. canvas-sparkline.sh
-;; collects readings into ring buffers + renders one SVG per metric
-;; (cpu / mem / battery / net-down / net-up). All five SVGs share the
-;; printed tick so the interpolated image path always resolves.
-(defpoll spark-tick :interval "5s" :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-sparkline.sh tick`)
-
-;; Pie SVG regenerator — same tick mechanism. canvas-pie.sh writes
-;; one donut per metric (memory / ws-dist / app-dist / pomodoro /
-;; notif-dist) to /tmp/canvas-pies/<metric>.<tick>.svg.
-(defpoll pie-tick :interval "5s" :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-pie.sh tick`)
-
-;; Top-N data sources for bar-fill list cards. Each emits
-;; {"items":[{name,value}...], "max":N} so bar widths scale to max.
-(defpoll top-apps :interval "5s" :initial '{"items":[],"max":1}'
-  `/etc/nixos/home/widgets/scripts/canvas-tops.sh apps`)
-(defpoll top-ws :interval "5s" :initial '{"items":[],"max":1}'
-  `/etc/nixos/home/widgets/scripts/canvas-tops.sh ws`)
-(defpoll top-notifs :interval "10s" :initial '{"items":[],"max":1}'
-  `/etc/nixos/home/widgets/scripts/canvas-tops.sh notifs`)
-
-;; Bar-chart SVG regenerator -- wide multi-day bar charts. Same tick
-;; pattern as rings / sparks / pies. 30s interval is fine; the
-;; underlying data (notif-history.json daily counts) changes slowly.
-(defpoll chart-tick :interval "30s" :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-chart.sh tick`)
-
-;; User preferences -- backed by ~/.config/standardos/preferences.json
-;; via widgets/scripts/pref.sh. The defpoll re-reads after a click
-;; cycles the value so the row's displayed value updates within 2s.
-(defpoll pref-time-format :interval "2s" :initial "24h"
-  `/etc/nixos/home/widgets/scripts/pref.sh get time_format 24h`)
-(defpoll pref-notifications :interval "2s" :initial "Allowed"
-  `/etc/nixos/home/widgets/scripts/pref.sh get notifications Allowed`)
-
-;; Power-section data -- power source + battery state from
-;; /sys/class/power_supply/.
-(defpoll power-state     :interval "5s" :initial "Unknown"
-  `/etc/nixos/home/widgets/scripts/canvas-power.sh state`)
-(defpoll power-bat-state :interval "5s" :initial "Unknown"
-  `/etc/nixos/home/widgets/scripts/canvas-power.sh bat-state`)
-
-;; Power preferences (cyclable; don't yet drive system behaviour --
-;; the click->cycle->display loop is wired, plumbing into TLP /
-;; powerprofilesctl / logind etc. lands per-pref later).
-(defpoll pref-power-profile  :interval "2s" :initial "Balanced"
-  `/etc/nixos/home/widgets/scripts/pref.sh get power_profile Balanced`)
-(defpoll pref-lid-behavior   :interval "2s" :initial "Suspend"
-  `/etc/nixos/home/widgets/scripts/pref.sh get lid_behavior Suspend`)
-(defpoll pref-display-sleep  :interval "2s" :initial "5 min"
-  `/etc/nixos/home/widgets/scripts/pref.sh get display_sleep "5 min"`)
-
-;; Network preferences -- cyclable; same caveat (no system plumbing yet).
-(defpoll pref-wifi        :interval "2s" :initial "On"
-  `/etc/nixos/home/widgets/scripts/pref.sh get wifi On`)
-(defpoll pref-firewall    :interval "2s" :initial "On"
-  `/etc/nixos/home/widgets/scripts/pref.sh get firewall On`)
-(defpoll pref-mac-random  :interval "2s" :initial "Off"
-  `/etc/nixos/home/widgets/scripts/pref.sh get mac_random Off`)
-(defpoll pref-dns-tls     :interval "2s" :initial "Off"
-  `/etc/nixos/home/widgets/scripts/pref.sh get dns_tls Off`)
-
-;; Ring stats — read from system-daemon's sys-* caches.
-;; The daemon polls every 2 s; canvas defpolls at 2 s match so we never
-;; lag the daemon. /tmp/waybar-cache/sys-disk-root etc. are written by
-;; system-daemon (modules/system-daemon.nix, Wave 3 Task 3).
-(defpoll ring-disk-root :interval "60s" :initial "0"
-  `jq -r '.pct // 0' /tmp/waybar-cache/sys-disk-root 2>/dev/null || echo 0`)
-(defpoll ring-disk-home :interval "60s" :initial "0"
-  `jq -r '.pct // 0' /tmp/waybar-cache/sys-disk-home 2>/dev/null || echo 0`)
-(defpoll ring-battery :interval "15s" :initial "0"
-  `jq -r '.pct // 0' /tmp/waybar-cache/sys-battery 2>/dev/null || echo 0`)
-(defpoll ring-wifi-bars :interval "10s" :initial "▯▯▯▯"
-  `/etc/nixos/home/widgets/scripts/canvas-wifi.sh bars`)   ;; wifi stays
-(defpoll ring-wifi-pct  :interval "10s" :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-wifi.sh pct`)    ;; (network daemon = Wave 4)
-(defpoll ring-gpu       :interval "5s" :initial "0"
-  `jq -r '.pct // 0' /tmp/waybar-cache/sys-gpu 2>/dev/null || echo 0`)
-(defpoll ring-gpu-temp  :interval "10s" :initial "—"
-  `jq -r '.temp // "—"' /tmp/waybar-cache/sys-gpu 2>/dev/null || echo —`)
-(defpoll ring-mem       :interval "5s" :initial "0"
-  `jq -r '.pct // 0' /tmp/waybar-cache/sys-mem 2>/dev/null || echo 0`)
-(defpoll ring-mem-used  :interval "10s" :initial "—"
-  `jq -r '.used // "—"' /tmp/waybar-cache/sys-mem 2>/dev/null || echo —`)
-
-;; Slider current values — polled at 1 s while canvas is open.
-;; brightnessctl reports as percent of max via -m.
-(defpoll bar-display :interval "1s" :initial "50"
-  `jq -r '.pct // 50' /tmp/waybar-cache/brightness.json 2>/dev/null || echo 50`)
-(defpoll bar-sound   :interval "1s" :initial "45"
-  `wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{ printf "%.0f", $2 * 100 }' || echo 45`)
-(defpoll bar-mic     :interval "1s" :initial "30"
-  `pamixer --default-source --get-volume 2>/dev/null || echo 30`)
-(defpoll bar-keyboard :interval "1s" :initial "0"
-  `brightnessctl -d '*::kbd_backlight' -m 2>/dev/null | awk -F, '{ sub("%","",$4); print $4 }' | head -1 || echo 0`)
-(defpoll bar-night   :interval "2s" :initial "0"
-  `cat /tmp/night-dimmer-strength 2>/dev/null || echo 0`)
-
 ;; Wave 1 notes preview — kept exactly as Wave 1 implemented it.
 (defpoll notes-preview
   :interval "5s"
   :initial "Notes file not yet created.\nWrite to ~/.config/standardos/notes.md"
   `tail -n 8 ~/.config/standardos/notes.md 2>/dev/null || echo 'Notes file not yet created.\nWrite to ~/.config/standardos/notes.md'`)
-
-;; Today's focal date number (e.g. "19") for the calendar card.
-(defpoll today-day :interval "60s" :initial "—" `date +'%-d'`)
-
-;; Today's weekday name (e.g. "Friday") for the calendar card.
-(defpoll today-weekday :interval "60s" :initial "—" `date +'%A'`)
-
-;; Month name (uppercase) for the calendar card label.
-(defpoll today-month :interval "300s" :initial "—" `date +'%B' | tr '[:lower:]' '[:upper:]'`)
-
-;; Heatmap — 6 rows × 7 cols of {day, klass}. Klass: muted|""|t1|t2|t3|today.
-;; Intensity is currently date-hashed (visual scaffold); wire to real density
-;; (commits, notif count, agenda events) in a future pass.
-(defpoll heatmap-rows :interval "300s" :initial "[]"
-  `/etc/nixos/home/widgets/scripts/canvas-heatmap.sh`)
 
 ;; Notif-history — derived from notif-os-daemon's JSONL journal by
 ;; notif-history-channel. Wave 3 Task 4.
@@ -208,14 +37,6 @@
 (defpoll notif-entries :interval "5s" :initial "[]"
   `jq -c '.entries[0:4] // []' /tmp/waybar-cache/notif-history.json 2>/dev/null || echo "[]"`)
 
-;; Network sys-pills (FIELD row 2 NETWORK card).
-(defpoll sp-down  :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh down`)
-(defpoll sp-up    :interval "2s"  :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh up`)
-(defpoll sp-ssid  :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh ssid`)
-(defpoll sp-ip    :interval "10s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh ip`)
-(defpoll sp-dns   :interval "30s" :initial "—"   `/etc/nixos/home/widgets/scripts/canvas-net.sh dns`)
-(defpoll sp-vpn   :interval "10s" :initial "off" `/etc/nixos/home/widgets/scripts/canvas-net.sh vpn`)
-
 ;; User identity. Avatar falls back to _blank.svg when
 ;; ~/.config/standardos/avatar.png is missing — the overlay fallback
 ;; (gradient + person glyph) shows through in that case. Drop a square
@@ -224,8 +45,6 @@
   `whoami`)
 (defpoll user-fullname :interval "1h" :initial ""
   `getent passwd "$(whoami)" 2>/dev/null | cut -d: -f5 | cut -d, -f1 | head -1`)
-(defpoll user-hostname :interval "1h" :initial "stdos"
-  `hostname`)
 (defpoll user-avatar-path :interval "30s" :initial "/etc/nixos/home/widgets/svg/_blank.svg"
   `if [ -r "$HOME/.config/standardos/avatar.png" ]; then echo "$HOME/.config/standardos/avatar.png"; else echo /etc/nixos/home/widgets/svg/_blank.svg; fi`)
 
@@ -234,21 +53,6 @@
 ;; lands on the personal-dashboard page. Section ids follow the v31
 ;; mockup vocabulary; see waybar/docs/mockups/README.md.
 (defvar current-section "max")
-
-;; Usage analytics — drive the User-section analytics tiles. All five
-;; metrics come from one dispatcher script that returns a short
-;; tile-ready string. Polling intervals match how fast each value
-;; meaningfully changes.
-(defpoll usage-session     :interval "30s" :initial "--"
-  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh session`)
-(defpoll usage-uptime      :interval "30s" :initial "--"
-  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh uptime`)
-(defpoll usage-active-app  :interval "2s"  :initial "--"
-  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh active-app`)
-(defpoll usage-win-count   :interval "3s"  :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh win-count`)
-(defpoll usage-ws-count    :interval "5s"  :initial "0"
-  `/etc/nixos/home/widgets/scripts/canvas-analytics.sh ws-count`)
 
 ;; ── v31 Max section data sources ──
 ;;
@@ -311,316 +115,13 @@
   {"text":"Charts in canvas mock","done":true}
 ]}')
 
-;; System sys-pills (FIELD row 2 SYSTEM·TEMPS card).
-(defpoll sp-cpu      :interval "2s"  :initial "—"
-  `jq -r '.pct // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
-(defpoll sp-cpu-temp :interval "5s"  :initial "—"
-  `jq -r '.temp // "—"' /tmp/waybar-cache/sys-cpu 2>/dev/null || echo —`)
-(defpoll sp-fan      :interval "5s"  :initial "—"
-  `jq -r '.fan_rpm // "—"' /tmp/waybar-cache/sys-temp 2>/dev/null || echo —`)
-(defpoll sp-uptime   :interval "30s" :initial "—"
-  `awk '{ s=$1; d=int(s/86400); h=int((s%86400)/3600); m=int((s%3600)/60); printf "%dd %dh %dm\n", d, h, m }' /proc/uptime`)
-(defpoll sp-procs    :interval "10s" :initial "—"
-  `ls -1 /proc 2>/dev/null | grep -c '^[0-9]\+$' || echo 0`)
-(defpoll sp-boot     :interval "60s" :initial "—"
-  `who -b 2>/dev/null | awk '{print $3" "$4}' || echo —`)
-
-;; ── Widgets ──
-
-(defwidget toggle-pill [name glyph label state on-click]
-  (eventbox :onclick on-click
-    (box :class {state == "on" ? "opt-pill state-blue" : "opt-pill"}
-         :orientation "horizontal" :space-evenly false :spacing 5
-      (label :class "opt-pill-glyph" :text glyph)
-      (label :class "opt-pill-label" :text label))))
-
-(defwidget toggle-swap [name glyph title state rhs on-click]
-  (eventbox :onclick on-click
-    (box :class {state == "on" ? "opt-swap state-blue" : "opt-swap"}
-         :orientation "horizontal" :space-evenly false
-      (box :class "opt-swap-lhs" :orientation "horizontal" :spacing 5
-        (label :class "opt-swap-glyph" :text glyph)
-        (label :class "opt-swap-title" :text title))
-      (box :class "opt-swap-rhs"
-        (label :text rhs)))))
-
-(defwidget crown-workspaces []
-  (box :class "ws-strip" :orientation "horizontal" :space-evenly false :spacing 4
-    (box :class {ws-current == "1" ? "ws act" : "ws"} (label :text "1"))
-    (box :class {ws-current == "2" ? "ws act" : "ws"} (label :text "2"))
-    (box :class {ws-current == "3" ? "ws act" : "ws"} (label :text "3"))
-    (box :class {ws-current == "4" ? "ws act" : "ws"} (label :text "4"))
-    (box :class {ws-current == "5" ? "ws act" : "ws"} (label :text "5"))))
-
-(defwidget crown-container []
-  (box :class "crown-strip" :orientation "horizontal" :space-evenly false :spacing 6 :halign "center"
-    (toggle-swap :name "wifi"   :glyph "󰖩"  :title "Wi-Fi"   :state toggle-wifi    :rhs "Home"   :on-click "nm-connection-editor &")
-    (toggle-swap :name "focus"  :glyph "󰂛"  :title "Focus"   :state toggle-focus   :rhs "DND"    :on-click "/etc/nixos/home/waybar/scripts/lib/pill.sh; notif-click dnd")
-    (toggle-pill :name "dict"   :glyph "󰍬"  :label "Dictate" :state toggle-dictate :on-click "dictate-toggle")
-    (toggle-pill :name "bt"     :glyph ""  :label ""        :state "off"          :on-click "blueman-manager &")
-    (toggle-pill :name "drop"   :glyph "󰀂"  :label ""        :state "off"          :on-click "true")
-    (toggle-pill :name "night"  :glyph "󰽢"  :label "Night"   :state toggle-night   :on-click "/etc/nixos/home/waybar/scripts/night-dimmer.sh click")
-    (toggle-pill :name "warm"   :glyph "󰈸"  :label "Warm"    :state toggle-warm    :on-click "/etc/nixos/home/waybar/scripts/warm-cycle.sh click")
-    (toggle-pill :name "paper"  :glyph "󰈚"  :label "Paper"   :state toggle-paper   :on-click "/etc/nixos/home/waybar/scripts/shader-toggle.sh paper")
-    (toggle-pill :name "news"   :glyph "󰎕"  :label "News"    :state toggle-newspaper :on-click "/etc/nixos/home/waybar/scripts/shader-toggle.sh newspaper")
-    (crown-workspaces)))
-
-;; Weather illustration — 7 SVG files in widgets/svg/, picked by condition.
-;; Sun pulses (sun-pulse keyframe in eww.scss); storm flashes the bolt.
-;; The condition strings: clear · partly-cloudy · cloudy · rain · snow · storm · clear-night.
-(defwidget weather-illust [cond]
-  (box :class {"weather-illust weather-illust-" + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear" : cond)}
-       :halign "center" :valign "center"
-    (image :path {"/etc/nixos/home/widgets/svg/weather-" +
-                  ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "clear"
-                   : cond == "clear" ? "clear"
-                   : cond == "partly-cloudy" ? "partly-cloudy"
-                   : cond == "cloudy" ? "cloudy"
-                   : cond == "rain" ? "rain"
-                   : cond == "snow" ? "snow"
-                   : cond == "storm" ? "storm"
-                   : cond == "clear-night" ? "clear-night"
-                   : "clear") + ".svg"}
-           :image-width 78 :image-height 78)))
-
-(defwidget clock-weather-frame []
-  (box :class "cw-card" :orientation "vertical" :space-evenly false :spacing 8 :vexpand true
-    ;; weather (top 2/3)
-    (box :class "cw-weather" :orientation "horizontal" :space-evenly false :spacing 14
-         :vexpand true :valign "fill"
-      (weather-illust :cond {weather-cond == "" ? "clear" : weather-cond})
-      (box :class "cw-info" :orientation "vertical" :space-evenly false :valign "center"
-        (label :class "cw-temp" :text {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "—°" : weather-temp} :halign "start")
-        (label :class "cw-city" :text {(now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : (weather-city == "—" ? "MENDOZA" : weather-city)} :halign "start")
-        (label :class "cw-desc" :text "Current conditions" :halign "start")
-        (label :class "cw-lohi"
-               :text {"↑ " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : weather-hi) + "  ↓ " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—" : weather-lo) + "  ·  " + ((now-epoch * 1 - weather-fetched * 1) > 3600 ? "—%" : weather-hum) + " hum"}
-               :halign "start")))
-    ;; divider
-    (box :class "cw-divider" :vexpand false)
-    ;; clock (bottom 1/3)
-    (box :class "cw-clock" :orientation "horizontal" :space-evenly false :spacing 14
-         :halign "center" :valign "center"
-      (label :class "cw-clock-text" :text time)
-      (box :class "cw-date" :orientation "vertical" :space-evenly false :spacing 2
-        (label :text "FRIDAY" :halign "start" :class "cw-date-line")
-        (label :text "19 JUN · WK 25" :halign "start" :class "cw-date-line-sub")))))
-
-(defwidget media-mega-frame []
-  (box :class {mpris-snapshot.active == "true" ? "media-mega" : "media-mega empty"}
-       :orientation "vertical" :space-evenly false :spacing 7
-    ;; top: cover + meta
-    (box :class "mm-top" :orientation "horizontal" :space-evenly false :spacing 14
-      (overlay
-        ;; Fallback layer — gradient + ♪ glyph, shows when art_path empty.
-        (box :class "mm-art-fallback" :halign "center" :valign "center"
-          (label :class "mm-art-glyph" :text "♪"))
-        ;; Real art on top — covers fallback when path resolves. When art_path
-        ;; is empty, point at a 1×1 transparent SVG (eww (image) errors on "").
-        (image :class "mm-art"
-               :path {mpris-snapshot.art_path == "" ? "/etc/nixos/home/widgets/svg/_blank.svg" : mpris-snapshot.art_path}
-               :image-width 92 :image-height 92))
-      (box :class "mm-meta" :orientation "vertical" :space-evenly false :spacing 2 :hexpand true
-        (label :class "mm-src"   :text {mpris-snapshot.source_label} :halign "start")
-        (label :class "mm-title" :text {mpris-snapshot.title}        :halign "start")
-        (label :class "mm-artist" :text {mpris-snapshot.artist}      :halign "start")
-        (label :class "mm-album" :text {mpris-snapshot.album}        :halign "start")
-        (box :class "mm-extras" :orientation "horizontal" :space-evenly false :spacing 6
-          (button :class "opt-pill mm-extra"           :onclick "playerctl shuffle Toggle" "󰓦 Shuffle")
-          (button :class "opt-pill state-blue mm-extra" :onclick "playerctl loop Toggle"    "󰑖 Repeat")
-          (button :class "opt-pill mm-extra"           :onclick "true"                     "󰋗 Lyrics"))))
-    ;; progress row
-    (box :class "mm-progress" :orientation "horizontal" :space-evenly false :spacing 6 :valign "center"
-      (label :class "mm-time" :text {mpris-snapshot.pos_text})
-      (box :class "mm-bar" :hexpand true
-        (box :class "mm-bar-fill" :hexpand false
-             :style "min-width: ${mpris-snapshot.pct}%;"))
-      (label :class "mm-time" :text {mpris-snapshot.len_text}))
-    ;; transport row
-    (box :class "mm-transport-row" :orientation "horizontal" :space-evenly false
-      (box :class "mm-transport" :orientation "horizontal" :space-evenly false :spacing 12 :hexpand true :halign "start"
-        (button :class "mm-tx-btn" :onclick "playerctl previous" "⏮")
-        (button :class "mm-tx-btn mm-tx-play" :onclick "playerctl play-pause" {mpris-snapshot.status_glyph})
-        (button :class "mm-tx-btn" :onclick "playerctl next" "⏭"))
-      (box :class "mm-controls-r" :orientation "horizontal" :space-evenly false :spacing 6 :halign "end"
-        (button :class "opt-mini" :onclick "true" "󰋗")
-        (button :class "opt-mini" :onclick "true" "󰒮")))))
-
-;; ring-cell — image-based Apple-Watch-style ring (SVG written by
-;; canvas-rings-gen.sh, refreshed every 5s via ring-tick). The :ring-name
-;; param selects which SVG to load. Center label overlays via (overlay).
-(defwidget ring-cell [ring-name glyph pct-text lbl-text]
-  (box :class "ring-cell" :orientation "vertical" :space-evenly false :spacing 1 :halign "center"
-    (overlay
-      (image :path {"/tmp/canvas-rings/" + ring-name + "." + ring-tick + ".svg"}
-             :image-width 46 :image-height 46)
-      (label :class "ring-glyph" :text glyph))
-    (label :class "ring-pct" :text pct-text)
-    (label :class "ring-lbl" :text lbl-text)))
-
-(defwidget opt-slider [klass label-text icon-l icon-r value onchange]
-  (box :class {"opt-slider-wrap opt-slider-wrap-" + klass} :orientation "vertical" :space-evenly false :spacing 0
-    (box :class "opt-slider-label-row" :orientation "horizontal" :space-evenly false
-      (label :class "opt-slider-label" :text label-text :halign "start" :hexpand true)
-      (label :class "opt-slider-pct" :text {value + "%"} :halign "end"))
-    (overlay
-      (scale :class "opt-slider"
-             :value value
-             :min 0 :max 100
-             :onchange onchange)
-      (box :class "opt-slider-icons" :orientation "horizontal" :space-evenly false :halign "fill"
-        (label :class "opt-slider-icon-l" :text icon-l)
-        (label :class "opt-slider-icon-r" :text icon-r :hexpand true :halign "end")))))
-
-(defwidget rings-stack-frame []
-  (box :class "rings-stack" :orientation "vertical" :space-evenly true :spacing 8
-    ;; Vitals card: / · /home · Battery
-    (box :class "rings-card" :orientation "horizontal" :space-evenly true
-      (ring-cell :ring-name "disk-root" :glyph "" :pct-text {ring-disk-root + "%"} :lbl-text "/ root")
-      (ring-cell :ring-name "disk-home" :glyph "󱂵" :pct-text {ring-disk-home + "%"} :lbl-text "/home")
-      (ring-cell :ring-name "battery"   :glyph "⚡" :pct-text {ring-battery + "%"}   :lbl-text "Battery"))
-    ;; Live perf card: Wi-Fi · GPU · MEM
-    (box :class "rings-card" :orientation "horizontal" :space-evenly true
-      (ring-cell :ring-name "wifi" :glyph "" :pct-text ring-wifi-bars            :lbl-text "Wi-Fi")
-      (ring-cell :ring-name "gpu"  :glyph "G" :pct-text {ring-gpu + "%"}          :lbl-text {"GPU · " + ring-gpu-temp + "°"})
-      (ring-cell :ring-name "mem"  :glyph "M" :pct-text {ring-mem + "%"}          :lbl-text {"MEM · " + ring-mem-used}))))
-
-(defwidget hero-trio []
-  ;; Proportional widths via min-width hints + hexpand: clock-weather ~1.05fr,
-  ;; media-MEGA ~1.45fr (widest), rings-stack ~0.95fr (narrowest). See mockup
-  ;; grid-template-columns at zz-design-approved.html.
-  (box :orientation "horizontal" :space-evenly false :spacing 10 :vexpand true
-    (box :class "hero-slot hero-slot-cw"    :hexpand true (clock-weather-frame))
-    (box :class "hero-slot hero-slot-media" :hexpand true (media-mega-frame))
-    (box :class "hero-slot hero-slot-rings" :hexpand true (rings-stack-frame))))
-
-(defwidget bars-row []
-  (box :class "bars-row" :orientation "horizontal" :space-evenly true :spacing 6
-    (opt-slider :klass "display"  :label-text "DISPLAY"   :icon-l "☀" :icon-r "☀☀" :value bar-display
-                :onchange "/etc/nixos/home/scripts/brightnessctl-set set {} >/dev/null 2>&1")
-    (opt-slider :klass "sound"    :label-text "SOUND"     :icon-l "🔉" :icon-r "🔊" :value bar-sound
-                :onchange "wpctl set-volume @DEFAULT_AUDIO_SINK@ {}% >/dev/null 2>&1")
-    (opt-slider :klass "mic"      :label-text "MIC"       :icon-l "🎙" :icon-r "📶" :value bar-mic
-                :onchange "pamixer --default-source --set-volume {} >/dev/null 2>&1")
-    (opt-slider :klass "keyboard" :label-text "KEYBOARD"  :icon-l "⌨" :icon-r "✦"  :value bar-keyboard
-                :onchange "brightnessctl -d '*::kbd_backlight' set {}% >/dev/null 2>&1")
-    (opt-slider :klass "night"    :label-text "NIGHT-DIM" :icon-l "🌃" :icon-r "☀"  :value bar-night
-                :onchange "/etc/nixos/home/waybar/scripts/night-dimmer.sh set {} >/dev/null 2>&1 || true")))
-
-(defwidget heat-row [row]
-  (box :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
-    (for c in {row}
-      (label :class {"heat-d " + c.klass} :text {c.day}))))
-
-(defwidget field-cal-card []
-  (box :class "field-card field-cal" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text today-month :halign "start")
-    (box :orientation "horizontal" :space-evenly false :spacing 5 :halign "start" :valign "end"
-      (label :class "field-cal-weekday" :text today-weekday)
-      (label :class "field-cal-day" :text today-day))
-    (box :class "heat" :orientation "vertical" :space-evenly false :spacing 2
-      ;; Header row: weekday initials
-      (box :orientation "horizontal" :space-evenly true :spacing 2 :hexpand true
-        (label :class "heat-h" :text "S") (label :class "heat-h" :text "M")
-        (label :class "heat-h" :text "T") (label :class "heat-h" :text "W")
-        (label :class "heat-h" :text "T") (label :class "heat-h" :text "F")
-        (label :class "heat-h" :text "S"))
-      ;; 6 weeks of 7 cells via nested for over heatmap-rows
-      (for row in {heatmap-rows}
-        (heat-row :row {row})))))
-
-;; Agenda — driven by cal-source-daemon (Wave 3 Task 7).
-;; Cache /tmp/waybar-cache/agenda.json; v0 source ~/.config/standardos/calendars/*.ics.
+;; Agenda — driven by cal-source-daemon (Wave 3 Task 7). Consumed by
+;; max-events-card in section-max.
 (defpoll agenda-events :interval "30s" :initial "[]"
   `jq -c '.events // []' /tmp/waybar-cache/agenda.json 2>/dev/null || echo "[]"`)
-(defpoll agenda-today-count :interval "30s" :initial "0"
-  `jq -r '.today_count // 0' /tmp/waybar-cache/agenda.json 2>/dev/null || echo 0`)
 
-(defwidget field-agenda-event [summary start-text minutes-until]
-  (box :class {minutes-until < 30 ? "field-agenda-row field-agenda-imminent" : "field-agenda-row"}
-       :orientation "horizontal" :space-evenly false :spacing 8 :valign "start"
-    ;; Dot rendered as a label with a space — empty boxes collapse in GTK
-    ;; even with min-width/min-height; a label with content guarantees draw.
-    (label :class {minutes-until < 30 ? "agenda-dot agenda-dot-orange"
-                : minutes-until < 120 ? "agenda-dot agenda-dot-blue"
-                : minutes-until < 480 ? "agenda-dot agenda-dot-green"
-                : "agenda-dot agenda-dot-violet"} :text " " :valign "start")
-    (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
-      (label :class "field-agenda-when"    :text start-text :halign "start")
-      (label :class "field-agenda-summary" :text summary    :halign "start" :wrap true))))
-
-(defwidget field-agenda-card []
-  (box :class "field-card field-agenda" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk"
-           :text {agenda-today-count == "0" ? "TODAY · NO EVENTS" : ("TODAY · " + agenda-today-count + " EVENT" + (agenda-today-count == "1" ? "" : "S"))}
-           :halign "start")
-    (box :class "field-agenda-list" :orientation "vertical" :space-evenly false :spacing 4
-      (for e in {agenda-events}
-        (field-agenda-event :summary {e.summary} :start-text {e.start_text} :minutes-until {e.minutes_until})))))
-
-(defwidget field-notes-card []
-  (box :class "field-card field-notes" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (box :class "field-notes-top" :orientation "horizontal" :space-evenly false
-      (label :class "field-lk" :text "# NOTES" :halign "start" :hexpand true)
-      (label :class "field-notes-ts" :text "EDITED" :halign "end"))
-    (label :class "field-notes-body" :text notes-preview :wrap true :limit-width 32 :halign "start")))
-
-(defwidget field-notif-row [app title body]
-  (box :class "field-notif-row" :orientation "horizontal" :space-evenly false :spacing 8 :valign "start"
-    (label :class "notif-dot notif-dot-violet" :text " " :valign "start")
-    (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true
-      (label :class "field-notif-app"   :text app   :halign "start")
-      (label :class "field-notif-title" :text title :halign "start" :wrap true :limit-width 36)
-      (label :class "field-notif-body"  :text body  :halign "start" :wrap true :limit-width 36))))
-
-(defwidget field-notif-card []
-  (box :class "field-card field-notif" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (box :class "field-notif-top" :orientation "horizontal" :space-evenly false
-      (label :class "field-lk" :text {"NOTIFICATIONS · " + notif-count} :halign "start" :hexpand true)
-      (button :class "field-notif-clear" :onclick ": > ~/.local/share/standard-os/notif-history.jsonl" "CLEAR"))
-    (box :class "field-notif-list" :orientation "vertical" :space-evenly false :spacing 4
-      (for entry in {notif-entries}
-        ;; Real journal uses "summary" for the notification title.
-        (field-notif-row :app   {entry.app}
-                         :title {entry.summary}
-                         :body  {entry.body})))))
-
-(defwidget field-row-1 []
-  (box :class "field-row-1" :orientation "horizontal" :space-evenly true :spacing 10
-    (field-cal-card)
-    (field-agenda-card)
-    (field-notes-card)
-    (field-notif-card)))
-
-(defwidget sys-pill [k v]
-  (box :class "sys-pill" :orientation "horizontal" :space-evenly false :spacing 4
-    (label :class "sys-pill-k" :text k)
-    (label :class "sys-pill-v" :text v)))
-
-(defwidget field-net-card []
-  (box :class "field-card field-net" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text "NETWORK" :halign "start")
-    (box :class "sys-pill-cluster" :orientation "horizontal" :space-evenly false :spacing 5
-      (sys-pill :k "↓" :v sp-down)
-      (sys-pill :k "↑" :v sp-up)
-      (sys-pill :k "SSID" :v sp-ssid)
-      (sys-pill :k "IP" :v sp-ip)
-      (sys-pill :k "DNS" :v sp-dns)
-      (sys-pill :k "VPN" :v sp-vpn))))
-
-(defwidget field-sys-card []
-  (box :class "field-card field-sys" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text "SYSTEM · TEMPS" :halign "start")
-    (box :class "sys-pill-cluster" :orientation "horizontal" :space-evenly false :spacing 5
-      (sys-pill :k "CPU" :v {sp-cpu + "% · " + sp-cpu-temp})
-      (sys-pill :k "FAN" :v sp-fan)
-      (sys-pill :k "LOAD" :v menubar-sysload)
-      (sys-pill :k "UP" :v sp-uptime)
-      (sys-pill :k "PROC" :v sp-procs)
-      (sys-pill :k "BOOT" :v sp-boot))))
-
-;; Pomodoro — driven by pomodoro-daemon (Wave 3 Task 5).
-;; Cache /tmp/waybar-cache/pomodoro.json; commands via pomodoroctl.
+;; Pomodoro — driven by pomodoro-daemon (Wave 3 Task 5). Consumed by
+;; max-pomodoro-card in section-max.
 (defpoll pom-state    :interval "1s" :initial "idle"
   `jq -r '.state // "idle"' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo idle`)
 (defpoll pom-text     :interval "1s" :initial "—:—"
@@ -630,43 +131,7 @@
 (defpoll pom-target   :interval "60s" :initial "4"
   `jq -r '.blocks_target // 4' /tmp/waybar-cache/pomodoro.json 2>/dev/null || echo 4`)
 
-(defwidget pom-dot [n]
-  ;; Filled when n <= pom-done; ghost otherwise. Up to 8 supported. Label
-  ;; with a space ensures GTK actually allocates the min-width/min-height.
-  (label :class {n * 1 <= pom-done * 1 ? "pom-dot pom-dot-done" : "pom-dot"} :text " "))
-
-(defwidget field-focus-card []
-  (box :class {"field-card field-focus field-focus-" + pom-state} :orientation "vertical" :space-evenly false :spacing 4 :halign "fill" :hexpand true
-    (label :class "field-lk"
-           :text {"FOCUS · POM " + pom-done + "/" + pom-target} :halign "center")
-    (label :class "field-focus-big" :text pom-text :halign "center")
-    (box :class "pom-dots" :orientation "horizontal" :space-evenly false :spacing 4 :halign "center"
-      (pom-dot :n "1")
-      (pom-dot :n "2")
-      (pom-dot :n "3")
-      (pom-dot :n "4")
-      (pom-dot :n "5")
-      (pom-dot :n "6")
-      (pom-dot :n "7")
-      (pom-dot :n "8"))
-    (box :class "field-focus-ctrls" :orientation "horizontal" :space-evenly true :halign "center"
-      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl start" "Start")
-      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl skip"  "Skip")
-      (button :class "opt-pill" :onclick "/etc/nixos/home/scripts/pomodoroctl stop"  "Stop"))))
-
-(defwidget field-row-2 []
-  (box :class "field-row-2" :orientation "horizontal" :space-evenly false :spacing 10
-    (field-net-card)
-    (field-sys-card)
-    (field-focus-card)))
-
-;; ── Section router ──
-;;
-;; The canvas is a section-router: a top pill-strip (section-nav) names
-;; every section in the Settings IA; clicking a pill writes
-;; current-section. The section-body conditionally renders the active
-;; section's content. Today only `user` is built — the other 16 sections
-;; show a placeholder pending their build pass.
+;; ── Widgets ──
 
 (defwidget section-pill [id label]
   (eventbox :onclick "eww update current-section=${id}"
@@ -717,32 +182,6 @@
                 :onclick "notify-send 'StandardOS' 'Sign out (coming soon)'"
         (label :class "um-signout" :text "Sign out")))))
 
-;; your-day-card — vertical stack of personal KPIs for today. Centerpiece
-;; of the 3-column analytics row (left: TOP APPS, center: this, right:
-;; TOP NOTIFS). Single card, label/value pairs.
-(defwidget your-day-card []
-  (box :class "field-card your-day-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
-    (label :class "field-lk" :text "TODAY" :halign "start")
-    (box :class "yd-kpi" :orientation "vertical" :space-evenly true :spacing 4 :vexpand true
-      (box :orientation "horizontal" :space-evenly false
-        (label :class "yd-label" :text "Session"       :halign "start" :hexpand true)
-        (label :class "yd-value" :text usage-session   :halign "end"))
-      (box :orientation "horizontal" :space-evenly false
-        (label :class "yd-label" :text "Events"        :halign "start" :hexpand true)
-        (label :class "yd-value" :text agenda-today-count :halign "end"))
-      (box :orientation "horizontal" :space-evenly false
-        (label :class "yd-label" :text "Pomodoros"     :halign "start" :hexpand true)
-        (label :class "yd-value" :text {pom-done + "/" + pom-target} :halign "end"))
-      (box :orientation "horizontal" :space-evenly false
-        (label :class "yd-label" :text "Notifications" :halign "start" :hexpand true)
-        (label :class "yd-value" :text notif-count     :halign "end")))))
-
-;; pref-row — one clickable row in a preferences card. Label (left),
-;; current value (right), chevron (far right). Whole row is hot-zone.
-;; The value label is truncated so long strings (Groups, Home directory,
-;; Last login) cannot stretch the parent card past its min-width — which
-;; would otherwise inflate the row width and push the whole eww layer
-;; wider than the monitor, the root cause of the 2026-06-24 displacement.
 (defwidget pref-row [label value on-click]
   (eventbox :class "pref-row-click" :onclick on-click
     (box :class "pref-row" :orientation "horizontal" :space-evenly false :hexpand true :spacing 8
@@ -750,141 +189,6 @@
       (label :class "pref-value" :text value :halign "end" :hexpand true :limit-width 32 :truncate true)
       (label :class "pref-chev"  :text ">"   :halign "end"))))
 
-;; preferences-card — full-width card of clickable pref-rows.
-(defwidget preferences-card []
-  (box :class "field-card preferences-card" :orientation "vertical" :space-evenly false :spacing 6 :hexpand true
-    (label :class "field-lk" :text "PREFERENCES" :halign "start")
-    (box :orientation "vertical" :space-evenly false :spacing 1
-      (pref-row :label "Avatar"          :value "Default"
-                :on-click "notify-send 'StandardOS' 'Set avatar (coming soon)'")
-      (pref-row :label "Name"            :value {user-fullname == "" ? user-name : user-fullname}
-                :on-click "notify-send 'StandardOS' 'Edit name (coming soon)'")
-      (pref-row :label "Password"        :value "Set"
-                :on-click "notify-send 'StandardOS' 'Change password (coming soon)'")
-      (pref-row :label "Language"        :value "English"
-                :on-click "notify-send 'StandardOS' 'Choose language (coming soon)'")
-      (pref-row :label "Time format"     :value pref-time-format
-                :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle time_format 24h 12h")
-      (pref-row :label "Notifications"   :value pref-notifications
-                :on-click "/etc/nixos/home/widgets/scripts/pref.sh cycle notifications Allowed DND Critical")
-      (pref-row :label "Pomodoro target" :value pom-target
-                :on-click "notify-send 'StandardOS' 'Set pomodoro target (coming soon)'"))))
-
-;; analytics-tile — small card with a tiny label, a big-number value,
-;; and an optional sub-text. The building block for the User-section
-;; usage grid. Pass "" for sub when not needed.
-(defwidget analytics-tile [label value sub]
-  (box :class "analytics-tile" :orientation "vertical" :space-evenly false :spacing 1 :hexpand true
-    (label :class "atile-label" :text label :halign "start")
-    (label :class "atile-value" :text value :halign "start" :valign "center" :vexpand true)
-    (label :class "atile-sub"   :text sub   :halign "start")))
-
-;; ring-tile — analytics tile with a ring on the left and the metric's
-;; label / value-as-sub on the right. The ring SVG comes from the
-;; existing canvas-rings-gen.sh family (battery/mem/disk-root/disk-home
-;; /wifi/gpu); ring-tick forces a re-render every 5s. % overlays on
-;; the ring, label + sub stack to the right.
-(defwidget ring-tile [label ring-name pct sub]
-  (box :class "analytics-tile ring-tile" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
-    (overlay
-      (image :class "ring-tile-img"
-             :path {"/tmp/canvas-rings/" + ring-name + "." + ring-tick + ".svg"}
-             :image-width 46 :image-height 46)
-      (label :class "ring-tile-pct" :text {pct + "%"}))
-    (box :class "ring-tile-meta" :orientation "vertical" :space-evenly false :spacing 1
-         :valign "center" :halign "start" :hexpand true
-      (label :class "atile-label" :text label :halign "start")
-      (label :class "atile-sub"   :text sub   :halign "start"))))
-
-;; sparkline-tile — page-speed-style KPI card. Top row has the label
-;; and a small sub-text stacked at the left, with the big value
-;; right-aligned. A wide area-fill sparkline runs along the bottom.
-;; metric arg names the file in /tmp/canvas-sparks/.
-(defwidget sparkline-tile [label value sub metric]
-  (box :class "analytics-tile sparkline-tile" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (box :class "spark-header" :orientation "horizontal" :space-evenly false :hexpand true
-      (box :orientation "vertical" :space-evenly false :spacing 0 :hexpand true :halign "start" :valign "center"
-        (label :class "atile-label" :text label :halign "start")
-        (label :class "spark-sub"   :text sub   :halign "start"))
-      (label :class "atile-value spark-value" :text value :halign "end" :valign "center"))
-    (image :class "spark-img" :halign "fill" :valign "end"
-           :path {"/tmp/canvas-sparks/" + metric + "." + spark-tick + ".svg"}
-           :image-width 400 :image-height 36)))
-
-;; pie-tile — analytics tile with a donut chart on the left and the
-;; metric label / current-value / sub-text on the right. Mirrors
-;; ring-tile's shape; the SVG slices visualize composition (e.g.
-;; memory used vs cached vs free, window count per workspace, etc).
-(defwidget pie-tile [label metric value sub]
-  (box :class "analytics-tile pie-tile" :orientation "horizontal" :space-evenly false :spacing 10 :hexpand true
-    (image :class "pie-img"
-           :path {"/tmp/canvas-pies/" + metric + "." + pie-tick + ".svg"}
-           :image-width 46 :image-height 46
-           :valign "center")
-    (box :class "pie-tile-meta" :orientation "vertical" :space-evenly false :spacing 1
-         :valign "center" :halign "start" :hexpand true
-      (label :class "atile-label" :text label :halign "start")
-      (label :class "atile-value pie-value" :text value :halign "start")
-      (label :class "atile-sub" :text sub :halign "start"))))
-
-;; bar-row — one row in a bar-fill list. Faint bar background sized
-;; proportionally to value/max via inline min-width%, name on the
-;; left, count on the right.
-(defwidget bar-row [name value max]
-  (box :class "bar-row" :orientation "horizontal" :space-evenly false :hexpand true
-    (overlay
-      (box :class "bar-row-bg" :orientation "horizontal" :space-evenly false :hexpand true
-        (box :class "bar-row-fill" :hexpand false
-             :style "min-width: ${value * 100 / (max == 0 ? 1 : max)}%;")
-        (box :hexpand true))
-      (box :class "bar-row-text" :orientation "horizontal" :space-evenly false :hexpand true
-        (label :class "bar-row-name"  :text name  :halign "start" :hexpand true)
-        (label :class "bar-row-value" :text value :halign "end")))))
-
-;; chart-card -- wide title-over-image card for SVG bar charts from
-;; canvas-chart.sh. metric arg names the file in /tmp/canvas-charts/.
-(defwidget chart-card [title metric]
-  (box :class "field-card chart-card" :orientation "vertical" :space-evenly false :hexpand true :spacing 4
-    (label :class "field-lk" :text title :halign "start")
-    (image :class "chart-img" :hexpand true :halign "fill" :valign "center"
-           :path {"/tmp/canvas-charts/" + metric + "." + chart-tick + ".svg"}
-           :image-width 1500 :image-height 120)))
-
-;; bar-fill-list-card — vertical list of bar-rows for top-N readings.
-;; `data` is the {items, max} JSON from canvas-tops.sh.
-(defwidget bar-fill-list-card [title data]
-  (box :class "field-card bar-fill-card" :orientation "vertical" :space-evenly false :hexpand true :spacing 4
-    (label :class "field-lk" :text title :halign "start")
-    (box :class "bar-fill-list" :orientation "vertical" :space-evenly false :spacing 3 :hexpand true
-      (for item in {data.items}
-        (bar-row :name {item.name} :value {item.value} :max {data.max})))))
-
-;; Empty field-card with a section label — for User-section sub-cards
-;; that don't have their data wired yet (session-time / todo / activity).
-(defwidget field-placeholder-card [name]
-  (box :class "field-card field-placeholder" :orientation "vertical" :space-evenly false :spacing 4 :hexpand true
-    (label :class "field-lk" :text name :halign "start")
-    (label :class "field-empty" :text "Coming soon" :halign "center" :valign "center" :vexpand true)))
-
-;; section-max, section-network, section-power: see the v31 port. The
-;; previous functional implementations of section-network and section-power
-;; were deleted on 2026-06-24 in favour of starting clean from the v31
-;; mockup. They reappear as full sections in later port waves; until then
-;; they show the generic placeholder. section-max (defined below) is the
-;; v31 rebuild of what was previously called section-user.
-
-;; ── v31 Max section widgets ──
-;;
-;; Layout (mirrors waybar/docs/mockups/2026-06-24-user-section-v31.html):
-;;   USER LINE  : CONFIG | USER-MEGA | CALENDAR | EVENTS  (ratios 1.7 / 0.9 / 1.0 / 0.7)
-;;   CHARTS row : MOST USED APPS | LIFETIME USAGE | WEEKLY USAGE
-;;   BOTTOM row : POMODORO | TODO | NOTES | NOTIFICATION HISTORY
-;;
-;; GTK does not have CSS Grid; column ratios are approximated via min-width
-;; values on the .max-col-* classes (see eww.scss). Within a row, every
-;; child sets :hexpand true and GTK distributes leftover space.
-
-;; CONFIG: PROFILE (4 rows) + ACCOUNT (6 rows) consolidated card.
 (defwidget max-config-card []
   (box :class "max-card max-config" :orientation "vertical" :space-evenly false :spacing 4
        :hexpand true :vexpand false
@@ -997,9 +301,8 @@
       (label :class "max-chart-value" :text {lifetime-usage-mock.total} :halign "end"))
     (label :class "max-chart-sub" :text {lifetime-usage-mock.sub} :halign "start")
     ;; GTK gap: the v31 mockup shows an area chart here. Eww/GTK CSS does
-    ;; not paint cubic-bezier line art the same way the browser does; a
-    ;; faithful port would render the curve as an SVG via canvas-chart.sh.
-    ;; Until that ships, show a textual placeholder so the card is not blank.
+    ;; not paint cubic-bezier line art the same way the browser does; until
+    ;; a curve-rendering script ships, show a textual placeholder.
     (box :class "max-chart-placeholder" :valign "center" :halign "center" :vexpand true
       (label :class "max-chart-empty" :text "area chart wires to usage-tracker.sh"))))
 
