@@ -81,6 +81,38 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-25** — **canvas: Landscape section (3x3 workspace exposé).**
+  New `landscape` pill appended to `section-nav` (16 pills now, +1 over
+  v31). Selecting it renders a 3x3 grid of cached workspace screenshots
+  (rows 1-2-3, 4-5-6, 7-8-9); clicking a cell dispatches the corresponding
+  `hyprctl workspace N` and closes the canvas via the existing
+  `canvas-close` script. Current workspace cell carries an
+  `opt-pushed`-style soft top-inset shadow; never-visited workspaces
+  render as flat `opt-surface-child` rectangles. New systemd-user daemon
+  (`modules/landscape-snap.nix` → `scripts/landscape-snap-daemon.sh`)
+  subscribes to Hyprland IPC via `socat`, debounced-grims the focused
+  workspace on window events (300 ms coalesce), and inotify-watches
+  `/tmp/standardos/landscape/open-trigger` so the current cell refreshes
+  the moment the canvas opens. Eww side: one `defpoll focused-ws`, one
+  `deflisten ws-paths` reading the daemon's manifest via
+  `widgets/scripts/canvas-landscape-listen`, cache-buster path trick
+  (`/tmp/.../ws-N.png?t=<mtime>`) to force `(image :path …)` re-render on
+  file change. **Hint:** the daemon's capture function lives behind
+  `LANDSCAPE_ONESHOT=1` for one-off testing without the event loop. After
+  first ship two startup bugs surfaced and got fixed in the same day:
+  (a) the debounce subshell died after the first event because its read
+  fd EOF'd when the writer closed — fixed by holding a rw fd open with
+  `exec 3<>"$FIFO"`; (b) on cold boot the daemon could race ahead of
+  UWSM's env import and Hyprland's IPC init, leaving `socat` unattached
+  until a manual restart — fixed by failing fast on missing
+  `HYPRLAND_INSTANCE_SIGNATURE` or socket and letting systemd
+  `Restart=always RestartSec=1` (with `StartLimitBurst=20/300s`) respawn
+  until both are ready, matching the `hypr-context-daemon` pattern. Spec
+  at `docs/superpowers/specs/2026-06-25-canvas-landscape-section-design.md`;
+  plan at `docs/superpowers/plans/2026-06-25-canvas-landscape-section.md`.
+  Variant B (annotated cells with workspace numbers + app captions)
+  intentionally deferred per "build A, improve later".
+
 - **2026-06-25** — **canvas Esc bulletproofed (second reboot incident).**
   User got stuck in the landscape section: Esc appeared to toggle between
   sections (max ↔ landscape with a fade) instead of dismissing the canvas,
