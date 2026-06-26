@@ -25,10 +25,15 @@ before=$(overlay_gls_count)
 timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 timeout 1 eww close landscape >/dev/null 2>&1 || true
 
-sleep 0.15
-after=$(overlay_gls_count)
 verified_closed=0
-[ "$after" -lt "$before" ] && verified_closed=1
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 0.15
+    after=$(overlay_gls_count)
+    if [ "$after" -lt "$before" ]; then
+        verified_closed=1
+        break
+    fi
+done
 
 if [ "$verified_closed" -eq 0 ]; then
     systemctl --user restart standardos-canvas.service >/dev/null 2>&1 || true

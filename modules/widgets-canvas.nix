@@ -77,6 +77,15 @@ in
         After = [ "graphical-session.target" ];
         # Don't try to start without a wayland display.
         ConditionEnvironment = "WAYLAND_DISPLAY";
+        # Widen the start-limit envelope. Default systemd is burst=5
+        # within interval=10s -- a Tier 2 (`systemctl restart`) cascade
+        # triggered by the close-verify race hit that on 2026-06-26
+        # and left the unit permanently failed, with zombie eww-open
+        # clients holding the layer-shell surface alive. 20 starts in
+        # 5 min gives plenty of headroom for genuine misfires while
+        # still catching a true crash loop.
+        StartLimitIntervalSec = 300;
+        StartLimitBurst = 20;
       };
       Install.WantedBy = [ "graphical-session.target" ];
       Service = {

@@ -50,11 +50,21 @@ timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 # Tier 1: graceful close.
 timeout 1 eww close landscape >/dev/null 2>&1 || true
 
-# Tier 1 verify: count decremented?
-sleep 0.15
-after=$(overlay_gls_count)
+# Tier 1 verify: count decremented? Retry up to 1.5 s total because
+# GTK 3's gtk-layer-shell teardown can take longer than the previous
+# 0.15 s single-shot allowed. A premature Tier 2 (daemon restart) was
+# firing on every Esc, eventually tripping systemd's StartLimitBurst
+# and leaving zombie eww-open clients holding the surface alive --
+# the "stuck on the grid 2026-06-26" cascade.
 verified_closed=0
-[ "$after" -lt "$before" ] && verified_closed=1
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 0.15
+    after=$(overlay_gls_count)
+    if [ "$after" -lt "$before" ]; then
+        verified_closed=1
+        break
+    fi
+done
 
 if [ "$verified_closed" -eq 0 ]; then
     # Tier 2: hard restart of the shared eww daemon.

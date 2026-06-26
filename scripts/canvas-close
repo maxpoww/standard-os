@@ -77,11 +77,19 @@ timeout 1 eww close dashboard >/dev/null 2>&1 || true
 # Tier 1 verify: did the overlay gtk-layer-shell count actually drop?
 # Honours coexistence with Landscape: if dashboard went away cleanly
 # the count goes from N to N-1 regardless of how many peer surfaces
-# remained.
-sleep 0.15
-after=$(overlay_gls_count)
+# remained. Retry up to 1.5 s total -- GTK 3 gtk-layer-shell teardown
+# can take longer than a 0.15 s single-shot. Premature Tier 2 fired
+# the daemon-restart-per-Esc cascade 2026-06-26 (eww start-limit-hit
+# + zombie clients holding the surface alive).
 verified_closed=0
-[ "$after" -lt "$before" ] && verified_closed=1
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 0.15
+    after=$(overlay_gls_count)
+    if [ "$after" -lt "$before" ]; then
+        verified_closed=1
+        break
+    fi
+done
 
 if [ "$verified_closed" -eq 0 ]; then
     # Tier 2: hard restart of the shared eww daemon. RestartSec=1
