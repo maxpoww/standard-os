@@ -33,20 +33,32 @@
 
 set -u
 
-timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
-timeout 1 eww close dashboard >/dev/null 2>&1 || true
-
-verified_closed=0
-if layers=$(timeout 1 hyprctl layers 2>/dev/null); then
+# See canvas-close for the full rationale; identical helper here.
+# Once Landscape is a peer overlay surface, presence-of-surface is no
+# longer a valid "still up" signal for dashboard alone -- both share
+# namespace gtk-layer-shell under eww 0.6.0. Use count-decrement.
+overlay_gls_count() {
+    local layers overlay
+    if ! layers=$(timeout 1 hyprctl layers 2>/dev/null); then
+        echo 0; return
+    fi
     overlay=$(awk '
         /Layer level 3 \(overlay\):/ { flag=1; next }
         /Layer level [0-9]+ \(/      { flag=0 }
         flag
     ' <<<"$layers")
-    if ! grep -q 'namespace: gtk-layer-shell' <<<"$overlay"; then
-        verified_closed=1
-    fi
-fi
+    grep -c 'namespace: gtk-layer-shell' <<<"$overlay" || echo 0
+}
+
+before=$(overlay_gls_count)
+
+timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
+timeout 1 eww close dashboard >/dev/null 2>&1 || true
+
+sleep 0.15
+after=$(overlay_gls_count)
+verified_closed=0
+[ "$after" -lt "$before" ] && verified_closed=1
 
 if [ "$verified_closed" -eq 0 ]; then
     systemctl --user restart standardos-canvas.service >/dev/null 2>&1 || true

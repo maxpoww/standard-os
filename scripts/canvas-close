@@ -35,9 +35,36 @@
 
 set -u
 
+# Count overlay-level gtk-layer-shell surfaces RIGHT NOW.
+# Returns "0" on any failure (timeout, non-zero exit, parse error).
+# Used by Tier 1 verify: count-decrement, NOT presence-of-surface.
+# Once Landscape is a peer overlay surface (added 2026-06-26), the
+# old presence check produces false positives on every canvas dismiss
+# whenever Landscape happens to also be open. Both surfaces share
+# namespace gtk-layer-shell under eww 0.6.0 (no :namespace attribute);
+# the only signal that distinguishes "dashboard went away" from
+# "dashboard still there" with Landscape also up is whether the count
+# decreased.
+overlay_gls_count() {
+    local layers overlay
+    if ! layers=$(timeout 1 hyprctl layers 2>/dev/null); then
+        echo 0; return
+    fi
+    overlay=$(awk '
+        /Layer level 3 \(overlay\):/ { flag=1; next }
+        /Layer level [0-9]+ \(/      { flag=0 }
+        flag
+    ' <<<"$layers")
+    grep -c 'namespace: gtk-layer-shell' <<<"$overlay" || echo 0
+}
+
 LOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/canvas-close.lock"
 exec 9>"$LOCK"
 flock -n 9 || exit 0
+
+# Snapshot BEFORE so the verify after Tier 1 can detect a real
+# decrement rather than just absence.
+before=$(overlay_gls_count)
 
 # Tier 3 first: keyboard always recovers, regardless of what eww does.
 timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
@@ -45,39 +72,21 @@ timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 # Tier 1: graceful close.
 timeout 1 eww close dashboard >/dev/null 2>&1 || true
 
-# Verify signal — IMPORTANT: this MUST be Hyprland's layer-shell list,
-# NOT `eww active-windows`. When `eww open` hangs mid-handshake (a real
-# eww 0.6.0 IPC race observed 2026-06-25), the layer-shell surface
-# exists on screen but the window is never registered in eww's state.
-# `active-windows` reports clean while the dashboard is plainly still
-# up; `eww close dashboard` becomes a no-op because eww doesn't know
-# the window exists. Tier 1 verify falsely succeeds, Tier 2 is skipped,
-# user stays stuck.
-#
-# Truth signal: any overlay-level gtk-layer-shell surface still on
-# screen means the dashboard is up. Waybar lives at bottom level with
-# namespace=waybar, so this filter is unambiguous TODAY. If a future
-# module adds another overlay-level eww popup, narrow this further
-# (e.g. match the dashboard's exact geometry or a custom namespace).
-#
-# Three failure modes all escalate to Tier 2:
-#   (a) overlay block still contains a gtk-layer-shell surface
-#   (b) hyprctl layers times out (compositor wedged — very rare)
-#   (c) hyprctl exits non-zero
+# Tier 1 verify: did the overlay gtk-layer-shell count actually drop?
+# Honours coexistence with Landscape: if dashboard went away cleanly
+# the count goes from N to N-1 regardless of how many peer surfaces
+# remained.
+sleep 0.15
+after=$(overlay_gls_count)
 verified_closed=0
-if layers=$(timeout 1 hyprctl layers 2>/dev/null); then
-    overlay=$(awk '
-        /Layer level 3 \(overlay\):/ { flag=1; next }
-        /Layer level [0-9]+ \(/      { flag=0 }
-        flag
-    ' <<<"$layers")
-    if ! grep -q 'namespace: gtk-layer-shell' <<<"$overlay"; then
-        verified_closed=1
-    fi
-fi
+[ "$after" -lt "$before" ] && verified_closed=1
 
 if [ "$verified_closed" -eq 0 ]; then
-    # Tier 2: hard restart. systemd restarts within ~1 s.
+    # Tier 2: hard restart of the shared eww daemon. RestartSec=1
+    # respawn means a fresh daemon (with no wedged state) is back in
+    # ~1 s. Also takes Landscape down if it was open -- acceptable,
+    # the user is in a wedged state at that point and a clean reset
+    # is the goal.
     systemctl --user restart standardos-canvas.service >/dev/null 2>&1 || true
 fi
 
