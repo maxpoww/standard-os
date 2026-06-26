@@ -55,7 +55,9 @@ overlay_gls_count() {
         /Layer level [0-9]+ \(/      { flag=0 }
         flag
     ' <<<"$layers")
-    grep -c 'namespace: gtk-layer-shell' <<<"$overlay" || echo 0
+    local n
+    n=$(grep -c 'namespace: gtk-layer-shell' <<<"$overlay") || true
+    echo "${n:-0}"
 }
 
 LOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/canvas-close.lock"
