@@ -81,6 +81,48 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-26** — **landscape: standalone defwindow, separate from canvas.**
+  Landscape promoted out of the canvas: new `defwindow landscape` peer of
+  `defwindow dashboard`, sharing the eww daemon and the landscape-snap
+  data plane but otherwise independent. Super+RETURN rebound from
+  canvas-open to landscape-open; Super+Shift+S takes over Control
+  Center; Super+Alt+S takes over the `movewindow d` that previously
+  lived on Super+Shift+S. The v0 inline-in-canvas Landscape (16th
+  section-pill, `defwidget landscape-section`, `defwidget ls-cell`,
+  `current-section == "landscape"` body branch) is fully removed --
+  section-nav back to 15 pills. New surface is chromeless: 3x3 grid of
+  cached PNGs (or `_blank.svg` for cold cells) edge-to-edge with a 14px
+  gutter; no current-cell highlight, no pills, nothing else. New
+  `widgets/scripts/landscape-{open,close,panic}` mirror the canvas
+  triplet. `canvas-close` and `canvas-panic` switched their verify
+  signal from "any overlay gtk-layer-shell surface present" to
+  "overlay gtk-layer-shell surface count decremented after dismiss" --
+  required so the verify still works when Landscape is a peer surface
+  (both share `namespace: gtk-layer-shell` under eww 0.6.0).
+  `canvas-jump-ws` issues a two-call close ladder (`landscape-close`
+  + `canvas-close`) so clicks from either surface dismiss correctly.
+  New `tests/wave3/test_landscape_exit_invariant.sh` mirrors the
+  canvas guard: enforces `:focusable false` on `defwindow landscape`
+  and the submap binds for Esc and Super+Shift+Esc. Also fixed a
+  latent awk-range bug in `test_canvas_exit_invariant.sh` -- pattern
+  matched `(canvas)))` (three closes) but dashboard ends at
+  `(canvas))` (two closes); the range silently overran to EOF for
+  months, only tripping once a peer defwindow comment block contained
+  the warning phrase `:focusable true`. One subtle bug found along
+  the way: the `overlay_gls_count` helper double-printed `0\n0` when
+  the count was zero (grep -c prints "0" AND exits 1, triggering the
+  `|| echo 0` fallback) -- fixed with `n=$(grep -c ...) || true; echo
+  ${n:-0}` across all four close/panic scripts. **Hint:** when both
+  surfaces are open and the user presses Esc twice, Hyprland's submap
+  is LIFO -- the most-recently-opened submap exits first. Second Esc
+  may fall through to the default-level Esc bind (`systemctl hibernate`)
+  if no submap is re-entered. Design accepts this v0; common case is
+  single-surface. Fix path if reports surface: teach canvas-close to
+  re-enter the `landscape-open` submap when landscape is still up.
+  Spec at
+  `docs/superpowers/specs/2026-06-26-landscape-standalone-design.md`;
+  plan at `docs/superpowers/plans/2026-06-26-landscape-standalone.md`.
+
 - **2026-06-26** — **canvas-close/panic verify via `hyprctl layers`, not
   `eww active-windows` (fourth-time-stuck incident).** Yesterday's
   `:focusable false` fix correctly routed Esc to Hyprland, but the user
