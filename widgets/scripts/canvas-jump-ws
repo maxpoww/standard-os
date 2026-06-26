@@ -4,4 +4,9 @@
 n=$1
 [[ "$n" =~ ^[1-9]$ ]] || exit 1
 hyprctl dispatch workspace "$n" >/dev/null
+# Close whichever surface invoked us. Both scripts are no-ops if their
+# target window isn't open, so issuing both is cheap and correct without
+# the caller needing to identify itself. landscape-close runs in the
+# background so the canvas-close exec finishes the script.
+/etc/nixos/home/widgets/scripts/landscape-close >/dev/null 2>&1 &
 exec /etc/nixos/home/scripts/canvas-close
