@@ -456,7 +456,10 @@
             :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
     (image :class "lg-shot"
            :path {jq(ws-paths, ".ws${n}", "r")}
-           :image-width 540 :image-height 340)))
+           ;; Sized for a 1600x1000 logical-pixel monitor (3200x2000 @ 2x).
+           ;; Cells fill (1600 - 2*14) / 3 = 524 wide, (1000 - 2*14) / 3
+           ;; = 324 tall. Slight slack so gtk-image never overflows.
+           :image-width 520 :image-height 320)))
 
 (defwidget landscape-grid []
   (box :class "lg-grid" :orientation "vertical" :space-evenly true :spacing 14
