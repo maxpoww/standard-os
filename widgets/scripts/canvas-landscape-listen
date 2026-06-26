@@ -1,31 +1,40 @@
 #!/usr/bin/env bash
 # Eww deflisten source for the Landscape section.
-# Emits a JSON map of {wsN: "<bare path>" or ""} on every manifest change.
+# Emits a JSON map of {wsN: "<bare path>"} on every manifest change.
 #
-# History: the prior version appended a "?t=mtime" cache-buster to each
-# path. GTK's image loader treats the query string as part of the
-# filename, so every cell with a real snapshot failed to open (eww logs:
-# "Failed to open file '/tmp/.../ws-1.png?t=...'") and fell through to
-# the empty-placeholder underlay. All 9 cells looked the same. Bare
-# paths now; the deflisten still re-emits on manifest change, which is
-# how the image widget learns to refresh.
+# History:
+#  - v1 appended a "?t=mtime" cache-buster. GTK image loader treats the
+#    query as part of the filename, so every real snapshot failed to
+#    open. Bare paths now; the deflisten re-emits on manifest change,
+#    which is how the image widget learns to refresh.
+#  - v2 emitted "" for missing snapshots. eww's image widget then tried
+#    to open "" every redraw, emitting `Failed to open file ""` errors
+#    at ~90/sec (9 cells × ~10 ticks). After a few seconds the eww UI
+#    thread was wedged processing the error queue — `eww close
+#    dashboard` would time out, trapping the user in the canvas. v3 (this
+#    file) emits a known-good placeholder SVG path for missing
+#    snapshots so the image widget always has a valid file to open.
+#    The .ls-empty underlay still shows through visually because the
+#    placeholder is transparent.
 
 set -u
 
 CACHE=/tmp/standardos/landscape
+PLACEHOLDER=/etc/nixos/home/widgets/svg/_blank.svg
 mkdir -p "$CACHE"
 
 emit() {
     local out='{'
-    local first=1 f n
+    local first=1 f n path
     for n in 1 2 3 4 5 6 7 8 9; do
         f="$CACHE/ws-$n.png"
-        [ $first -eq 0 ] && out+=','
         if [ -r "$f" ]; then
-            out+="\"ws$n\":\"$f\""
+            path="$f"
         else
-            out+="\"ws$n\":\"\""
+            path="$PLACEHOLDER"
         fi
+        [ $first -eq 0 ] && out+=','
+        out+="\"ws$n\":\"$path\""
         first=0
     done
     echo "${out}}"

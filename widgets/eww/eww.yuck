@@ -531,10 +531,23 @@
 ;; the full monitor as its size. width/height "100%" then expand to
 ;; the monitor extent. Result: canvas covers everything including
 ;; the bar area without touching the waybar.
+;;
+;; CRITICAL — :focusable MUST stay false. eww translates :focusable
+;; true to gtk-layer-shell keyboard-interactivity=exclusive, which
+;; tells the Wayland compositor to route ALL keys to this surface and
+;; BYPASS Hyprland's keybind dispatcher. When that happened (pre-
+;; 2026-06-25 incident, repro'd 2026-06-25 second time after the
+;; "bulletproof" canvas-close ship), Esc inside the canvas-open submap
+;; never fired — and neither did Super+Shift+Esc panic — so the user
+;; had no way out except reboot. The canvas has no text inputs; pills
+;; and rows are all mouse-driven (pointer events are unaffected by
+;; keyboard-interactivity=none). Do NOT change this back without first
+;; designing an in-canvas keyboard-escape that doesn't rely on Hyprland
+;; binds firing.
 (defwindow dashboard
   :monitor 0
   :geometry (geometry :x "0%" :y "0%" :width "100%" :height "100%" :anchor "center")
   :stacking "overlay"
   :exclusive false
-  :focusable true
+  :focusable false
   (canvas))

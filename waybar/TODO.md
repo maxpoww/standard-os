@@ -81,6 +81,58 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-25** — **canvas: :focusable false — actual root cause of the
+  landscape keyboard trap (third incident, real fix).** The two earlier
+  entries today blamed `canvas-close`; both were wrong. With
+  `:focusable true` on `defwindow dashboard`, eww asked gtk-layer-shell
+  for `keyboard-interactivity=exclusive`, so the Wayland compositor
+  routed Esc AND Super+Shift+Esc straight to the eww surface and
+  bypassed Hyprland's keybind dispatcher — neither submap bind ever
+  fired, so canvas-close was never invoked no matter how bulletproof
+  it was. Five changes shipped together:
+  (1) `widgets/eww/eww.yuck` `defwindow dashboard :focusable true →
+  false`, with a 13-line inline comment explaining why flipping it
+  back will brick the canvas. The canvas has no text inputs; pointer
+  events are unaffected by `keyboard-interactivity=none`.
+  (2) `widgets/scripts/canvas-landscape-listen` v3 — for missing
+  snapshot cells, emit a known-good transparent SVG path
+  (`widgets/svg/_blank.svg`) instead of `""`. Previously eww's image
+  widget tried to open `""` for every empty cell at ~90/sec when the
+  cache was cold, flooding the error queue and wedging the UI thread
+  so even when a close request DID reach eww (e.g. via the on-canvas ×
+  button) it timed out. This wedge was the secondary cause that made
+  the rare close-via-mouse path also fail.
+  (3) `scripts/canvas-close` rewritten as a three-tier strategy:
+  Tier 1 graceful → verify via `eww active-windows` → Tier 2
+  `systemctl --user restart standardos-canvas.service` if window
+  isn't gone OR verify itself times out. Tier 3 (Hyprland submap
+  reset) always runs first so the keyboard recovers independent of
+  whatever state eww is in. The previous `eww close-all` belt-and-
+  braces is gone — a wedged daemon can't honor close-all either; only
+  a hard daemon restart actually unstucks things.
+  (4) `scripts/canvas-panic` gated on close-verification instead of
+  `eww ping`. The eww IPC thread can answer ping fine while the UI
+  thread is wedged processing the error queue, so the old ping-gate
+  silently skipped the restart and left the user trapped. Now: if
+  active-windows can't PROVE the dashboard is gone, restart
+  unconditionally.
+  (5) `hypr/modules/Binds.conf` gains a 10-line comment block
+  documenting the cross-file invariant so future-me doesn't strip the
+  `:focusable false` line in eww.yuck thinking it's harmless.
+  (6) New static guard test
+  `tests/wave3/test_canvas_exit_invariant.sh` asserts the invariant
+  in code — fails loud if anyone ever flips `:focusable` back, or
+  removes either submap bind. 6/6 PASS at ship time.
+  **Hint:** the `:focusable` change is live in the filesystem
+  (`mkOutOfStoreSymlink` to `/etc/nixos/home/widgets/eww/eww.yuck`),
+  but eww does NOT hot-reload yuck — `systemctl --user restart
+  standardos-canvas.service` is required for the defwindow change to
+  take effect. `scripts/canvas-{close,panic}` are referenced by
+  absolute path in `Binds.conf`, so script edits are live immediately.
+  `Binds.conf` only gained a comment block; no rebuild needed.
+  Memory: [[feedback_eww_focusable_false_for_hypr_submap]] already
+  encoded this rule for future sessions.
+
 - **2026-06-25** — **canvas: Landscape section (3x3 workspace exposé).**
   New `landscape` pill appended to `section-nav` (16 pills now, +1 over
   v31). Selecting it renders a 3x3 grid of cached workspace screenshots
@@ -137,6 +189,10 @@ for the maintenance contract.
   The new keybind requires `nixos-rebuild switch && hyprctl reload` to
   activate. Verified via `time /etc/nixos/home/scripts/canvas-close` on
   a closed canvas: 64 ms, exit 0.
+  **Correction (later same day):** this diagnosis was wrong. The user
+  got stuck a third time even with the bulletproof canvas-close and the
+  panic key — neither was ever invoked. Real root cause was
+  `:focusable true` on the dashboard defwindow. See the entry above.
 
 - **2026-06-24** — **canvas: v31 user-section mockup ported to eww.** The
   section-router was rebuilt from the 17-section legacy nav to the v31

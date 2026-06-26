@@ -5,23 +5,33 @@
 #   1. Hyprland Esc binding in submap canvas-open (hypr/modules/Binds.conf)
 #   2. The on-canvas × button at the top-right (widgets/eww/eww.yuck)
 #
-# Bulletproofing (post-2026-06-25 reboot incident):
-#   - Every blocking call has a 1 s timeout — the script ALWAYS exits
-#     within ~2 s no matter how wedged hyprctl or eww are. A hanging
-#     close script is what trapped the user in the canvas-open submap.
-#   - flock -n prevents racing instances when Esc is held / mashed.
-#     Second Esc within the same close window is a silent no-op rather
-#     than a duplicate hyprctl + eww close pair fighting each other.
-#   - No `exec`: both steps run unconditionally. exec on the eww step
-#     used to skip the second step entirely if the first hung.
-#   - Submap reset runs FIRST so the keyboard is always recoverable
-#     before the visual close; if anything later fails, default
-#     keybinds (Super+RETURN, Super+Shift+ESC panic) still work.
-#   - If the window is still listed after the first close attempt,
-#     fall back to `eww close-all` as a belt-and-braces second pass.
+# Three-tier dismiss strategy (each tier is a guaranteed exit point):
 #
-# If even this script fails (eww daemon dead, etc.), Super+Shift+ESC
-# runs canvas-panic which restarts the eww service from a clean state.
+#   Tier 1 — graceful: reset Hyprland submap, ask eww to close the
+#   dashboard window. Verify the close by querying active-windows.
+#   If the window is gone, exit 0. This is the only path the user
+#   should normally hit.
+#
+#   Tier 2 — hard restart: if the verify step shows the window still
+#   present OR the verify itself times out (eww UI thread wedged,
+#   not just slow), bounce the standardos-canvas.service unit. The
+#   service has Restart=always RestartSec=1, comes back clean in ~1 s,
+#   and a fresh daemon CANNOT have a stuck window. This is the actual
+#   guarantee that Esc always works no matter what state eww got
+#   into. Previous incidents (2026-06-25 reboots) were caused by an
+#   UI-thread wedge that ate the close request silently — without
+#   this tier the user was trapped until they ran systemctl by hand
+#   or rebooted.
+#
+#   Tier 3 — keyboard recovery: Hyprland submap reset runs FIRST,
+#   unconditionally and independently of eww. So even if both tiers
+#   above fail completely, the keyboard is back in the default submap
+#   — Super+Shift+ESC still calls canvas-panic, Super+RETURN still
+#   opens a fresh canvas, etc. The user is never keyboard-trapped.
+#
+# Locking: flock -n coalesces mashed-Esc presses so the second Esc
+# within the close window is a silent no-op instead of a duplicate
+# hyprctl + eww pair fighting each other.
 
 set -u
 
@@ -29,16 +39,26 @@ LOCK="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/canvas-close.lock"
 exec 9>"$LOCK"
 flock -n 9 || exit 0
 
-# Reset Hyprland submap. Always runs, even if eww is wedged below.
+# Tier 3 first: keyboard always recovers, regardless of what eww does.
 timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 
-# Close the eww dashboard window. Always runs, even if hyprctl was slow.
+# Tier 1: graceful close.
 timeout 1 eww close dashboard >/dev/null 2>&1 || true
 
-# Belt-and-braces: if the window is still listed after the first close,
-# nuke all eww windows. (Single defwindow today, so equivalent.)
-if timeout 1 eww active-windows 2>/dev/null | grep -q '^dashboard'; then
-    timeout 1 eww close-all >/dev/null 2>&1 || true
+# Verify the close. The window must be POSITIVELY gone from
+# active-windows. Two failure modes both escalate to Tier 2:
+#   (a) active-windows query succeeds but lists `dashboard`
+#   (b) active-windows query times out (daemon wedged)
+verified_closed=0
+if windows=$(timeout 1 eww active-windows 2>/dev/null); then
+    if ! grep -q '^dashboard' <<<"$windows"; then
+        verified_closed=1
+    fi
+fi
+
+if [ "$verified_closed" -eq 0 ]; then
+    # Tier 2: hard restart. systemd restarts within ~1 s.
+    systemctl --user restart standardos-canvas.service >/dev/null 2>&1 || true
 fi
 
 exit 0
