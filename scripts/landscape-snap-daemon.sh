@@ -12,7 +12,7 @@ mkdir -p "$CACHE"
 
 snapshot_current() {
     # Silent on any failure: no error pill on OPTIONS.
-    local mon ws tmp
+    local mon ws raw rounded
     mon=$(hyprctl monitors -j 2>/dev/null \
           | jq -r '.[] | select(.focused) | .name' 2>/dev/null) || return 0
     ws=$(hyprctl monitors -j 2>/dev/null \
@@ -20,12 +20,38 @@ snapshot_current() {
     [[ "$ws" =~ ^[1-9]$ ]] || return 0
     [ -n "$mon" ] || return 0
 
-    tmp="$CACHE/ws-$ws.png.tmp"
-    if grim -o "$mon" -s 0.4 "$tmp" 2>/dev/null; then
-        mv -f "$tmp" "$CACHE/ws-$ws.png"
+    raw="$CACHE/ws-$ws.png.raw"
+    rounded="$CACHE/ws-$ws.png.tmp"
+    if ! grim -o "$mon" -s 0.4 "$raw" 2>/dev/null; then
+        rm -f "$raw"
+        return 0
+    fi
+
+    # Round the corners at the pixel level. GTK 3 + gtk-layer-shell does
+    # NOT reliably clip background-image to border-radius (tested both
+    # box-bg-image and eventbox-bg-image variants 2026-06-26 -- corners
+    # stayed square). Baking the alpha mask into the PNG gives 100%
+    # reliable rounded thumbnails regardless of which GTK widget renders
+    # them. The 20px radius matches the user-facing visual budget; tune
+    # here, not in CSS.
+    # `png:` prefix forces PNG decode -- IM7 otherwise sees the .raw
+    # extension and tries DNG (camera raw) which fails. Same prefix
+    # on output for symmetry / explicitness.
+    if magick "png:$raw" \
+        \( +clone -alpha extract \
+           -draw "fill black polygon 0,0 0,20 20,0 fill white circle 20,20 20,0" \
+           \( +clone -flip \) -compose Multiply -composite \
+           \( +clone -flop \) -compose Multiply -composite \
+        \) -alpha off -compose CopyOpacity -composite "png:$rounded" 2>/dev/null; then
+        mv -f "$rounded" "$CACHE/ws-$ws.png"
+        rm -f "$raw"
         write_manifest
     else
-        rm -f "$tmp"
+        # IM failure: ship the raw screenshot anyway so the user is not
+        # left with a stale cell forever. Better square corners than no
+        # update.
+        mv -f "$raw" "$CACHE/ws-$ws.png"
+        write_manifest
     fi
 }
 

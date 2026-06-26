@@ -20,7 +20,7 @@ in
       Service = {
         Type = "simple";
         Environment = [
-          "PATH=${pkgs.grim}/bin:${pkgs.jq}/bin:${pkgs.socat}/bin:${pkgs.inotify-tools}/bin:${pkgs.hyprland}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin"
+          "PATH=${pkgs.grim}/bin:${pkgs.jq}/bin:${pkgs.socat}/bin:${pkgs.inotify-tools}/bin:${pkgs.hyprland}/bin:${pkgs.coreutils}/bin:${pkgs.bash}/bin:${pkgs.imagemagick}/bin"
         ];
         ExecStart = "${pkgs.bash}/bin/bash /etc/nixos/home/scripts/landscape-snap-daemon.sh";
         Restart = "always";

@@ -395,23 +395,27 @@ window.dashboard {
  * the gutters. 0.45 is comfortably above the threshold and matches
  * the canvas backdrop's quietness without dominating the shots. */
 window.landscape {
-  background-color: rgba(10, 10, 20, 0.45);
+  /* Light glass tint sits above Hyprland's ignorealpha 0.3 threshold
+   * so the blur layerrule fires; reads as glass, not as a dark dim
+   * curtain. */
+  background-color: rgba(255, 255, 255, 0.10);
 }
 window.landscape .lg-grid {
-  padding: 14px;
+  /* `margin` reserves outside space reliably in GTK 3, even when the
+   * box itself uses `space-evenly: true` (where `padding` was being
+   * swallowed visually). 56 px outer gap on all four edges. */
+  margin: 56px;
 }
 window.landscape .lg-cell {
-  background-color: transparent;
-}
-window.landscape .lg-shot {
-  /* background-image set inline via the box :style attribute (see
-   * defwidget lg-cell in eww.yuck for the rationale). border-radius
-   * clips the background-image cleanly in GTK 3 -- this is the
-   * lever that gives rounded screenshot corners. */
+  /* bg-image set inline via :style in the yuck. The PNG itself carries
+   * a baked-in alpha mask with rounded corners (applied by
+   * landscape-snap-daemon via imagemagick) -- this is the lever for
+   * round corners. GTK 3 does NOT reliably clip background-image to
+   * border-radius, so we sidestep the whole CSS-clip problem at the
+   * pixel level. No border-radius in CSS by design. */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  border-radius: 12px;
-  min-width: 520px;
-  min-height: 320px;
+  min-width: 380px;
+  min-height: 240px;
 }
