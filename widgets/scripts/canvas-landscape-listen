@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Eww deflisten source for the Landscape section.
-# Emits a JSON map of {wsN: "path?t=mtime" or ""} on every manifest change.
+# Emits a JSON map of {wsN: "<bare path>" or ""} on every manifest change.
+#
+# History: the prior version appended a "?t=mtime" cache-buster to each
+# path. GTK's image loader treats the query string as part of the
+# filename, so every cell with a real snapshot failed to open (eww logs:
+# "Failed to open file '/tmp/.../ws-1.png?t=...'") and fell through to
+# the empty-placeholder underlay. All 9 cells looked the same. Bare
+# paths now; the deflisten still re-emits on manifest change, which is
+# how the image widget learns to refresh.
 
 set -u
 
@@ -9,13 +17,12 @@ mkdir -p "$CACHE"
 
 emit() {
     local out='{'
-    local first=1 f m n
+    local first=1 f n
     for n in 1 2 3 4 5 6 7 8 9; do
         f="$CACHE/ws-$n.png"
         [ $first -eq 0 ] && out+=','
         if [ -r "$f" ]; then
-            m=$(stat -c %Y "$f")
-            out+="\"ws$n\":\"$f?t=$m\""
+            out+="\"ws$n\":\"$f\""
         else
             out+="\"ws$n\":\"\""
         fi

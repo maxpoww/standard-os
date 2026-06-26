@@ -452,7 +452,7 @@
       (overlay
         (box :class "ls-empty" :hexpand true :vexpand true)
         (image :class "ls-shot"
-               :path {jq(ws-paths, ".ws${n}")}
+               :path {jq(ws-paths, ".ws${n}", "r")}
                :image-width 320 :image-height 200)))))
 
 (defwidget landscape-section []
