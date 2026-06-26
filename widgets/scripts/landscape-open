@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# landscape-open -- open the StandardOS Landscape (3x3 workspace expose).
+# Wired to Super+RETURN via hypr/modules/Binds.conf.
+#
+# Peer of scripts/canvas-open. Two surfaces share the eww daemon and the
+# landscape-snap data plane; they are otherwise independent.
+#
+# Touching open-trigger wakes landscape-snap-daemon (inotify on the
+# parent dir) so the focused workspace re-grims the moment Landscape
+# appears.
+#
+# --size passes the monitor's logical pixel size because eww's geometry
+# "100%" computes against the workarea (below the waybar) and falls
+# short of the full monitor by the bar height. Anchor "center" in the
+# defwindow keeps Hyprland from applying the bar's exclusive-zone
+# offset.
+
+set -uo pipefail
+
+source /etc/nixos/home/scripts/lib/canvas-anchor.sh
+read -r _x _y w h < <(canvas_geometry_for_open)
+
+mkdir -p /tmp/standardos/landscape && touch /tmp/standardos/landscape/open-trigger
+
+exec eww open landscape --size "${w}x${h}"
