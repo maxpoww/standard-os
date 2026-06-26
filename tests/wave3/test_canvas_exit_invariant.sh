@@ -28,7 +28,14 @@ check() {
 
 # 1. The defwindow block exists and explicitly sets :focusable false.
 #    Look only within the `(defwindow dashboard ... (canvas))` form.
-window_block=$(awk '/\(defwindow dashboard/,/\(canvas\)\)\)/' "$YUCK")
+#    Stop the range at `(canvas))` -- two closes, the actual end of the
+#    defwindow form. Earlier pattern used three closes and silently
+#    overran into the file's tail (latent: dashboard was the last form).
+#    When defwindow landscape was added 2026-06-26 the overrun started
+#    swallowing its comment block, which intentionally contains the
+#    phrase ":focusable true" as a warning -- tripping the "NOT true"
+#    check below.
+window_block=$(awk '/\(defwindow dashboard/,/\(canvas\)\)/' "$YUCK")
 check "dashboard defwindow present" '[[ -n "$window_block" ]]'
 check "dashboard :focusable is false" \
     'grep -qE ":focusable[[:space:]]+false" <<<"$window_block"'
