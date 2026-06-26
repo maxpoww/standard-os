@@ -13,8 +13,10 @@ in
         Description = "StandardOS landscape snapshot daemon (3x3 workspace exposé)";
         After = [ "graphical-session.target" ];
         PartOf = [ "graphical-session.target" ];
+        StartLimitBurst = 20;
+        StartLimitIntervalSec = 300;
       };
-      Install.WantedBy = [ "default.target" ];
+      Install.WantedBy = [ "graphical-session.target" ];
       Service = {
         Type = "simple";
         Environment = [
@@ -22,7 +24,7 @@ in
         ];
         ExecStart = "${pkgs.bash}/bin/bash /etc/nixos/home/scripts/landscape-snap-daemon.sh";
         Restart = "always";
-        RestartSec = "5";
+        RestartSec = 1;
       };
     };
   };

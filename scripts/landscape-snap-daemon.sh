@@ -71,31 +71,53 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Debounce: any byte in FIFO -> sleep 0.3s -> drain remaining -> snapshot.
+#
+# fd 3 opens the FIFO for READ+WRITE in this subshell. The write side
+# is held open even when no external writers are connected, so the
+# kernel never reports EOF on the read side. Without this trick the
+# while loop would exit as soon as the first `printf > FIFO` writer
+# closed its fd — the classic FIFO-EOF bash bug. (Symptom we hit on
+# 2026-06-25: debounce subshell silently died at the first event and
+# subsequent writers blocked indefinitely on open() of the FIFO.)
 (
-    while IFS= read -r _; do
+    exec 3<>"$FIFO"
+    while IFS= read -r _ <&3; do
         sleep 0.3
-        while IFS= read -r -t 0.01 _; do :; done
+        while IFS= read -r -t 0.01 _ <&3; do :; done
         snapshot_current
     done
-) < "$FIFO" &
+) &
 DEBOUNCE_PID=$!
 
 # Source 1: Hyprland event socket. Only fire the FIFO on events that
 # meaningfully change what a workspace looks like - skip windowtitle
 # (background tab title flips are noise).
-HYPR_SOCK="${XDG_RUNTIME_DIR}/hypr/${HYPRLAND_INSTANCE_SIGNATURE:-}/.socket2.sock"
-if [ -S "$HYPR_SOCK" ]; then
-    (
-        socat -U - "UNIX-CONNECT:$HYPR_SOCK" 2>/dev/null | while IFS= read -r line; do
-            case "$line" in
-                openwindow*|closewindow*|movewindow*|fullscreen*|workspace*|workspacev2*|focusedmon*)
-                    printf '1\n' > "$FIFO"
-                    ;;
-            esac
-        done
-    ) &
-    SOCAT_PID=$!
+#
+# Fail-fast if HIS or the IPC socket are missing. The daemon races
+# against UWSM env-import + Hyprland IPC init at session start; the
+# systemd unit's Restart=always + RestartSec=1 respawns us until both
+# conditions hold. Matches the pattern in hypr-context-daemon.sh.
+HIS="${HYPRLAND_INSTANCE_SIGNATURE:-}"
+if [ -z "$HIS" ]; then
+    echo "landscape-snap: HYPRLAND_INSTANCE_SIGNATURE unset — exiting for systemd restart" >&2
+    exit 1
 fi
+HYPR_SOCK="${XDG_RUNTIME_DIR}/hypr/${HIS}/.socket2.sock"
+if [ ! -S "$HYPR_SOCK" ]; then
+    echo "landscape-snap: $HYPR_SOCK missing — exiting for systemd restart" >&2
+    exit 1
+fi
+(
+    socat -U - "UNIX-CONNECT:$HYPR_SOCK" 2>/dev/null | while IFS= read -r line; do
+        case "$line" in
+            openwindow*|closewindow*|movewindow*|fullscreen*|workspace*|workspacev2*|focusedmon*)
+                printf '1\n' > "$FIFO"
+                ;;
+        esac
+    done
+) &
+SOCAT_PID=$!
+echo "landscape-snap: attached to $HYPR_SOCK (socat pid $SOCAT_PID)" >&2
 
 # Source 2: canvas-open trigger (inotify on the cache dir, filtered).
 (
