@@ -454,12 +454,18 @@
 (defwidget lg-cell [n]
   (eventbox :class "lg-cell"
             :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
-    (image :class "lg-shot"
-           :path {jq(ws-paths, ".ws${n}", "r")}
-           ;; Sized for a 1600x1000 logical-pixel monitor (3200x2000 @ 2x).
-           ;; Cells fill (1600 - 2*14) / 3 = 524 wide, (1000 - 2*14) / 3
-           ;; = 324 tall. Slight slack so gtk-image never overflows.
-           :image-width 520 :image-height 320)))
+    ;; box-with-background-image, not (image). GTK 3's image widget
+    ;; renders pixmap content as a child object and does NOT clip it to
+    ;; the widget's border-radius -- you get a square photo with a
+    ;; rounded box behind it. A box's background-image, by contrast,
+    ;; renders through the CSS pipeline and respects border-radius
+    ;; cleanly. Size comes from min-width / min-height in the .scss
+    ;; rule plus :hexpand / :vexpand. The cache-buster suffix that
+    ;; canvas-landscape-listen embeds in each path (`?t=<mtime>`) makes
+    ;; gtk-css-provider treat each manifest change as a fresh URL.
+    (box :class "lg-shot"
+         :style {"background-image: url(\"" + jq(ws-paths, ".ws${n}", "r") + "\");"}
+         :hexpand true :vexpand true)))
 
 (defwidget landscape-grid []
   (box :class "lg-grid" :orientation "vertical" :space-evenly true :spacing 14

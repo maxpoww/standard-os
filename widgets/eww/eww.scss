@@ -382,15 +382,36 @@ window.dashboard {
 .max-notif-title { color: rgba(255, 255, 255, 0.95); font-size: 9pt; }
 
 /* Landscape -- standalone defwindow. Edge-to-edge 3x3 grid of cached
- * workspace screenshots, no chrome. ASCII only. The eww image widget
- * scales the underlying PNG to its allocated box. */
-window#landscape .lg-grid {
-  padding: 0;
+ * workspace screenshots, no chrome. ASCII only.
+ *
+ * Selector is window.landscape (eww applies the defwindow name as a
+ * GTK style class, not as #id -- the .dashboard rule above uses the
+ * same convention).
+ *
+ * Window background is a tinted dim so Hyprland's
+ * `layerrule = ignorealpha 0.3, gtk-layer-shell` (Window_Rules.conf)
+ * lets the blur through -- a fully transparent surface would be
+ * skipped by ignorealpha and you would see the raw desktop behind
+ * the gutters. 0.45 is comfortably above the threshold and matches
+ * the canvas backdrop's quietness without dominating the shots. */
+window.landscape {
+  background-color: rgba(10, 10, 20, 0.45);
 }
-window#landscape .lg-cell {
+window.landscape .lg-grid {
+  padding: 14px;
+}
+window.landscape .lg-cell {
   background-color: transparent;
 }
-window#landscape .lg-shot {
-  /* gtk-image inherits its size from :image-width/:image-height; no
-   * border-radius because cells touch screen edges. */
+window.landscape .lg-shot {
+  /* background-image set inline via the box :style attribute (see
+   * defwidget lg-cell in eww.yuck for the rationale). border-radius
+   * clips the background-image cleanly in GTK 3 -- this is the
+   * lever that gives rounded screenshot corners. */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 12px;
+  min-width: 520px;
+  min-height: 320px;
 }
