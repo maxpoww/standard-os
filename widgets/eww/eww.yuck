@@ -168,8 +168,7 @@
     (section-pill :id "system"   :label "System")
     (section-pill :id "about"    :label "About this computer")
     (section-pill :id "security"  :label "Security and privacy")
-    (section-pill :id "location"  :label "Location")
-    (section-pill :id "landscape" :label "Landscape")))
+    (section-pill :id "location"  :label "Location")))
 
 ;; USER-MEGA — v31 centered identity card. Avatar + display name +
 ;; `@user · STDOS` handle + blue Sign out link. No click-to-edit on the
@@ -438,32 +437,39 @@
       (max-notes-card)
       (max-notif-card))))
 
-;; ── Landscape section ──
+;; --- Landscape (standalone defwindow) ----------------------------------
 ;;
-;; 3x3 grid of workspace thumbnails (1..9, row-major). Click a cell to
-;; jump to that workspace and close the canvas. The current workspace
-;; gets a soft top-inset shadow (opt-pushed visual language). Cells
-;; with no cached snapshot render as a flat empty surface (.ls-empty
-;; shows through the overlay when the image path is empty).
-(defwidget ls-cell [n]
-  (eventbox :class {focused-ws == n ? "ls-cell ls-cell-current" : "ls-cell"}
-            :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
-    (box :hexpand true :vexpand true
-      (overlay
-        (box :class "ls-empty" :hexpand true :vexpand true)
-        (image :class "ls-shot"
-               :path {jq(ws-paths, ".ws${n}", "r")}
-               :image-width 320 :image-height 200)))))
+;; 3x3 grid of cached workspace screenshots. Cells fill the screen
+;; edge-to-edge with a 14px gutter between them. Click any cell to
+;; jump to that workspace and dismiss. No current-cell highlight, no
+;; chrome of any kind -- only the 9 thumbnails by user direction
+;; 2026-06-26.
+;;
+;; Data plane: `ws-paths` deflisten (defined near the top of this file)
+;; emits {ws1..ws9: "/tmp/standardos/landscape/ws-N.png?t=mtime" or
+;; "/etc/nixos/home/widgets/svg/_blank.svg"} on every manifest change.
+;; The cache-buster `?t=mtime` suffix forces gtk-image to reload on
+;; file change.
 
-(defwidget landscape-section []
-  (box :class "ls-grid" :orientation "vertical" :space-evenly true :spacing 14
+(defwidget lg-cell [n]
+  (eventbox :class "lg-cell"
+            :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
+    (image :class "lg-shot"
+           :path {jq(ws-paths, ".ws${n}", "r")}
+           :image-width 540 :image-height 340)))
+
+(defwidget landscape-grid []
+  (box :class "lg-grid" :orientation "vertical" :space-evenly true :spacing 14
        :hexpand true :vexpand true :halign "fill" :valign "fill"
     (box :orientation "horizontal" :space-evenly true :spacing 14
-      (ls-cell :n "1") (ls-cell :n "2") (ls-cell :n "3"))
+         :hexpand true :vexpand true
+      (lg-cell :n "1") (lg-cell :n "2") (lg-cell :n "3"))
     (box :orientation "horizontal" :space-evenly true :spacing 14
-      (ls-cell :n "4") (ls-cell :n "5") (ls-cell :n "6"))
+         :hexpand true :vexpand true
+      (lg-cell :n "4") (lg-cell :n "5") (lg-cell :n "6"))
     (box :orientation "horizontal" :space-evenly true :spacing 14
-      (ls-cell :n "7") (ls-cell :n "8") (ls-cell :n "9"))))
+         :hexpand true :vexpand true
+      (lg-cell :n "7") (lg-cell :n "8") (lg-cell :n "9"))))
 
 ;; Generic placeholder for sections we haven't built yet.
 (defwidget section-placeholder [name]
@@ -514,10 +520,7 @@
         (section-slot :id "system"   :name "System")
         (section-slot :id "about"    :name "About this computer")
         (section-slot :id "security" :name "Security and privacy")
-        (section-slot :id "location" :name "Location")
-        (box :visible {current-section == "landscape"} :orientation "vertical"
-             :hexpand true :vexpand true :halign "fill" :valign "fill"
-          (landscape-section))))
+        (section-slot :id "location" :name "Location")))
     (box :class "canvas-close-wrap" :halign "end" :valign "start" :hexpand false :vexpand false
       (button :class "canvas-close"
               :tooltip "Dismiss (Esc)"
@@ -551,3 +554,24 @@
   :exclusive false
   :focusable false
   (canvas))
+
+;; --- Landscape window ---
+;;
+;; Peer of `defwindow dashboard`. Opened by widgets/scripts/landscape-open,
+;; closed by widgets/scripts/landscape-close. Both share the eww daemon
+;; (standardos-canvas.service) and the landscape-snap data plane.
+;;
+;; CRITICAL -- :focusable MUST stay false. Same gtk-layer-shell rule
+;; as the dashboard above: :focusable true => keyboard-interactivity=
+;; exclusive => Wayland routes Esc and Super+Shift+Esc to eww instead
+;; of Hyprland, both submap binds (landscape-close + landscape-panic)
+;; silently never fire, user is keyboard-trapped on the surface.
+;; tests/wave3/test_landscape_exit_invariant.sh enforces this.
+
+(defwindow landscape
+  :monitor 0
+  :geometry (geometry :x "0%" :y "0%" :width "100%" :height "100%" :anchor "center")
+  :stacking "overlay"
+  :exclusive false
+  :focusable false
+  (landscape-grid))
