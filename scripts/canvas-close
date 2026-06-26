@@ -8,20 +8,20 @@
 # Three-tier dismiss strategy (each tier is a guaranteed exit point):
 #
 #   Tier 1 — graceful: reset Hyprland submap, ask eww to close the
-#   dashboard window. Verify the close by querying active-windows.
-#   If the window is gone, exit 0. This is the only path the user
-#   should normally hit.
+#   dashboard window. Verify via Hyprland's layer-shell list (NOT eww's
+#   internal active-windows — see "verify signal" below). If no
+#   overlay-level gtk-layer-shell surface remains, exit 0. This is the
+#   only path the user should normally hit.
 #
-#   Tier 2 — hard restart: if the verify step shows the window still
-#   present OR the verify itself times out (eww UI thread wedged,
-#   not just slow), bounce the standardos-canvas.service unit. The
-#   service has Restart=always RestartSec=1, comes back clean in ~1 s,
-#   and a fresh daemon CANNOT have a stuck window. This is the actual
-#   guarantee that Esc always works no matter what state eww got
-#   into. Previous incidents (2026-06-25 reboots) were caused by an
-#   UI-thread wedge that ate the close request silently — without
-#   this tier the user was trapped until they ran systemctl by hand
-#   or rebooted.
+#   Tier 2 — hard restart: if verify shows a layer-shell surface still
+#   on screen OR the verify itself times out, bounce the
+#   standardos-canvas.service unit. The service has Restart=always
+#   RestartSec=1, comes back clean in ~1 s, and a fresh daemon CANNOT
+#   have a stuck surface. This is the actual guarantee that Esc always
+#   works no matter what state eww got into. Previous incidents
+#   (2026-06-25 reboots) were caused by an UI-thread wedge that ate
+#   the close request silently — without this tier the user was
+#   trapped until they ran systemctl by hand or rebooted.
 #
 #   Tier 3 — keyboard recovery: Hyprland submap reset runs FIRST,
 #   unconditionally and independently of eww. So even if both tiers
@@ -45,13 +45,33 @@ timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 # Tier 1: graceful close.
 timeout 1 eww close dashboard >/dev/null 2>&1 || true
 
-# Verify the close. The window must be POSITIVELY gone from
-# active-windows. Two failure modes both escalate to Tier 2:
-#   (a) active-windows query succeeds but lists `dashboard`
-#   (b) active-windows query times out (daemon wedged)
+# Verify signal — IMPORTANT: this MUST be Hyprland's layer-shell list,
+# NOT `eww active-windows`. When `eww open` hangs mid-handshake (a real
+# eww 0.6.0 IPC race observed 2026-06-25), the layer-shell surface
+# exists on screen but the window is never registered in eww's state.
+# `active-windows` reports clean while the dashboard is plainly still
+# up; `eww close dashboard` becomes a no-op because eww doesn't know
+# the window exists. Tier 1 verify falsely succeeds, Tier 2 is skipped,
+# user stays stuck.
+#
+# Truth signal: any overlay-level gtk-layer-shell surface still on
+# screen means the dashboard is up. Waybar lives at bottom level with
+# namespace=waybar, so this filter is unambiguous TODAY. If a future
+# module adds another overlay-level eww popup, narrow this further
+# (e.g. match the dashboard's exact geometry or a custom namespace).
+#
+# Three failure modes all escalate to Tier 2:
+#   (a) overlay block still contains a gtk-layer-shell surface
+#   (b) hyprctl layers times out (compositor wedged — very rare)
+#   (c) hyprctl exits non-zero
 verified_closed=0
-if windows=$(timeout 1 eww active-windows 2>/dev/null); then
-    if ! grep -q '^dashboard' <<<"$windows"; then
+if layers=$(timeout 1 hyprctl layers 2>/dev/null); then
+    overlay=$(awk '
+        /Layer level 3 \(overlay\):/ { flag=1; next }
+        /Layer level [0-9]+ \(/      { flag=0 }
+        flag
+    ' <<<"$layers")
+    if ! grep -q 'namespace: gtk-layer-shell' <<<"$overlay"; then
         verified_closed=1
     fi
 fi

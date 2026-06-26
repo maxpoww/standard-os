@@ -12,18 +12,24 @@
 #   1. Reset Hyprland submap (recovers the keyboard immediately,
 #      independent of eww).
 #   2. Try a graceful eww close (1 s timeout).
-#   3. Verify the dashboard window is gone via active-windows. If
-#      verification succeeds, done.
+#   3. Verify the dashboard surface is gone by inspecting Hyprland's
+#      layer-shell list (NOT eww active-windows — see canvas-close
+#      for the full rationale). If verification succeeds, done.
 #   4. Otherwise hard-restart the standardos-canvas.service unit.
 #      RestartSec=1 + Restart=always means a fresh daemon is back
-#      within ~1 s with no wedged state, no stuck window.
+#      within ~1 s with no wedged state, no stuck surface.
 #
-# Previously (pre-2026-06-26) this script gated the restart on
-# `! eww ping` succeeding within 1 s. That was wrong: the eww daemon's
-# IPC thread can answer ping fine while its UI thread is wedged
-# processing an error queue. Panic would then skip the restart and
-# the user stayed trapped. Now the gate is the close VERIFICATION —
-# if we can't prove the window is gone, restart unconditionally.
+# Two earlier verify signals were rejected in the same 2026-06-25
+# investigation:
+#   - `eww ping` succeeding: the IPC thread answers fine while the
+#     UI thread is wedged on an error queue — panic would skip the
+#     restart and the user stayed trapped.
+#   - `eww active-windows` reporting empty: when `eww open` hangs
+#     mid-handshake, the layer-shell surface is up but eww never
+#     registers the window — active-windows lies "clean" while the
+#     dashboard is visibly still on screen.
+# Hyprland's layer list is the only signal grounded in what the user
+# actually sees.
 
 set -u
 
@@ -31,8 +37,13 @@ timeout 1 hyprctl dispatch submap reset >/dev/null 2>&1 || true
 timeout 1 eww close dashboard >/dev/null 2>&1 || true
 
 verified_closed=0
-if windows=$(timeout 1 eww active-windows 2>/dev/null); then
-    if ! grep -q '^dashboard' <<<"$windows"; then
+if layers=$(timeout 1 hyprctl layers 2>/dev/null); then
+    overlay=$(awk '
+        /Layer level 3 \(overlay\):/ { flag=1; next }
+        /Layer level [0-9]+ \(/      { flag=0 }
+        flag
+    ' <<<"$layers")
+    if ! grep -q 'namespace: gtk-layer-shell' <<<"$overlay"; then
         verified_closed=1
     fi
 fi

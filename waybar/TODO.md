@@ -81,6 +81,37 @@ for the maintenance contract.
 
 ## DONE
 
+- **2026-06-26** — **canvas-close/panic verify via `hyprctl layers`, not
+  `eww active-windows` (fourth-time-stuck incident).** Yesterday's
+  `:focusable false` fix correctly routed Esc to Hyprland, but the user
+  got stuck a fourth time and live-debugging found the next failure
+  mode underneath: when `eww open dashboard` hangs mid-handshake (real
+  eww 0.6.0 IPC race observed during the session — `eww open` process
+  blocked for 2 m 22 s and never returned), the gtk-layer-shell
+  surface IS created on screen but the window is never registered in
+  eww's state. So `eww active-windows` reports empty while the
+  dashboard is plainly still up; `eww close dashboard` becomes a
+  no-op because eww doesn't know the window exists; canvas-close's
+  Tier 1 verify falsely succeeds; Tier 2 hard-restart is skipped; user
+  stays trapped. Fix in both `scripts/canvas-close` and
+  `scripts/canvas-panic`: verify by inspecting Hyprland's layer list
+  (the truth signal — what the user actually sees) instead of eww's
+  internal active-windows. The check extracts the `Layer level 3
+  (overlay)` block via awk and greps for `namespace: gtk-layer-shell`;
+  if any such surface remains, escalate to Tier 2. Three failure modes
+  all escalate now: surface still present, `hyprctl layers` times out,
+  or hyprctl exits non-zero. **Hint:** assumption is that
+  overlay-level gtk-layer-shell is unique to the dashboard in this
+  distro (waybar lives at bottom level with `namespace: waybar`). If a
+  future module adds another overlay-level eww popup, narrow the
+  filter further (geometry match or custom namespace). **Hint:** the
+  guard test (`tests/wave3/test_canvas_exit_invariant.sh`) still
+  asserts the eww.yuck + Binds.conf invariant — it's a static guard,
+  doesn't cover this runtime verify-signal logic. The verify-signal
+  change is in scripts, edited live (referenced by absolute path in
+  Binds.conf), no rebuild needed. Verified by an open/close cycle in
+  the session: 102 ms exit clean, overlay block empty after.
+
 - **2026-06-25** — **canvas: :focusable false — actual root cause of the
   landscape keyboard trap (third incident, real fix).** The two earlier
   entries today blamed `canvas-close`; both were wrong. With
