@@ -452,20 +452,17 @@
 ;; file change.
 
 (defwidget lg-cell [n]
+  ;; bg-image goes on the EVENTBOX itself, not on an inner box. Two
+  ;; reasons: (1) GTK 3 clips backgrounds to a widget's border-radius
+  ;; reliably when the widget owns a GdkWindow (eventboxes do; bare
+  ;; boxes don't always). (2) Fewer widgets = fewer places for the
+  ;; layout pipeline to silently relax the clip. Cache-buster suffix
+  ;; (`?t=<mtime>`) from canvas-landscape-listen makes gtk-css-provider
+  ;; treat each manifest change as a fresh URL.
   (eventbox :class "lg-cell"
+            :style {"background-image: url(\"" + jq(ws-paths, ".ws${n}", "r") + "\");"}
             :onclick "/etc/nixos/home/widgets/scripts/canvas-jump-ws ${n}"
-    ;; box-with-background-image, not (image). GTK 3's image widget
-    ;; renders pixmap content as a child object and does NOT clip it to
-    ;; the widget's border-radius -- you get a square photo with a
-    ;; rounded box behind it. A box's background-image, by contrast,
-    ;; renders through the CSS pipeline and respects border-radius
-    ;; cleanly. Size comes from min-width / min-height in the .scss
-    ;; rule plus :hexpand / :vexpand. The cache-buster suffix that
-    ;; canvas-landscape-listen embeds in each path (`?t=<mtime>`) makes
-    ;; gtk-css-provider treat each manifest change as a fresh URL.
-    (box :class "lg-shot"
-         :style {"background-image: url(\"" + jq(ws-paths, ".ws${n}", "r") + "\");"}
-         :hexpand true :vexpand true)))
+    (box :hexpand true :vexpand true)))
 
 (defwidget landscape-grid []
   (box :class "lg-grid" :orientation "vertical" :space-evenly true :spacing 14

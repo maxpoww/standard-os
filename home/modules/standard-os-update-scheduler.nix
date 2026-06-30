@@ -61,8 +61,8 @@ in
   # on every activation so stale content gets refreshed.
   home.activation.installStandardOSPostCommitHook =
     lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      if [ -d /etc/nixos/home/.git/hooks ]; then
-        $DRY_RUN_CMD install -m 0755 ${postCommitHook} /etc/nixos/home/.git/hooks/post-commit
+      if [ -d /etc/nixos/.git/hooks ]; then
+        $DRY_RUN_CMD install -m 0755 ${postCommitHook} /etc/nixos/.git/hooks/post-commit
       fi
     '';
 }

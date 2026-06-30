@@ -30,7 +30,7 @@ is_source_ahead() {
     [ -f /run/standard-os/activated-commit ] || return 1
     local activated head
     activated=$(cat /run/standard-os/activated-commit 2>/dev/null) || return 1
-    head=$(git -C /etc/nixos/home rev-parse HEAD 2>/dev/null) || return 1
+    head=$(git -C /etc/nixos rev-parse HEAD 2>/dev/null) || return 1
     [ "$activated" != "$head" ]
 }
 
